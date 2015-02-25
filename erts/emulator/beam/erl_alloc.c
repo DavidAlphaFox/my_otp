@@ -23,7 +23,11 @@
  *
  * Author: 	Rickard Green
  */
-
+/*
+ * Erlang的内存分配器使用，按类别分配的方式进行分配
+ * 每次调用erts_alloc等函数都要都要先传入需要分配的类型
+ * 从而选择在哪个内存分配器上去取内存
+ */
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -169,18 +173,33 @@ aireq_free(ErtsAllocInfoReq *ptr)
 #endif
 
 ErtsAlcType_t erts_fix_core_allocator_ix;
-
+//分配器的策略类型
 enum allctr_type {
+//较优适配
+//在有限搜索下，使用最优空间
+//使用分割的空闲链表
+//限制搜索深度
     GOODFIT,
+//最优化适配
+//使用最小的最合适的空间
+//使用平衡二叉树
     BESTFIT,
+//最快适配
+//找出第一块空闲且满足需求的
+//使用空闲链表
     AFIT,
+//address order first fit
+//地址最低满足需求的
+//使用平衡二叉树
     AOFIRSTFIT
 };
-
+//分配器的数据结构
 struct au_init {
     int enable;
     int thr_spec;
+//是否准许在carrier间迁移
     int carrier_migration_allowed;
+//该分配器使用的分配策略
     enum allctr_type	atype;
     struct {
 	AllctrInit_t	util;
@@ -190,9 +209,13 @@ struct au_init {
 	AOFFAllctrInit_t aoff;
     } init;
     struct {
+//主要内存块carrier的内存大小
 	int mmbcs;
+//大内存块carrier的内存大小
 	int lmbcs;
+//小内存块carrier的内存大小
 	int smbcs;
+//在mseg_alloc上分配最大的数量
 	int mmmbc;
     } default_;
 };
@@ -210,7 +233,9 @@ typedef struct {
 #if HAVE_ERTS_MSEG
     ErtsMsegInit_t mseg;
 #endif
+//对齐内存大小
     int trim_threshold;
+//block和block之间的padding
     int top_pad;
     AlcUInit_t alloc_util;
     struct {
@@ -219,21 +244,35 @@ typedef struct {
 	char *mtrace;
 	char *nodename;
     } instr;
+//sl_alloc ERTS的短生命周期分配器
+//ets match spec,short timers, fd select lists
     struct au_init sl_alloc;
+//std_alloc ERTS的标准内存分配器
     struct au_init std_alloc;
+//ll_alloc ERTS的长生命周期分配器
+//Erlang代码，原子对象等
     struct au_init ll_alloc;
+//temp_alloc  ERTS的临时对象分配器
+//C function,temp gc rootset,dist msg decode
     struct au_init temp_alloc;
+//eheap_alloc ERTS的堆分配器
+//主要用于Erts为Erlang进程分配堆栈用
     struct au_init eheap_alloc;
+//binary_alloc ERTS的Binary对象分配器
     struct au_init binary_alloc;
+//ets_alloc ERTS用来分配ETS表
     struct au_init ets_alloc;
+//driver_alloc 用来给driver或者nif来分配内存
     struct au_init driver_alloc;
+//fix_alloc 定长分配器，用来分配定长字节的数据
+//Erlang进程PCB，Port进程PCB等
     struct au_init fix_alloc;
 #if HALFWORD_HEAP
     struct au_init std_low_alloc;
     struct au_init ll_low_alloc;
 #endif
 } erts_alc_hndl_args_init_t;
-
+//分配器默认参数
 #define ERTS_AU_INIT__ {0, 0, 1, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
 
 #define SET_DEFAULT_ALLOC_OPTS(IP)					\
@@ -246,6 +285,7 @@ static void
 set_default_sl_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
+//在小内存和内存检测的时候不开启
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
     ip->thr_spec		= 1;
     ip->atype			= GOODFIT;
@@ -540,7 +580,7 @@ adjust_carrier_migration_support(struct au_init *auip)
     auip->init.util.acul = 0;
 #endif
 }
-
+//Erts内存分配器初始化
 void
 erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 {
@@ -582,15 +622,17 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     lock_all_physical_memory = 0;
 
     ncpu = eaiop->ncpu;
-    if (ncpu < 1)
-	ncpu = 1;
+    if (ncpu < 1){
+		 ncpu = 1;
+	}
 
     erts_tsd_key_create(&erts_allctr_prelock_tsd_key,
 			"erts_allctr_prelock_tsd_key");
-
+//通知系统初始化内存分配器
     erts_sys_alloc_init();
+//初始化内存分配器全局变量
     erts_init_utils_mem();
-
+//设置各种allocator
     set_default_sl_alloc_opts(&init.sl_alloc);
     set_default_std_alloc_opts(&init.std_alloc);
     set_default_ll_alloc_opts(&init.ll_alloc);
@@ -602,8 +644,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_default_fix_alloc_opts(&init.fix_alloc,
 			       fix_type_sizes);
 
-    if (argc && argv)
-	handle_args(argc, argv, &init);
+    if (argc && argv){
+		 handle_args(argc, argv, &init);
+	}
 
     if (lock_all_physical_memory) {
 #ifdef HAVE_MLOCKALL
@@ -727,7 +770,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	erts_allctrs_info[i].thr_spec	= 0;
 	erts_allctrs_info[i].extra	= NULL;
     }
-
+//初始化sys_alloc
+//当前面某个alloc被禁止使用了，则默认使用sys_alloc
+//并且sys_alloc是不可关闭的
     erts_allctrs[ERTS_ALC_A_SYSTEM].alloc		= erts_sys_alloc;
     erts_allctrs[ERTS_ALC_A_SYSTEM].realloc		= erts_sys_realloc;
     erts_allctrs[ERTS_ALC_A_SYSTEM].free		= erts_sys_free;

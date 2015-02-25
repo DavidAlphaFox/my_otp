@@ -30,8 +30,11 @@
 typedef struct Allctr_t_ Allctr_t;
 
 typedef struct {
+//sys_alloc carrier内存大小
     UWord ycs;
+//mseg_alloc carrier的数量
     UWord mmc;
+//是否是sys_alloc carrier
     int   sac;
 } AlcUInit_t;
 

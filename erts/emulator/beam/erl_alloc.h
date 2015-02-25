@@ -46,7 +46,7 @@
 #  define ERTS_ALC_DO_INLINE 0
 #  define ERTS_ALC_INLINE
 #endif
-
+//计算定长分配器的数量
 #define ERTS_ALC_NO_FIXED_SIZES \
   (ERTS_ALC_N_MAX_A_FIXED_SIZE - ERTS_ALC_N_MIN_A_FIXED_SIZE + 1)
 
@@ -76,12 +76,15 @@ struct process;
 
 int erts_request_alloc_info(struct process *c_p, Eterm ref, Eterm allocs,
 			    int only_sz, int internal);
-
+//默认ErtsAllocInitOpts的值
+//系统没有CPU
 #define ERTS_ALLOC_INIT_DEF_OPTS_INITER {0}
+
 typedef struct {
+//CPU的数量
     int ncpu;
 } ErtsAllocInitOpts;
-
+//和scheduler绑定的相关数据结构
 typedef struct {
     Allctr_t *deallctr[ERTS_ALC_A_MAX+1];
     int pref_ix[ERTS_ALC_A_MAX+1];
@@ -116,7 +119,7 @@ typedef struct {
     int thr_spec;
     void *extra;
 } ErtsAllocatorInfo_t;
-
+//分配器的回调函数
 typedef struct {
     void *	(*alloc)	(ErtsAlcType_t, void *, Uint);
     void *	(*realloc)	(ErtsAlcType_t, void *, void *, Uint);
