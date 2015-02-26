@@ -44,7 +44,10 @@
 #include "dtrace-wrapper.h"
 
 /* #define HARDDEBUG 1 */
-
+//在使用JumpTable这个技术的时候
+//直接在函数内动态的Goto
+//当没有使用JumpTable这个技术的时候
+//直接使用switch，所有的Goto都会跳到switch语句的开头
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
@@ -58,7 +61,7 @@
 #  define LabelAddr(Label) &&Label
 #  define OpCode(OpCode)  (&&lb_##OpCode)
 #endif
-
+//在非SMP模式下，是没有作用的
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #  ifdef ERTS_SMP
 #    define PROCESS_MAIN_CHK_LOCKS(P)					\
@@ -134,6 +137,8 @@ do {                                     \
    ((Eterm *) (((unsigned char *)ptr) + (offset)))
 
 /* We don't check the range if an ordinary switch is used */
+//在使用JumpTable的时候
+//需要检查Goto地址的有效性
 #ifdef NO_JUMP_TABLE
 #define VALID_INSTR(IP) ((UWord)(IP) < (NUMBER_OF_OPCODES*2+10))
 #else
@@ -142,20 +147,24 @@ do {                                     \
     (SWord)(IP) < (SWord)LabelAddr(end_emulator_loop))
 #endif /* NO_JUMP_TABLE */
 
+//设置Erlang进程的CP指针
 #define SET_CP(p, ip)           \
    ASSERT(VALID_INSTR(*(ip)));  \
    (p)->cp = (ip)
-
+//设置当前process_main函数局部变量I
 #define SET_I(ip) \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
    I = (ip)
 
+//设置临时变量
 #define FetchArgs(S1, S2) tmp_arg1 = (S1); tmp_arg2 = (S2)
 
 /*
  * Store a result into a register given a destination descriptor.
  */
-
+//保存计算结果
+//计算结果只能保存在R0,X和Y寄存器中
+//R0是临时寄存器
 #define StoreResult(Result, DestDesc)               \
   do {                                              \
     Eterm stb_reg;                                  \
@@ -178,7 +187,7 @@ do {                                     \
  * Dst points to the word with a destination descriptor, which MUST
  * be just before the next instruction.
  */
- 
+//保存Bif调用的结果，并执行下一条指令
 #define StoreBifResult(Dst, Result)                          \
   do {                                                       \
     BeamInstr* stb_next;                                         \
@@ -244,15 +253,21 @@ void** beam_ops;
 #ifndef ERTS_SMP /* Not supported with smp emulator */
 extern int count_instructions;
 #endif
-
+//Erlang进程换入
+//得到Erlang进程的堆顶
+//得到Erlang进程的栈顶
 #define SWAPIN             \
     HTOP = HEAP_TOP(c_p);  \
     E = c_p->stop
-
+//Erlang进程换出
+//保存Erlang进程的堆顶
+//保存Erlang进程的栈顶
 #define SWAPOUT            \
     HEAP_TOP(c_p) = HTOP;  \
     c_p->stop = E
-
+//使用快速换入和换出的时候
+//只需要保存堆顶
+//因为栈顶是不会被更新的
 /*
  * Use LIGHT_SWAPOUT when the called function
  * will call HeapOnlyAlloc() (and never HAlloc()).
@@ -280,7 +295,9 @@ extern int count_instructions;
 #else
 #  define HEAP_SPACE_VERIFIED(Words) ((void)0)
 #endif
-
+//在Bif函数调用前换出
+//不但要保存堆栈
+//还要检查锁
 #define PRE_BIF_SWAPOUT(P)						\
      HEAP_TOP((P)) = HTOP;  						\
      (P)->stop = E;  							\
@@ -1160,7 +1177,9 @@ void process_main(void)
      * For keeping the negative old value of 'reds' when call saving is active.
      */
     int neg_o_reds = 0;
-
+//混合数学计算函数
+//计算结束后会产生一个新的对象保存结果
+//需要进行内存回收
     Eterm (*arith_func)(Process* p, Eterm* reg, Uint live);
 
 #ifndef NO_JUMP_TABLE
@@ -1239,19 +1258,25 @@ void process_main(void)
 	start_time = erts_timestamp_millis();
 	start_time_i = c_p->i;
     }
-
+//得到调度器的数据
+//每个调度器有自己的x_reg和f_reg
+//调度器，就相当于一个CPU
+//process_main是CPU上的流水线
+//此处是为了编码方便，直接让每个调度器的x_reg和f_reg
+//被两个局部变量引用
     reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
     freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
 #if !HEAP_ON_C_STACK
     tmp_big = ERTS_PROC_GET_SCHDATA(c_p)->beam_emu_tmp_heap;
 #endif
+//获取Erlag进程的状态位
     ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
 	Eterm* argp;
 	BeamInstr *next;
 	int i;
-
+//将Erlang进程需要执行的参数进行复制
 	argp = c_p->arg_reg;
 	for (i = c_p->arity - 1; i > 0; i--) {
 	    reg[i] = argp[i];
@@ -1263,9 +1288,9 @@ void process_main(void)
 	 * the code size (referencing a field in a struct through a pointer stored
 	 * in a register gives smaller code than referencing a global variable).
 	 */
-
+//设置当前要执行的Erts指令指针
 	SET_I(c_p->i);
-
+//获取进程的Reductions
 	reds = c_p->fcalls;
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)
 	    && (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE) == 0) {
@@ -1316,9 +1341,12 @@ void process_main(void)
  emulator_loop:
 #endif
 
+//此处开始执行Erts指令
 #ifdef NO_JUMP_TABLE
     switch (Go) {
 #endif
+//这里面包含了部分Erts的指令定义
+//主要是和内存分配相关的
 #include "beam_hot.h"
 
 #define STORE_ARITH_RESULT(res) StoreBifResult(2, (res));
@@ -1593,7 +1621,9 @@ void process_main(void)
 	Next(1);
     }
 
-
+//return指令，用于返回，或者打断执行
+//这个时候会将Erlang进程的cp指针拿出来给I
+//并跳转到I
  OpCase(return): {
 #ifdef USE_VM_CALL_PROBES
     BeamInstr* fptr;
@@ -1622,7 +1652,11 @@ void process_main(void)
      *	  2) There is no pointer to the send_2 function stored in
      *       the instruction.
      */
-
+//Erlang的消息传递操作(!)对应该指令
+//先让当前Erlang进程换出
+//调用erl_send这个bif函数
+//检查当前Erlang进程的内存情况
+//如果出现堆过度使用或大Binary的情况，进行一次gc操作
  OpCase(send): {
      BeamInstr *next;
      Eterm result;
@@ -1834,9 +1868,10 @@ void process_main(void)
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
      msgp = PEEK_MESSAGE(c_p);
-
+//消息为空
      if (!msgp) {
 #ifdef ERTS_SMP
+//SMP模式下，需要在处理消息前确认进程没有退出
 	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	 /* Make sure messages wont pass exit signals... */
 	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
@@ -1851,6 +1886,8 @@ void process_main(void)
 	 else
 #endif
 	 {
+//第二次尝试的时候，消息依然为空
+//直接进入wait_timeout状态
 	     SET_I((BeamInstr *) Arg(0));
 	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
 	 }
@@ -2077,7 +2114,12 @@ void process_main(void)
 	  * of timeout, control will be transferred to the timeout
 	  * instruction following the wait_timeout instruction.
 	  */
-
+//当进入wait的状态的时候
+//将当前Erlang进程换出，重新进行调度
+//当timer被触发的时候，cp->i 会被设置成timeout指令
+//而当timer没被触发的时候，cp->i 会被设置成i_loop_rec_fr指令
+//考虑一个特殊场景，已经进行消息匹配了，但是timer还没有超时
+//所以要找出timer被触发的代码片段
 	 OpCase(wait_locked_f):
 	 OpCase(wait_f):
 

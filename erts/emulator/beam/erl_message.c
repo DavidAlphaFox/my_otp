@@ -882,7 +882,7 @@ erts_move_msg_attached_data_to_heap(Eterm **hpp, ErlOffHeap *ohp, ErlMessage *ms
 /*
  * Send a local message when sender & receiver processes are known.
  */
-
+//Erlang用来在Node内部发送消息
 Sint
 erts_send_message(Process* sender,
 		  Process* receiver,

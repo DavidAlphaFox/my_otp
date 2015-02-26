@@ -845,7 +845,7 @@ struct ErtsPendingSuspend_ {
 #  define BIN_VHEAP_MATURE(p) (p)->bin_vheap_mature
 #  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
 #  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
-
+//Erlang进程的结构体
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
@@ -855,7 +855,14 @@ struct process {
      * offsets between memory architectures in this struct, means that
      * native code have to use functions instead of constants.
      */
-
+//Erlang进程的堆栈体系
+//堆是从内存的低地址向高地址生长
+//栈是从内存的高地址向内存的地址生长
+//heap_sz = hend - heap 这是Erts的堆空间或者是mmap的空间
+//该空间由sys_alloc或者是eheap_alloc分配的
+//Erlang进程初始化的时候htop = heap,stop = hend
+//Erlang进程执行的过程中Erlang的堆上的数据量是htop - heap
+//Erlang进程执行的过程中Erlang的栈上的数据量是hend - stop
     Eterm* htop;		/* Heap top */
     Eterm* stop;		/* Stack top */
     Eterm* heap;		/* Heap start */

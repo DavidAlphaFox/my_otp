@@ -9056,7 +9056,8 @@ Process *schedule(Process *p, int calls)
 #endif
 
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
-
+//如果当前Erlang进程需要被释放
+//当不在RunQueue中的时候,释放这个Erlang进程
 	if (state & ERTS_PSFLG_FREE) {
 #ifdef ERTS_SMP
 	    ASSERT(esdp->free_process == p);
@@ -9074,6 +9075,8 @@ Process *schedule(Process *p, int calls)
 	ASSERT(!esdp->current_process);
 
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
+//进行timeout检测
+//当进行timeout检查的时候，放开RunQueue的锁
 
 	dt = erts_do_time_read_and_reset();
 	if (dt) {
@@ -9093,6 +9096,9 @@ Process *schedule(Process *p, int calls)
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
 	ErtsProcList *pnd_xtrs = rq->procs.pending_exiters;
+//优先处理退出的进程
+//这个和Erlang的信号机制有关系
+//如果一个进程退出了，需要通知关联的Erlang进程和所有的monitor
 	if (erts_proclist_fetch(&pnd_xtrs, NULL)) {
 	    rq->procs.pending_exiters = NULL;
 	    erts_smp_runq_unlock(rq);
@@ -9236,8 +9242,10 @@ Process *schedule(Process *p, int calls)
 	    erts_sys_schedule_interrupt(0);
 #endif
 	    erts_smp_runq_unlock(rq);
+//需要执行系统的任务
 	    erl_sys_schedule(1);
 	    dt = erts_do_time_read_and_reset();
+//再次检查是否有超时任务可以处理
 	    if (dt) erts_bump_timer(dt);
 
 #ifdef ERTS_SMP
@@ -12131,6 +12139,7 @@ erts_continue_exit_process(Process *p)
 }
 
 /* Callback for process timeout */
+//处理Erlang进程的超时
 static void
 timeout_proc(Process* p)
 {
@@ -12139,7 +12148,8 @@ timeout_proc(Process* p)
     p->i = *pi;
     p->flags |= F_TIMO;
     p->flags &= ~F_INSLPQUEUE;
-
+//如果进程不是处在运行的状态
+//调度这个进程
     state = erts_smp_atomic32_read_acqb(&p->state);
     if (!(state & ERTS_PSFLG_ACTIVE))
 	schedule_process(p, state, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);

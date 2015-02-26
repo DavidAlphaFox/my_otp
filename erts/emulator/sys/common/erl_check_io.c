@@ -107,6 +107,8 @@ static struct pollset_info
     erts_smp_spinlock_t removed_list_lock;
 #endif
 }pollset;
+//全局pollset
+//模拟proactor模式
 #define NUM_OF_POLLSETS 1
 
 typedef struct {
@@ -1612,6 +1614,8 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #endif
 
     /* Figure out timeout value */
+//当调度器的RunQueue不为空的时候，不能一直等待
+//需要计算出最小等待时间
     if (do_wait) {
 	erts_time_remaining(&wait_time);
     } else {			/* poll only */
@@ -1639,13 +1643,13 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
     pollres = erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsPollResFd)*pollres_len);
 
     erts_smp_atomic_set_nob(&pollset.in_poll_wait, 1);
-
+//系统多路复用
     poll_ret = ERTS_CIO_POLL_WAIT(pollset.ps, pollres, &pollres_len, &wait_time);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
 #endif
-
+//修正系统时间
     erts_deliver_time(); /* sync the machine's idea of time */
 
 #ifdef ERTS_BREAK_REQUESTED
@@ -1695,7 +1699,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	if (is_removed(state)) {
 	    goto next_pollres;
 	}
-
+//开始处理事件
 	switch (state->type) {
 	case ERTS_EV_TYPE_DRV_SEL: { /* Requested via driver_select()... */
 	    ErtsPollEvents revents;
@@ -1920,7 +1924,7 @@ static void drv_ev_state_free(void *des)
     erts_smp_spin_unlock(&state_prealloc_lock);
 }
 #endif
-
+//初始化check_io
 void
 ERTS_CIO_EXPORT(erts_init_check_io)(void)
 {

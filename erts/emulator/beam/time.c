@@ -279,6 +279,11 @@ static ERTS_INLINE void bump_timer_internal(erts_short_time_t dt) /* PRE: tiw_lo
     erts_smp_mtx_unlock(&tiw_lock);
     
     /* Call timedout timers callbacks */
+//当Timeout发生的时候
+//当前调度器是处在被占用的状态中
+//所以i_loop_rec_fr和timeout的发生循序不会出现
+//已经进入i_loop_rec_fr,中间c_p->i的指令被更换为timeout
+//只有c_p被调度出去之后或在被调度进来之前，才会发生c_p->i指令更换为timeout
     while (timeout_head) {
 	p = timeout_head;
 	timeout_head = p->next;

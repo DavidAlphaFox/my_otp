@@ -3715,17 +3715,21 @@ ptimer_cancelled(ErtsSmpPTimer *ptimer)
 }
 
 /* Callback for process timeout */
+//timer超时通用代码部分
 static void
 ptimer_timeout(ErtsSmpPTimer *ptimer)
 {
     if (is_internal_pid(ptimer->timer.id)) {
 	Process *p;
+//尝试先转化为Erlang的进程
 	p = erts_pid2proc_opt(NULL,
 			      0,
 			      ptimer->timer.id,
 			      ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
 			      ERTS_P2P_FLG_ALLOW_OTHER_X);
 	if (p) {
+//检查进程是否退出了
+//检查timer是否是被cancel掉了
 	    if (!ERTS_PROC_IS_EXITING(p)
 		&& !(ptimer->timer.flags & ERTS_PTMR_FLG_CANCELLED)) {
 		ASSERT(*ptimer->timer.timer_ref == ptimer);
@@ -3738,6 +3742,7 @@ ptimer_timeout(ErtsSmpPTimer *ptimer)
     else {
 	Port *p;
 	ASSERT(is_internal_port(ptimer->timer.id));
+//尝试转化为Erlang的Port
 	p = erts_id2port_sflgs(ptimer->timer.id,
 			       NULL,
 			       0,
