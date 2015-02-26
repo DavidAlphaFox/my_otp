@@ -107,8 +107,12 @@ static struct pollset_info
     erts_smp_spinlock_t removed_list_lock;
 #endif
 }pollset;
-//全局pollset
-//模拟proactor模式
+//全局只有一个pollset，模拟Proactor模式
+//但是不同的是，Erlang的模拟Proactor只是将有事件的socket拿出来
+//并不用当前的schduler去读取数据，而是将这个socket直接放入相应的port队列中
+//因为port可以分布在多个scheduler中，这样可以减少某个schduler为了完成IO任务
+//而占用大量的事件，导致自身的队列中的Erlang进程和Port无法处理
+//同时如果在一个schduler进行socket读取或写入，这本身就会降低整个IO吞吐量
 #define NUM_OF_POLLSETS 1
 
 typedef struct {

@@ -2381,6 +2381,8 @@ clear_sys_scheduling(void)
 static ERTS_INLINE int
 try_set_sys_scheduling(void)
 {
+//当全局变量doing_sys_schedule不能被设置为1的时候
+//表示已经有scheduler在进行sys_shedule
     return 0 == erts_smp_atomic32_cmpxchg_acqb(&doing_sys_schedule, 1, 0);
 }
 
@@ -9243,6 +9245,7 @@ Process *schedule(Process *p, int calls)
 #endif
 	    erts_smp_runq_unlock(rq);
 //需要执行系统的任务
+//系统任务一般为检查IO操作
 	    erl_sys_schedule(1);
 	    dt = erts_do_time_read_and_reset();
 //再次检查是否有超时任务可以处理
