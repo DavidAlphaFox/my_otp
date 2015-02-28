@@ -7,11 +7,11 @@
 -asn1_info([{vsn,'3.0.3'},
             {module,'PKCS-FRAME'},
             {options,[warnings,ber,errors,
- {cwd,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/public_key/asn1"},
- {outdir,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/public_key/asn1"},
+ {cwd,"/Users/david/Documents/workspace/my_otp/lib/public_key/asn1"},
+ {outdir,"/Users/david/Documents/workspace/my_otp/lib/public_key/asn1"},
  asn1config,noobj,compact_bit_string,der,
  {i,"."},
- {i,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/public_key/asn1"}]}]).
+ {i,"/Users/david/Documents/workspace/my_otp/lib/public_key/asn1"}]}]).
 
 -export([encoding_rule/0,bit_string_format/0,
          legacy_erlang_types/0]).

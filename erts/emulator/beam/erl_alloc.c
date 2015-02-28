@@ -714,7 +714,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     /* Only temp_alloc can use thread specific interface */
     if (init.temp_alloc.thr_spec)
 	init.temp_alloc.thr_spec = erts_no_schedulers;
-
+//在此处进行了alloctor的mmbcs,lmbcs,smbcs的大小
+//这就会出现用system_info得到的options数据和defualt的数据不相同
     /* Others must use thread preferred interface */
     adjust_tpref(&init.sl_alloc, erts_no_schedulers);
     adjust_tpref(&init.std_alloc, erts_no_schedulers);
@@ -734,6 +735,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
      * The following allocators cannot be run with afit strategy.
      * Make sure they don't...
      */
+//不使用afit的策略
     refuse_af_strategy(&init.sl_alloc);
     refuse_af_strategy(&init.std_alloc);
     refuse_af_strategy(&init.ll_alloc);
@@ -822,7 +824,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     sys_alloc_opt(SYS_ALLOC_OPT_TOP_PAD, init.top_pad);
 
     erts_mtrace_init(init.instr.mtrace, init.instr.nodename);
-
+//开始创建所有的alloctor
     start_au_allocator(ERTS_ALC_A_TEMPORARY,
 		       &init.temp_alloc,
 		       &temp_alloc_state);
@@ -982,7 +984,11 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
     ai->alloc_util	= 1;
     ai->enabled		= 1;
 }
-
+//初始化所有allocator
+//这个时候才真正建立起各种各样的alloctor
+//因为在建立这些alloctor之前，也需要内存分配
+//来初始化Erts的各种数据，和这些alloctor的数据
+//所以sys_alloctor是不能被禁止的
 static void
 start_au_allocator(ErtsAlcType_t alctr_n,
 		   struct au_init *init,

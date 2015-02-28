@@ -7,11 +7,11 @@
 -asn1_info([{vsn,'3.0.3'},
             {module,'megaco_ber_media_gateway_control_prev3c'},
             {options,[warnings,ber,errors,
- {cwd,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/megaco/src/binary"},
- {outdir,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/megaco/src/binary"},
+ {cwd,"/Users/david/Documents/workspace/my_otp/lib/megaco/src/binary"},
+ {outdir,"/Users/david/Documents/workspace/my_otp/lib/megaco/src/binary"},
  asn1config,legacy_erlang_types,noobj,
  {i,"."},
- {i,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/megaco/src/binary"}]}]).
+ {i,"/Users/david/Documents/workspace/my_otp/lib/megaco/src/binary"}]}]).
 
 -export([encoding_rule/0,bit_string_format/0,
          legacy_erlang_types/0]).

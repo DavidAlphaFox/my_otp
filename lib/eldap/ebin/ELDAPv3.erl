@@ -7,13 +7,13 @@
 -asn1_info([{vsn,'3.0.3'},
             {module,'ELDAPv3'},
             {options,[warnings,ber,errors,
- {cwd,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/eldap/src"},
- {outdir,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/eldap/src/../ebin"},
- {i,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/eldap/src/../include"},
- {i,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/eldap/src/../ebin"},
+ {cwd,"/Users/david/Documents/workspace/my_otp/lib/eldap/src"},
+ {outdir,"/Users/david/Documents/workspace/my_otp/lib/eldap/src/../ebin"},
+ {i,"/Users/david/Documents/workspace/my_otp/lib/eldap/src/../include"},
+ {i,"/Users/david/Documents/workspace/my_otp/lib/eldap/src/../ebin"},
  warnings_as_errors,debug_info,legacy_erlang_types,
  {i,"."},
- {i,"/net/isildur/ldisk/daily_build/17_prebuild_opu_o.2014-12-09_21/otp_src_17/lib/eldap/src/../asn1"}]}]).
+ {i,"/Users/david/Documents/workspace/my_otp/lib/eldap/src/../asn1"}]}]).
 
 -export([encoding_rule/0,bit_string_format/0,
          legacy_erlang_types/0]).
