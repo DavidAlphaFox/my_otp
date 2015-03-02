@@ -950,11 +950,17 @@ struct process {
     /* This is the place, where all fields that differs between memory
      * architectures, have gone to.
      */
-
+//high_water是一个水位线
+//堆的high_water之上的地址是年轻代，在high_water之下的是老年代
+//old_hend是老年代的堆内存高地址，old_heap是老年代的堆内存低地址
+//old_hend - old_heap是整个老年代堆的在Erts中占用的内存大小
+//old_htop - old_heap是老年代堆中保存的老年代对象的大小
+//老年代的堆(old_hend-old_heap)是不会包含Erlang进程栈,之包含Erlang进程堆
     Eterm *high_water;
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
+//进行了多少次MirrorGC
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */

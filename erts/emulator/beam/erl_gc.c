@@ -167,6 +167,7 @@ gcireq_free(ErtsGCInfoReq *ptr)
 /*
  * Initialize GC global data.
  */
+//创建GC的全局数据
 void
 erts_init_gc(void)
 {
@@ -226,6 +227,7 @@ erts_init_gc(void)
     
     for (ix = 0; ix < erts_no_schedulers; ix++) {
       ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
+//为调度器设置gc信息
       init_gc_info(&esdp->gc_info);
     }
 
@@ -346,27 +348,31 @@ erts_offset_off_heap(ErlOffHeap *ohp, Sint offs, Eterm* low, Eterm* high)
     }
 }
 #undef ptr_within
-
+//在Bif之后进行垃圾回收
 Eterm
 erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
 {
     int cost;
-
+//非值返回,浮点和整数0
     if (is_non_value(result)) {
+//处理TRAP的异常
 	if (p->freason == TRAP) {
 	  #if HIPE
 	    if (regs == NULL) {
 		regs = ERTS_PROC_GET_SCHDATA(p)->x_reg_array;
 	    }
 	  #endif
+//回收Erlang进程中指定的参数数量
 	    cost = erts_garbage_collect(p, 0, regs, p->arity);
 	} else {
 	    cost = erts_garbage_collect(p, 0, regs, arity);
 	}
     } else {
+//回收值返回
 	Eterm val[1];
 
 	val[0] = result;
+//参数数量为1
 	cost = erts_garbage_collect(p, 0, val, 1);
 	result = val[0];
     }
@@ -395,6 +401,7 @@ static ERTS_INLINE void reset_active_writer(Process *p)
  * objv: Array of terms to add to rootset; that is to preserve.
  * nobj: Number of objects in objv.
  */
+//进程的垃圾回收
 int
 erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
@@ -405,18 +412,19 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
-
+//如果当前Erlang进程禁止GC
     if (p->flags & F_DISABLE_GC) {
 	ASSERT(need == 0);
 	return 1;
     }
-
+//获取当前调度器的数据
     esdp = erts_get_scheduler_data();
-
+//如果Erlang进程标记的TraceGC了
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
+//通知traceGC的进程，GC进程已经开始了(am_gc_start)
         trace_gc(p, am_gc_start);
     }
-
+//设置Erlang进程GC标识
     erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     if (erts_system_monitor_long_gc != 0) {
 	get_now(&ms1, &s1, &us1);
@@ -440,13 +448,17 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     /*
      * Test which type of GC to do.
      */
+//检查GC的类型
     while (!done) {
 	if ((FLAGS(p) & F_NEED_FULLSWEEP) != 0) {
+//如果进入FULLSWEEP的GC的时候
+//进行主GC的操作
 	    DTRACE2(gc_major_start, pidbuf, need);
 	    done = major_collection(p, need, objv, nobj, &reclaimed_now);
 	    DTRACE2(gc_major_end, pidbuf, reclaimed_now);
 	} else {
 	    DTRACE2(gc_minor_start, pidbuf, need);
+//进行次要GC的操作
 	    done = minor_collection(p, need, objv, nobj, &reclaimed_now);
 	    DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
 	}
@@ -461,9 +473,11 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 
     ErtsGcQuickSanityCheck(p);
 
+//取消Erlang进程GC标识
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
+//通知traceGC的进程，GC进程已经结束了(am_gc_end)
         trace_gc(p, am_gc_end);
     }
 
@@ -486,10 +500,10 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	if (size >= erts_system_monitor_large_heap)
 	    monitor_large_heap(p);
     }
-
+//更新调度器的GC信息
     esdp->gc_info.garbage_cols++;
     esdp->gc_info.reclaimed += reclaimed_now;
-    
+//去掉ForceGC的标记
     FLAGS(p) &= ~F_FORCE_GC;
 
 #ifdef CHECK_FOR_HOLES
@@ -837,7 +851,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     /*
      * Allocate an old heap if we don't have one and if we'll need one.
      */
-
+//我们可以使用old_heap,并且我们没有达到Erlang堆最大水位
     if (OLD_HEAP(p) == NULL && mature != 0) {
         Eterm* n_old;
 
@@ -846,6 +860,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
+//计算出下一个堆大小
         Uint new_sz = erts_next_heap_size(HEAP_TOP(p) - HEAP_START(p), 1);
 
         /* Create new, empty old_heap */
@@ -860,7 +875,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      * Do a minor collection if there is an old heap and if it
      * is large enough.
      */
-
+//有足够的空间可以进行堆拷贝,才开始进行GC
     if (OLD_HEAP(p) &&
 	    ((mature <= OLD_HEND(p) - OLD_HTOP(p)) &&
 	    ((BIN_VHEAP_MATURE(p) < ( BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p)))) &&
@@ -868,27 +883,36 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	ErlMessage *msgp;
 	Uint size_after;
 	Uint need_after;
+//当前Erlang进程的栈大小p->hend - p->stop
 	Uint stack_size = STACK_SZ_ON_HEAP(p);
+//计算消息队列的大小，包括不在p->mbuf这个链表上的数量
 	Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
+//开始回收前，Erlang进程堆的大小
 	Uint size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
+//计算出新的Erlang堆大小
 	Uint new_sz = next_heap_size(p, HEAP_SIZE(p) + fragments, 0);
-
+//进行回收
         do_minor(p, new_sz, objv, nobj);
 
 	/*
 	 * Copy newly received message onto the end of the new heap.
 	 */
 	ErtsGcQuickSanityCheck(p);
+//将mbuf的消息复制到Erlang的堆上
+//从这个地方可以看出，mbuf是一个缓存，这里面的消息并不会被匹配
+//只有当这些消息放到了Erlang的消息队列(p->msg)上才会被匹配
 	for (msgp = p->msg.first; msgp; msgp = msgp->next) {
 	    if (msgp->data.attached) {
-		erts_move_msg_attached_data_to_heap(&p->htop, &p->off_heap, msgp);
-		ErtsGcQuickSanityCheck(p);
+			 erts_move_msg_attached_data_to_heap(&p->htop, &p->off_heap, msgp);
+			 ErtsGcQuickSanityCheck(p);
 	    }
 	}
 	ErtsGcQuickSanityCheck(p);
-
+//增加p->gen_gcs
         GEN_GCS(p)++;
+//回收结束后,Erlang进程堆的大小
         size_after = HEAP_TOP(p) - HEAP_START(p);
+//计算出回收后的需求量和回收了多少的量
         need_after = size_after + need + stack_size;
         *recl += (size_before - size_after);
 	
@@ -900,27 +924,32 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
          * use a really small portion of new heap, therefore, unless
          * the heap size is substantial, we don't want to shrink.
          */
-
+//堆大于3000Bytes,4倍的need_after还小于当前堆大小且堆大于8000Bytes
+//或者当前堆大于old堆的大小
         if ((HEAP_SIZE(p) > 3000) && (4 * need_after < HEAP_SIZE(p)) &&
             ((HEAP_SIZE(p) > 8000) ||
              (HEAP_SIZE(p) > (OLD_HEND(p) - OLD_HEAP(p))))) {
+//wanted为3倍need_after
 	    Uint wanted = 3 * need_after;
+//old堆的大小
 	    Uint old_heap_sz = OLD_HEND(p) - OLD_HEAP(p);
 
 	    /*
 	     * Additional test to make sure we don't make the heap too small
 	     * compared to the size of the older generation heap.
 	     */
+//重新确认wanted的大小
 	    if (wanted*9 < old_heap_sz) {
-		Uint new_wanted = old_heap_sz / 8;
-		if (new_wanted > wanted) {
-		    wanted = new_wanted;
-		}
+			 Uint new_wanted = old_heap_sz / 8;
+			 if (new_wanted > wanted) {
+				  wanted = new_wanted;
+			 }
 	    }
-
+//wanted大小不能小于p->min_heap_size
 	    wanted = wanted < MIN_HEAP_SIZE(p) ? MIN_HEAP_SIZE(p)
 					       : next_heap_size(p, wanted, 0);
             if (wanted < HEAP_SIZE(p)) {
+//wanted的大小小于当前的堆大小，缩小当前堆
                 shrink_new_heap(p, wanted, objv, nobj);
             }
 
@@ -940,6 +969,8 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     /*
      * Still not enough room after minor collection. Must force a major collection.
      */
+//如果我们依然无法达到需求目标
+//那么我们进行全量回收
     FLAGS(p) |= F_NEED_FULLSWEEP;
     return 0;
 }
@@ -993,7 +1024,7 @@ static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
 #define offset_nstack(p,offs,area,area_size)	do{}while(0)
 
 #endif /* HIPE */
-
+//mirrorGC
 static void
 do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 {
@@ -1009,66 +1040,70 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Uint mature_size = (char *) HIGH_WATER(p) - heap;
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* n_heap;
-
+//先建立起一个heap
     n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
-
+//p->mbuf不为空
     if (MBUF(p) != NULL) {
-	n_htop = collect_heap_frags(p, n_heap, n_htop, objv, nobj);
+		 n_htop = collect_heap_frags(p, n_heap, n_htop, objv, nobj);
     }
-
+//设置回收的根
+//并且得出有多少个根
     n = setup_rootset(p, objv, nobj, &rootset);
     roots = rootset.roots;
 
     GENSWEEP_NSTACK(p, old_htop, n_htop);
+//遍历根
+//将所有的根在Erlang堆中的地址全部更新
+//分别移动到old_heap和n_heap中
     while (n--) {
         Eterm* g_ptr = roots->v;
         Uint g_sz = roots->sz;
 
-	roots++;
+		roots++;
         while (g_sz--) {
             gval = *g_ptr;
 
             switch (primary_tag(gval)) {
 
-	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
-                val = *ptr;
-                if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
-                } else if (in_area(ptr, heap, mature_size)) {
-                    MOVE_BOXED(ptr,val,old_htop,g_ptr++);
-                } else if (in_area(ptr, heap, heap_size)) {
-                    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
-                break;
-	    }
+			case TAG_PRIMARY_BOXED: {
+				 ptr = boxed_val(gval);
+				 val = *ptr;
+				 if (IS_MOVED_BOXED(val)) {
+					  ASSERT(is_boxed(val));
+					  *g_ptr++ = val;
+				 } else if (in_area(ptr, heap, mature_size)) {
+					  MOVE_BOXED(ptr,val,old_htop,g_ptr++);
+				 } else if (in_area(ptr, heap, heap_size)) {
+					  MOVE_BOXED(ptr,val,n_htop,g_ptr++);
+				 } else {
+					  g_ptr++;
+				 }
+				 break;
+			}
 
-	    case TAG_PRIMARY_LIST: {
-                ptr = list_val(gval);
-                val = *ptr;
-                if (IS_MOVED_CONS(val)) { /* Moved */
-                    *g_ptr++ = ptr[1];
-                } else if (in_area(ptr, heap, mature_size)) {
-                    MOVE_CONS(ptr,val,old_htop,g_ptr++);
-                } else if (in_area(ptr, heap, heap_size)) {
-                    MOVE_CONS(ptr,val,n_htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
-		break;
-	    }
+			case TAG_PRIMARY_LIST: {
+				 ptr = list_val(gval);
+				 val = *ptr;
+				 if (IS_MOVED_CONS(val)) { /* Moved */
+					  *g_ptr++ = ptr[1];
+				 } else if (in_area(ptr, heap, mature_size)) {
+					  MOVE_CONS(ptr,val,old_htop,g_ptr++);
+				 } else if (in_area(ptr, heap, heap_size)) {
+					  MOVE_CONS(ptr,val,n_htop,g_ptr++);
+				 } else {
+					  g_ptr++;
+				 }
+				 break;
+			}
 
-	    default:
-                g_ptr++;
-		break;
+			default:
+				 g_ptr++;
+				 break;
             }
         }
     }
-
+//释放rootset的内存
     cleanup_rootset(&rootset);
 
     /*
@@ -1077,78 +1112,79 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
      * is to scan through the new heap evacuating data from the old heap
      * until all is changed.
      */
-
+//如果不存在老年代的对象
     if (mature_size == 0) {
-	n_htop = sweep_one_area(n_heap, n_htop, heap, heap_size);
+		 n_htop = sweep_one_area(n_heap, n_htop, heap, heap_size);
     } else {
-	Eterm* n_hp = n_heap;
-	Eterm* ptr;
-	Eterm val;
-	Eterm gval;
-
-	while (n_hp != n_htop) {
-	    ASSERT(n_hp < n_htop);
-	    gval = *n_hp;
-	    switch (primary_tag(gval)) {
-	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
-		val = *ptr;
-		if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-		    *n_hp++ = val;
-		} else if (in_area(ptr, heap, mature_size)) {
-		    MOVE_BOXED(ptr,val,old_htop,n_hp++);
-		} else if (in_area(ptr, heap, heap_size)) {
-		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
-		} else {
-		    n_hp++;
-		}
-		break;
-	    }
-	    case TAG_PRIMARY_LIST: {
-		ptr = list_val(gval);
-		val = *ptr;
-		if (IS_MOVED_CONS(val)) {
-		    *n_hp++ = ptr[1];
-		} else if (in_area(ptr, heap, mature_size)) {
-		    MOVE_CONS(ptr,val,old_htop,n_hp++);
-		} else if (in_area(ptr, heap, heap_size)) {
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
-		} else {
-		    n_hp++;
-		}
-		break;
-	    }
-	    case TAG_PRIMARY_HEADER: {
-		if (!header_is_thing(gval))
-		    n_hp++;
-		else {
-		    if (header_is_bin_matchstate(gval)) {
-			ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
-			ErlBinMatchBuffer *mb = &(ms->mb);
-			Eterm* origptr = &(mb->orig);
-			ptr = boxed_val(*origptr);
-			val = *ptr;
-			if (IS_MOVED_BOXED(val)) {
-			    *origptr = val;
-			    mb->base = binary_bytes(val);
-			} else if (in_area(ptr, heap, mature_size)) {
-			    MOVE_BOXED(ptr,val,old_htop,origptr);
-			    mb->base = binary_bytes(mb->orig);
-			} else if (in_area(ptr, heap, heap_size)) {
-			    MOVE_BOXED(ptr,val,n_htop,origptr);
-			    mb->base = binary_bytes(mb->orig);
-			}
-		    }
-		    n_hp += (thing_arityval(gval)+1);
-		}
-		break;
-	    }
-	    default:
-		n_hp++;
-		break;
-	    }
-	}
+//存在老年代的对象
+		 Eterm* n_hp = n_heap;
+		 Eterm* ptr;
+		 Eterm val;
+		 Eterm gval;
+		 
+		 while (n_hp != n_htop) {
+			  ASSERT(n_hp < n_htop);
+			  gval = *n_hp;
+			  switch (primary_tag(gval)) {
+			  case TAG_PRIMARY_BOXED: {
+				   ptr = boxed_val(gval);
+				   val = *ptr;
+				   if (IS_MOVED_BOXED(val)) {
+						ASSERT(is_boxed(val));
+						*n_hp++ = val;
+				   } else if (in_area(ptr, heap, mature_size)) {
+						MOVE_BOXED(ptr,val,old_htop,n_hp++);
+				   } else if (in_area(ptr, heap, heap_size)) {
+						MOVE_BOXED(ptr,val,n_htop,n_hp++);
+				   } else {
+						n_hp++;
+				   }
+				   break;
+			  }
+			  case TAG_PRIMARY_LIST: {
+				   ptr = list_val(gval);
+				   val = *ptr;
+				   if (IS_MOVED_CONS(val)) {
+						*n_hp++ = ptr[1];
+				   } else if (in_area(ptr, heap, mature_size)) {
+						MOVE_CONS(ptr,val,old_htop,n_hp++);
+				   } else if (in_area(ptr, heap, heap_size)) {
+						MOVE_CONS(ptr,val,n_htop,n_hp++);
+				   } else {
+						n_hp++;
+				   }
+				   break;
+			  }
+			  case TAG_PRIMARY_HEADER: {
+				   if (!header_is_thing(gval))
+						n_hp++;
+				   else {
+						if (header_is_bin_matchstate(gval)) {
+							 ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
+							 ErlBinMatchBuffer *mb = &(ms->mb);
+							 Eterm* origptr = &(mb->orig);
+							 ptr = boxed_val(*origptr);
+							 val = *ptr;
+							 if (IS_MOVED_BOXED(val)) {
+								  *origptr = val;
+								  mb->base = binary_bytes(val);
+							 } else if (in_area(ptr, heap, mature_size)) {
+								  MOVE_BOXED(ptr,val,old_htop,origptr);
+								  mb->base = binary_bytes(mb->orig);
+							 } else if (in_area(ptr, heap, heap_size)) {
+								  MOVE_BOXED(ptr,val,n_htop,origptr);
+								  mb->base = binary_bytes(mb->orig);
+							 }
+						}
+						n_hp += (thing_arityval(gval)+1);
+				   }
+				   break;
+			  }
+			  default:
+				   n_hp++;
+				   break;
+			  }
+		 }
     }
 
     /*
@@ -1157,13 +1193,17 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
      */
 
     if (OLD_HTOP(p) < old_htop) {
-	old_htop = sweep_one_area(OLD_HTOP(p), old_htop, heap, heap_size);
+		 old_htop = sweep_one_area(OLD_HTOP(p), old_htop, heap, heap_size);
     }
+//设置当前old_heap的堆顶
     OLD_HTOP(p) = old_htop;
+//并将当前新堆的堆顶，作为high_water
+//这说明一个对象经历过一次GC后，下一次进行GC的时候
+//它就是老年代对象了
     HIGH_WATER(p) = n_htop;
 
     if (MSO(p).first) {
-	sweep_off_heap(p, 0);
+		 sweep_off_heap(p, 0);
     }
 
 #ifdef HARDDEBUG
@@ -1188,7 +1228,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
         DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
     }
 #endif
-
+//将原有的堆栈一次性的释放
     ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
 		   HEAP_SIZE(p) * sizeof(Eterm));
@@ -1515,12 +1555,13 @@ combined_message_size(Process* p)
 /*
  * Remove all message buffers.
  */
+//清空p->mbuf缓存
 static void
 remove_message_buffers(Process* p)
 {
     if (MBUF(p) != NULL) {
-	free_message_buffer(MBUF(p));
-	MBUF(p) = NULL;
+		 free_message_buffer(MBUF(p));
+		 MBUF(p) = NULL;
     }    
     MBUF_SIZE(p) = 0;    
 }
@@ -1763,7 +1804,7 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
     return htop;
 }
 
-
+//清理这一个内存区域
 static Eterm*
 sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 {
@@ -1772,61 +1813,62 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
     Eterm gval;
 
     while (n_hp != n_htop) {
-	ASSERT(n_hp < n_htop);
-	gval = *n_hp;
-	switch (primary_tag(gval)) {
-	case TAG_PRIMARY_BOXED: {
-	    ptr = boxed_val(gval);
-	    val = *ptr;
-	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(val));
-		*n_hp++ = val;
-	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_BOXED(ptr,val,n_htop,n_hp++);
-	    } else {
-		n_hp++;
-	    }
-	    break;
-	}
-	case TAG_PRIMARY_LIST: {
-	    ptr = list_val(gval);
-	    val = *ptr;
-	    if (IS_MOVED_CONS(val)) {
-		*n_hp++ = ptr[1];
-	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_CONS(ptr,val,n_htop,n_hp++);
-	    } else {
-		n_hp++;
-	    }
-	    break;
-	}
-	case TAG_PRIMARY_HEADER: {
-	    if (!header_is_thing(gval)) {
-		n_hp++;
-	    } else {
-		if (header_is_bin_matchstate(gval)) {
-		    ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
-		    ErlBinMatchBuffer *mb = &(ms->mb);
-		    Eterm* origptr;	
-		    origptr = &(mb->orig);
-		    ptr = boxed_val(*origptr);
-		    val = *ptr;
-		    if (IS_MOVED_BOXED(val)) {
-			*origptr = val;
-			mb->base = binary_bytes(*origptr);
-		    } else if (in_area(ptr, src, src_size)) {
-			MOVE_BOXED(ptr,val,n_htop,origptr); 
-			mb->base = binary_bytes(*origptr);
-		    }
-		}
-		n_hp += (thing_arityval(gval)+1);
-	    }
-	    break;
-	}
-	default:
-	    n_hp++;
-	    break;
-	}
+		 ASSERT(n_hp < n_htop);
+//从堆的低地址开始
+		 gval = *n_hp;
+		 switch (primary_tag(gval)) {
+		 case TAG_PRIMARY_BOXED: {
+			  ptr = boxed_val(gval);
+			  val = *ptr;
+			  if (IS_MOVED_BOXED(val)) {
+				   ASSERT(is_boxed(val));
+				   *n_hp++ = val;
+			  } else if (in_area(ptr, src, src_size)) {
+				   MOVE_BOXED(ptr,val,n_htop,n_hp++);
+			  } else {
+				   n_hp++;
+			  }
+			  break;
+		 }
+		 case TAG_PRIMARY_LIST: {
+			  ptr = list_val(gval);
+			  val = *ptr;
+			  if (IS_MOVED_CONS(val)) {
+				   *n_hp++ = ptr[1];
+			  } else if (in_area(ptr, src, src_size)) {
+				   MOVE_CONS(ptr,val,n_htop,n_hp++);
+			  } else {
+				   n_hp++;
+			  }
+			  break;
+		 }
+		 case TAG_PRIMARY_HEADER: {
+			  if (!header_is_thing(gval)) {
+				   n_hp++;
+			  } else {
+				   if (header_is_bin_matchstate(gval)) {
+						ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
+						ErlBinMatchBuffer *mb = &(ms->mb);
+						Eterm* origptr;	
+						origptr = &(mb->orig);
+						ptr = boxed_val(*origptr);
+						val = *ptr;
+						if (IS_MOVED_BOXED(val)) {
+							 *origptr = val;
+							 mb->base = binary_bytes(*origptr);
+						} else if (in_area(ptr, src, src_size)) {
+							 MOVE_BOXED(ptr,val,n_htop,origptr); 
+							 mb->base = binary_bytes(*origptr);
+						}
+				   }
+				   n_hp += (thing_arityval(gval)+1);
+			  }
+			  break;
+		 }
+		 default:
+			  n_hp++;
+			  break;
+		 }
     }
     return n_htop;
 }
@@ -1892,19 +1934,19 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
     Eterm dummy_ref;
 
     while (ptr != end) {
-	Eterm val;
-	ASSERT(ptr < end);
-	val = *ptr;
-	ASSERT(val != ERTS_HOLE_MARKER);
-	if (is_header(val)) {
-	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, n_htop, &dummy_ref);	    
-	}
-	else { /* must be a cons cell */
-	    ASSERT(ptr+1 < end);
-	    MOVE_CONS(ptr, val, n_htop, &dummy_ref);
-	    ptr += 2;
-	}
+		 Eterm val;
+		 ASSERT(ptr < end);
+		 val = *ptr;
+		 ASSERT(val != ERTS_HOLE_MARKER);
+		 if (is_header(val)) {
+			  ASSERT(ptr + header_arity(val) < end);
+			  MOVE_BOXED(ptr, val, n_htop, &dummy_ref);	    
+		 }
+		 else { /* must be a cons cell */
+			  ASSERT(ptr+1 < end);
+			  MOVE_CONS(ptr, val, n_htop, &dummy_ref);
+			  ptr += 2;
+		 }
     }
 
     return n_htop;
@@ -1913,7 +1955,8 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 /*
  * Collect heap fragments and check that they point in the correct direction.
  */
-
+//收集堆碎片
+//将mbuf的数据先放到堆上
 static Eterm*
 collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
 		   Eterm* objv, int nobj)
@@ -1929,7 +1972,7 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
 #ifdef HARDDEBUG
     disallow_heap_frag_ref(p, n_htop, p->stop, STACK_START(p) - p->stop);
     if (p->dictionary != NULL) {
-	disallow_heap_frag_ref(p, n_htop, p->dictionary->data, p->dictionary->used);
+		 disallow_heap_frag_ref(p, n_htop, p->dictionary->data, p->dictionary->used);
     }
     disallow_heap_frag_ref_in_heap(p);
 #endif
@@ -1939,14 +1982,18 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
      * the heap fragments. Any garbage will thus be moved as well and survive
      * until next GC.  
      */ 
+//这时不进行垃圾回收
+//只是将它们移动到新的堆上
+//因为这些数据一定不会在原来的Erlang进程堆上
+//所以优先放置这些数据到堆上
     qb = MBUF(p);
     while (qb != NULL) {      
-	frag_size = qb->used_size * sizeof(Eterm);
-	if (frag_size != 0) {
-	    frag_begin = (char *) qb->mem;
-	    n_htop = move_one_area(n_htop, frag_begin, frag_size);
-	}
-	qb = qb->next;
+		 frag_size = qb->used_size * sizeof(Eterm);
+		 if (frag_size != 0) {
+			  frag_begin = (char *) qb->mem;
+			  n_htop = move_one_area(n_htop, frag_begin, frag_size);
+		 }
+		 qb = qb->next;
     }
     return n_htop;
 }
@@ -1958,15 +2005,17 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     Roots* roots;
     ErlMessage* mp;
     Uint n;
-
+//默认roots大小，32个
     n = 0;
     roots = rootset->roots = rootset->def;
     rootset->size = ALENGTH(rootset->def);
-
+//roots[0]的默认指向栈顶
+//roots[0]的默认大小是栈的整个大小
     roots[n].v  = p->stop;
     roots[n].sz = STACK_START(p) - p->stop;
     ++n;
-
+//如果进程字典不为空
+//roots[1]为进程字典，否则为当前的变量
     if (p->dictionary != NULL) {
         roots[n].v = p->dictionary->data;
         roots[n].sz = p->dictionary->used;
@@ -1981,16 +2030,19 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     ASSERT((is_nil(p->seq_trace_token) ||
 	    is_tuple(follow_moved(p->seq_trace_token)) ||
 	    is_atom(p->seq_trace_token)));
+//trace_token如果不是立数
+//也加入到回收的根中
     if (is_not_immed(p->seq_trace_token)) {
-	roots[n].v = &p->seq_trace_token;
-	roots[n].sz = 1;
-	n++;
+		 roots[n].v = &p->seq_trace_token;
+		 roots[n].sz = 1;
+		 n++;
     }
 #ifdef USE_VM_PROBES
+//使用Dtrace的时候，这个也要回收
     if (is_not_immed(p->dt_utag)) {
-	roots[n].v = &p->dt_utag;
-	roots[n].sz = 1;
-	n++;
+		 roots[n].v = &p->dt_utag;
+		 roots[n].sz = 1;
+		 n++;
     }
 #endif
     ASSERT(is_nil(ERTS_TRACER_PROC(p)) ||
@@ -1998,66 +2050,72 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	   is_internal_port(ERTS_TRACER_PROC(p)));
 
     ASSERT(is_pid(follow_moved(p->group_leader)));
+//进程的group_leader的引用也要检查是否需要回收
     if (is_not_immed(p->group_leader)) {
-	roots[n].v  = &p->group_leader;
-	roots[n].sz = 1;
-	n++;
+		 roots[n].v  = &p->group_leader;
+		 roots[n].sz = 1;
+		 n++;
     }
 
     /*
      * The process may be garbage-collected while it is terminating.
      * (fvalue contains the EXIT reason and ftrace the saved stack trace.)
      */
+//如果进程已经结束了，且在进行垃圾回收
+//将退出原因加入rootset
     if (is_not_immed(p->fvalue)) {
-	roots[n].v  = &p->fvalue;
-	roots[n].sz = 1;
-	n++;
+		 roots[n].v  = &p->fvalue;
+		 roots[n].sz = 1;
+		 n++;
     }
+//如果进程已经结束了，且在进行垃圾回收
+//且有堆栈的stack dump，将stack dump加入rootset
     if (is_not_immed(p->ftrace)) {
-	roots[n].v  = &p->ftrace;
-	roots[n].sz = 1;
-	n++;
+		 roots[n].v  = &p->ftrace;
+		 roots[n].sz = 1;
+		 n++;
     }
 
     /*
      * If a NIF has saved arguments, they need to be added
      */
     if (ERTS_PROC_GET_NIF_TRAP_EXPORT(p)) {
-	Eterm* argv;
-	int argc;
-	if (erts_setup_nif_gc(p, &argv, &argc)) {
-	    roots[n].v = argv;
-	    roots[n].sz = argc;
-	    n++;
-	}
+		 Eterm* argv;
+		 int argc;
+		 if (erts_setup_nif_gc(p, &argv, &argc)) {
+			  roots[n].v = argv;
+			  roots[n].sz = argc;
+			  n++;
+		 }
     }
 
     ASSERT(n <= rootset->size);
 
     mp = p->msg.first;
     avail = rootset->size - n;
+//将p->msg上的所有内容加入rootset
     while (mp != NULL) {
-	if (avail == 0) {
-	    Uint new_size = 2*rootset->size;
-	    if (roots == rootset->def) {
-		roots = erts_alloc(ERTS_ALC_T_ROOTSET,
-				   new_size*sizeof(Roots));
-		sys_memcpy(roots, rootset->def, sizeof(rootset->def));
-	    } else {
-		roots = erts_realloc(ERTS_ALC_T_ROOTSET,
-				     (void *) roots,
-				     new_size*sizeof(Roots));
-	    }
-	    rootset->size = new_size;
-	    avail = new_size - n;
-	}
-	if (mp->data.attached == NULL) {
-	    roots[n].v = mp->m;
-	    roots[n].sz = 2;
-	    n++;
-	    avail--;
-	}
-        mp = mp->next;
+		 if (avail == 0) {
+			  Uint new_size = 2*rootset->size;
+			  if (roots == rootset->def) {
+				   roots = erts_alloc(ERTS_ALC_T_ROOTSET,
+									  new_size*sizeof(Roots));
+				   sys_memcpy(roots, rootset->def, sizeof(rootset->def));
+			  } else {
+				   roots = erts_realloc(ERTS_ALC_T_ROOTSET,
+										(void *) roots,
+										new_size*sizeof(Roots));
+			  }
+			  rootset->size = new_size;
+			  avail = new_size - n;
+		 }
+		 if (mp->data.attached == NULL) {
+			  roots[n].v = mp->m;
+			  roots[n].sz = 2;
+			  n++;
+			  avail--;
+		 }
+		 mp = mp->next;
     }
     rootset->roots = roots;
     rootset->num_roots = n;
@@ -2120,7 +2178,7 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
 
     HEAP_SIZE(p) = new_sz;
 }
-
+//调整堆大小
 static void
 shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 {
@@ -2130,26 +2188,29 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
     Uint stack_size = p->hend - p->stop;
 
     ASSERT(new_sz < p->heap_sz);
+//移动栈的数据到新的位置
     sys_memmove(p->heap + new_sz - stack_size, p->stop, stack_size *
                                                         sizeof(Eterm));
+//从新分配堆栈的大小
     new_heap = (Eterm *) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,
 					   (void*)p->heap,
 					   sizeof(Eterm)*(HEAP_SIZE(p)),
 					   sizeof(Eterm)*new_sz);
+//重新设置p->hend,栈顶
     p->hend = new_heap + new_sz;
     p->stop = p->hend - stack_size;
-
+//如果新的堆栈开始的地址和原来的堆栈的开始地址不同
     if ((offs = new_heap - HEAP_START(p)) != 0) {
-	char* area = (char *) HEAP_START(p);
-	Uint area_size = (char *) HEAP_TOP(p) - area;
+		 char* area = (char *) HEAP_START(p);
+		 Uint area_size = (char *) HEAP_TOP(p) - area;
 
         /*
          * Normally, we don't expect a shrunk heap to move, but you never
          * know on some strange embedded systems...  Or when using purify.
          */
-
+//移动堆栈
         offset_heap(new_heap, heap_size, offs, area, area_size);
-
+//重新计算Erlang进程堆的最高水位线
         HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
         offset_rootset(p, offs, area, area_size, objv, nobj);
         HEAP_TOP(p) = new_heap + heap_size;
@@ -2284,8 +2345,8 @@ sweep_off_heap(Process *p, int fullsweep)
 #endif
 
     if (fullsweep == 0) {
-	oheap = (char *) OLD_HEAP(p);
-	oheap_sz = (char *) OLD_HEND(p) - oheap;
+		 oheap = (char *) OLD_HEAP(p);
+		 oheap_sz = (char *) OLD_HEND(p) - oheap;
     }
 
     BIN_OLD_VHEAP(p) = 0;
@@ -2297,73 +2358,75 @@ sweep_off_heap(Process *p, int fullsweep)
      * Keep if moved, otherwise deref.
      */
     while (ptr) {
-	if (IS_MOVED_BOXED(ptr->thing_word)) {
-	    ASSERT(!in_area(ptr, oheap, oheap_sz));
-	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
-	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
-	    if (ptr->thing_word == HEADER_PROC_BIN) {
-		int to_new_heap = !in_area(ptr, oheap, oheap_sz);
-		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
-		if (to_new_heap) {
-		    bin_vheap += ptr->size / sizeof(Eterm);
-		} else {
-		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
-		}		
-		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
-	    }
-	    else {
-		prev = &ptr->next;
-		ptr = ptr->next;
-	    }
-	}
-	else if (!in_area(ptr, oheap, oheap_sz)) {
-	    /* garbage */
-	    switch (thing_subtag(ptr->thing_word)) {
-	    case REFC_BINARY_SUBTAG:
-		{
-		    Binary* bptr = ((ProcBin*)ptr)->val;	
-		    if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-			erts_bin_free(bptr);
-		    }
-		    break;
-		}
-	    case FUN_SUBTAG:
-		{
-		    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
-		    if (erts_refc_dectest(&fe->refc, 0) == 0) {
-			erts_erase_fun_entry(fe);
-		    }
-		    break;
-		}
-	    default:
-		ASSERT(is_external_header(ptr->thing_word));
-		erts_deref_node_entry(((ExternalThing*)ptr)->node);
-	    }
-	    *prev = ptr = ptr->next;
-	}
-	else break; /* and let old-heap loop continue */
+		 if (IS_MOVED_BOXED(ptr->thing_word)) {
+			  ASSERT(!in_area(ptr, oheap, oheap_sz));
+			  *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
+			  ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
+			  if (ptr->thing_word == HEADER_PROC_BIN) {
+				   int to_new_heap = !in_area(ptr, oheap, oheap_sz);
+				   ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
+				   if (to_new_heap) {
+						bin_vheap += ptr->size / sizeof(Eterm);
+				   } else {
+						BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
+				   }		
+				   link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
+			  }
+			  else {
+				   prev = &ptr->next;
+				   ptr = ptr->next;
+			  }
+		 }
+		 else if (!in_area(ptr, oheap, oheap_sz)) {
+			  /* garbage */
+			  switch (thing_subtag(ptr->thing_word)) {
+			  case REFC_BINARY_SUBTAG:
+			  {
+				   Binary* bptr = ((ProcBin*)ptr)->val;	
+				   if (erts_refc_dectest(&bptr->refc, 0) == 0) {
+						erts_bin_free(bptr);
+				   }
+				   break;
+			  }
+			  case FUN_SUBTAG:
+			  {
+				   ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
+				   if (erts_refc_dectest(&fe->refc, 0) == 0) {
+						erts_erase_fun_entry(fe);
+				   }
+				   break;
+			  }
+			  default:
+				   ASSERT(is_external_header(ptr->thing_word));
+				   erts_deref_node_entry(((ExternalThing*)ptr)->node);
+			  }
+			  *prev = ptr = ptr->next;
+		 }
+		 else {
+			  break; /* and let old-heap loop continue */
+		 }
     }
 
     /* The rest of the list resides on old-heap, and we just did a
      * generational collection - keep objects in list.
      */
     while (ptr) {
-	ASSERT(in_area(ptr, oheap, oheap_sz));
-	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
-	if (ptr->thing_word == HEADER_PROC_BIN) {
-	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
-	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
-	}
-	else {
-	    ASSERT(is_fun_header(ptr->thing_word) ||
-		   is_external_header(ptr->thing_word));
-	    prev = &ptr->next;
-	    ptr = ptr->next;
-	}
+		 ASSERT(in_area(ptr, oheap, oheap_sz));
+		 ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
+		 if (ptr->thing_word == HEADER_PROC_BIN) {
+			  BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
+			  link_live_proc_bin(&shrink, &prev, &ptr, 0);
+		 }
+		 else {
+			  ASSERT(is_fun_header(ptr->thing_word) ||
+					 is_external_header(ptr->thing_word));
+			  prev = &ptr->next;
+			  ptr = ptr->next;
+		 }
     }
 
     if (fullsweep) {
-	BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, BIN_OLD_VHEAP(p) + MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
+		 BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, BIN_OLD_VHEAP(p) + MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
     }
     BIN_VHEAP_SZ(p)     = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
     MSO(p).overhead     = bin_vheap;
@@ -2430,7 +2493,8 @@ sweep_off_heap(Process *p, int fullsweep)
 /*
  * Offset pointers into the heap (not stack).
  */
-
+//将Erlang进程堆上的所有数据
+//进行重新定位
 static void 
 offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 {
@@ -2559,11 +2623,12 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
         mp = mp->next;
     }
 }
-
+//调整所有Erlang进程PCB中对Erlang进程堆的引用
 static void ERTS_INLINE
 offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 	       Eterm* objv, int nobj)
 {
+//处理进程字典
     if (p->dictionary)  {
 	offset_heap(p->dictionary->data, 
 		    p->dictionary->used, 
@@ -2581,7 +2646,7 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
     offset_heap_ptr(p->stop, (STACK_START(p) - p->stop), offs, area, area_size);
     offset_nstack(p, offs, area, area_size);
     if (nobj > 0) {
-	offset_heap_ptr(objv, nobj, offs, area, area_size);
+		 offset_heap_ptr(objv, nobj, offs, area, area_size);
     }
     offset_off_heap(p, offs, area, area_size);
 }

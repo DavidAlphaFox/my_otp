@@ -10545,8 +10545,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      */
 
     if (is_not_atom(mod) || is_not_atom(func) || ((arity = erts_list_length(args)) < 0)) {
-	so->error_code = BADARG;
-	goto error;
+		 so->error_code = BADARG;
+		 goto error;
     }
 
     if (so->flags & SPO_USE_ARGS) {
@@ -10587,13 +10587,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->flags = erts_default_process_flags;
 
     if (so->flags & SPO_USE_ARGS) {
-	p->min_heap_size  = so->min_heap_size;
-	p->min_vheap_size = so->min_vheap_size;
-	p->max_gen_gcs    = so->max_gen_gcs;
+		 p->min_heap_size  = so->min_heap_size;
+		 p->min_vheap_size = so->min_vheap_size;
+		 p->max_gen_gcs    = so->max_gen_gcs;
     } else {
-	p->min_heap_size  = H_MIN_SIZE;
-	p->min_vheap_size = BIN_VH_MIN_SIZE;
-	p->max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
+		 p->min_heap_size  = H_MIN_SIZE;
+		 p->min_vheap_size = BIN_VH_MIN_SIZE;
+		 p->max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
     }
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
@@ -10612,9 +10612,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	IS_CONST(parent->group_leader) ? 0 : NC_HEAP_SIZE(parent->group_leader);
 
     if (heap_need < p->min_heap_size) {
-	sz = heap_need = p->min_heap_size;
+		 sz = heap_need = p->min_heap_size;
     } else {
-	sz = erts_next_heap_size(heap_need, 0);
+		 sz = erts_next_heap_size(heap_need, 0);
     }
 
 #ifdef HIPE
@@ -10679,7 +10679,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     ASSERT(is_pid(parent->group_leader));
 
     if (parent->group_leader == ERTS_INVALID_PID)
-	p->group_leader = p->common.id;
+		 p->group_leader = p->common.id;
     else {
 	/* Needs to be done after the heap has been set up */
 	p->group_leader =
@@ -10776,12 +10776,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      * Test whether this process should be initially monitored by its parent.
      */
     if (so->flags & SPO_MONITOR) {
-	Eterm mref;
+		 Eterm mref;
 
-	mref = erts_make_ref(parent);
-	erts_add_monitor(&ERTS_P_MONITORS(parent), MON_ORIGIN, mref, p->common.id, NIL);
-	erts_add_monitor(&ERTS_P_MONITORS(p), MON_TARGET, mref, parent->common.id, NIL);
-	so->mref = mref;
+		 mref = erts_make_ref(parent);
+		 erts_add_monitor(&ERTS_P_MONITORS(parent), MON_ORIGIN, mref, p->common.id, NIL);
+		 erts_add_monitor(&ERTS_P_MONITORS(p), MON_TARGET, mref, parent->common.id, NIL);
+		 so->mref = mref;
     }
 
 #ifdef ERTS_SMP
@@ -10803,7 +10803,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     /*
      * Schedule process for execution.
      */
-
+//将该Erlang进程调度起来
     schedule_process(p, state, 0);
 
     VERBOSE(DEBUG_PROCESSES, ("Created a new process: %T\n",p->common.id));
@@ -11012,8 +11012,8 @@ erts_cleanup_empty_process(Process* p)
     p->off_heap.overhead = 0;
 
     if (p->mbuf != NULL) {
-	free_message_buffer(p->mbuf);
-	p->mbuf = NULL;
+		 free_message_buffer(p->mbuf);
+		 p->mbuf = NULL;
     }
 #ifdef ERTS_SMP
     erts_proc_lock_fin(p);
@@ -11026,6 +11026,8 @@ erts_cleanup_empty_process(Process* p)
 /*
  * p must be the currently executing process.
  */
+//删除一个Erlang进程
+//该进程必须是当前正在执行的进程
 static void
 delete_process(Process* p)
 {
@@ -11035,9 +11037,9 @@ delete_process(Process* p)
 
     /* Cleanup psd */
 
-    if (p->psd)
-	erts_free(ERTS_ALC_T_PSD, p->psd);
-
+    if (p->psd){
+		 erts_free(ERTS_ALC_T_PSD, p->psd);
+	}
     /* Clean binaries and funs */
     erts_cleanup_offheap(&p->off_heap);
 
@@ -11048,7 +11050,7 @@ delete_process(Process* p)
     p->off_heap.first = (void *) 0x8DEFFACD;
 
     if (p->arg_reg != p->def_arg_reg) {
-	erts_free(ERTS_ALC_T_ARG_REG, p->arg_reg);
+		 erts_free(ERTS_ALC_T_ARG_REG, p->arg_reg);
     }
 
     /*
@@ -11080,7 +11082,7 @@ delete_process(Process* p)
      * Free all pending message buffers.
      */
     if (p->mbuf != NULL) {	
-	free_message_buffer(p->mbuf);
+		 free_message_buffer(p->mbuf);
     }
 
     erts_erase_dicts(p);

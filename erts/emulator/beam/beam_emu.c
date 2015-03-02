@@ -1670,9 +1670,9 @@ void process_main(void)
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
      if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
-	 result = erts_gc_after_bif_call(c_p, result, reg, 2);
-	 r(0) = reg[0];
-	 E = c_p->stop;
+		  result = erts_gc_after_bif_call(c_p, result, reg, 2);
+		  r(0) = reg[0];
+		  E = c_p->stop;
      }
      HTOP = HEAP_TOP(c_p);
      FCALLS = c_p->fcalls;
