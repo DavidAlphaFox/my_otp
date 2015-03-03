@@ -1149,6 +1149,8 @@ void process_main(void)
     /*
      * Pointer to next threaded instruction.
      */
+//BeamInstr就是一个UWord
+//是一个无符号整数,一般为unsigned/log unsigned int/unsigned long long
     register BeamInstr *I REG_I = NULL;
 
     /* Number of reductions left.  This function
@@ -1300,7 +1302,8 @@ void process_main(void)
 	    neg_o_reds = 0;
 	    FCALLS = REDS_IN(c_p) = reds;
 	}
-
+//Erlang进程中的c_p->i是一个指向代码段的指针
+//换句话说c_p->i是一个BeamInstr*的数组
 	next = (BeamInstr *) *I;
 	r(0) = c_p->arg_reg[0];
 #ifdef HARDDEBUG
@@ -5208,7 +5211,8 @@ get_map_elements_fail:
      em_call_error_handler = OpCode(call_error_handler);
      em_apply_bif = OpCode(apply_bif);
      em_call_nif = OpCode(call_nif);
-
+//NO_JUMP_TABLE  OpCode = (UWord*)otp_i_apply
+//JUMP_TABLE OpCode = &&lb_i_apply
      beam_apply[0]             = (BeamInstr) OpCode(i_apply);
      beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
      beam_exit[0]              = (BeamInstr) OpCode(error_action_code);
