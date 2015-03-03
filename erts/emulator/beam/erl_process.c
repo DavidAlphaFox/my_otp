@@ -10640,12 +10640,14 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sys_task_qs = NULL;
 
     /* No need to initialize p->fcalls. */
-
+//设置当前函数的模块，名字，参数个数
     p->current = p->initial+INITIAL_MOD;
-
+//设置当前的指令
     p->i = (BeamInstr *) beam_apply;
     p->cp = (BeamInstr *) beam_apply+1;
-
+//默认先指向def_arg_reg
+//def_arg_reg是预先定义好的数组
+//默认大小为6
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
     p->arg_reg[0] = mod;

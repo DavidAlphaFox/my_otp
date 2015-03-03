@@ -932,9 +932,11 @@ struct process {
 #ifdef USE_VM_PROBES
     Eterm dt_utag;              /* Place to store the dynamc trace user tag */
     Uint dt_utag_flags;         /* flag field for the dt_utag */
-#endif       
+#endif      
+//初始化的函数 
     BeamInstr initial[3];	/* Initial module(0), function(1), arity(2), often used instead
 				   of pointer to funcinfo instruction, hence the BeamInstr datatype */
+//当前的函数
     BeamInstr* current;		/* Current Erlang function, part of the funcinfo:
 				 * module(0), function(1), arity(2)
 				 * (module and functions are tagged atoms;

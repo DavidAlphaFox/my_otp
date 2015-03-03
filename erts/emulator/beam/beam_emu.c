@@ -322,7 +322,15 @@ extern int count_instructions;
  *
  * M is number of live registers to preserve during garbage collection
  */
-
+//分配Erlang进程的堆栈
+//needed ＝ StackNeed + 1
+//并且要保证 (c_p->stop - c_p->htop) > (needed + HeapNeed)
+//如果无法保证，则保存堆栈,快存x0并进行垃圾回收
+//发生垃圾回收后，恢复堆栈和快存
+//之后再在栈上分配象形数量的内存
+//同时将c_p->cp压入栈顶
+//从allocate_和move_这两个Beam指令可以看出
+//Erlang如果想使用堆栈，先通过allocate进行分配，在通过move移动到上面去
 #define AH(StackNeed, HeapNeed, M) \
   do { \
      int needed; \
@@ -544,8 +552,9 @@ extern int count_instructions;
     I += (N) + 1;              \
     ASSERT(VALID_INSTR(*I));   \
     Goto(*I)
-
+//得到当前指令的下一条指令
 #define PreFetch(N, Dst) do { Dst = (BeamInstr *) *(I + N + 1); } while (0)
+//将但前的I设置成下一条这令，并直接跳转到Dst处执行
 #define NextPF(N, Dst)         \
     I += N + 1;                \
     ASSERT(VALID_INSTR(Dst));  \
@@ -1257,8 +1266,8 @@ void process_main(void)
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     if (erts_system_monitor_long_schedule != 0) {
-	start_time = erts_timestamp_millis();
-	start_time_i = c_p->i;
+		 start_time = erts_timestamp_millis();
+		 start_time_i = c_p->i;
     }
 //得到调度器的数据
 //每个调度器有自己的x_reg和f_reg
@@ -1538,7 +1547,9 @@ void process_main(void)
  }
  /* FALL THROUGH */
  OpCase(i_call_f): {
+//将c_p->cp的指针设置为当前指令之后的第一个指令
      SET_CP(c_p, I+2);
+//将当前I设置为被调用的函数
      SET_I((BeamInstr *) Arg(0));
      DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
@@ -3145,10 +3156,10 @@ get_map_elements_fail:
      next = apply(c_p, r(0), x(1), x(2), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
-	 SET_CP(c_p, I+1);
-	 SET_I(next);
-	 Dispatch();
+		  r(0) = reg[0];
+		  SET_CP(c_p, I+1);
+		  SET_I(next);
+		  Dispatch();
      }
      I = handle_error(c_p, I, reg, apply_3);
      goto post_error_handling;
@@ -3323,10 +3334,11 @@ get_map_elements_fail:
      * can get the module, function, and arity for the function being
      * called from I[-3], I[-2], and I[-1] respectively.
      */
+//一个进程的reductions用光会到此处会进入此处
  context_switch_fun:
     c_p->arity = I[-1] + 1;
     goto context_switch2;
-
+//调用普通指令前
  context_switch:
     c_p->arity = I[-1];
 
@@ -3348,15 +3360,15 @@ get_map_elements_fail:
 	  * space for most processes which never call functions with more than
 	  * 6 arguments.
 	  */
-	 Uint size = c_p->arity * sizeof(c_p->arg_reg[0]);
-	 if (c_p->arg_reg != c_p->def_arg_reg) {
-	     c_p->arg_reg = (Eterm *) erts_realloc(ERTS_ALC_T_ARG_REG,
-						   (void *) c_p->arg_reg,
-						   size);
-	 } else {
-	     c_p->arg_reg = (Eterm *) erts_alloc(ERTS_ALC_T_ARG_REG, size);
-	 }
-	 c_p->max_arg_reg = c_p->arity;
+		  Uint size = c_p->arity * sizeof(c_p->arg_reg[0]);
+		  if (c_p->arg_reg != c_p->def_arg_reg) {
+			   c_p->arg_reg = (Eterm *) erts_realloc(ERTS_ALC_T_ARG_REG,
+													 (void *) c_p->arg_reg,
+													 size);
+		  } else {
+			   c_p->arg_reg = (Eterm *) erts_alloc(ERTS_ALC_T_ARG_REG, size);
+		  }
+		  c_p->max_arg_reg = c_p->arity;
      }
 
      /*
@@ -3372,13 +3384,16 @@ get_map_elements_fail:
      /*
       * Save the argument registers and everything else.
       */
-
+//保存所有的reg到当前的Erlang进程中
      argp = c_p->arg_reg;
      for (i = c_p->arity - 1; i > 0; i--) {
-	 argp[i] = reg[i];
+		  argp[i] = reg[i];
      }
+//保存x0到arg_reg[0]中
      c_p->arg_reg[0] = r(0);
+//保存堆顶和栈顶
      SWAPOUT;
+//保存当前指令
      c_p->i = I;
      goto do_schedule1;
  }
@@ -3518,17 +3533,25 @@ get_map_elements_fail:
     handle_error:
      reg[0] = r(0);
      SWAPOUT;
+//尝试进行异常处理
+//得到下一条可执行的指令
      I = handle_error(c_p, NULL, reg, NULL);
  post_error_handling:
      if (I == 0) {
-	 goto do_schedule;
+//如果指令为0
+//直接进入重新调度阶段
+		  goto do_schedule;
      } else {
+//将reg[0]中的数据放到快存x0中
 	 r(0) = reg[0];
 	 ASSERT(!is_value(r(0)));
+//如果mbuf不为空，先进行一次内存回收
+//mbuf不为空，说明堆空间已经不够了
 	 if (c_p->mbuf) {
 	     erts_garbage_collect(c_p, 0, reg+1, 3);
 	 }
 	 SWAPIN;
+//直接跳入指令执行
 	 Goto(*I);
      }
  }
@@ -3679,6 +3702,10 @@ get_map_elements_fail:
     c_p->freason = EXC_IF_CLAUSE;
     goto find_func_info;
 
+//先设置异常点原因
+//并将当前Erlang进程当前函数(c_p->current)
+//设置成正在执行的函数
+//i_func_info_IaaI 一共占用5个BeamInstr
  OpCase(i_func_info_IaaI): {
      c_p->freason = EXC_FUNCTION_CLAUSE;
      c_p->current = I + 2;
@@ -5381,9 +5408,9 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
      * Throws that are not caught are turned into 'nocatch' errors
      */
     if ((c_p->freason & EXF_THROWN) && (c_p->catches <= 0) ) {
-	hp = HAlloc(c_p, 3);
-        Value = TUPLE2(hp, am_nocatch, Value);
-        c_p->freason = EXC_ERROR;
+		 hp = HAlloc(c_p, 3);
+		 Value = TUPLE2(hp, am_nocatch, Value);
+		 c_p->freason = EXC_ERROR;
     }
 
     /* Get the fully expanded error term */
@@ -5396,23 +5423,23 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
 
     /* Find a handler or die */
     if ((c_p->catches > 0 || IS_TRACED_FL(c_p, F_EXCEPTION_TRACE))
-	&& !(c_p->freason & EXF_PANIC)) {
-	BeamInstr *new_pc;
+		&& !(c_p->freason & EXF_PANIC)) {
+		 BeamInstr *new_pc;
         /* The Beam handler code (catch_end or try_end) checks reg[0]
 	   for THE_NON_VALUE to see if the previous code finished
 	   abnormally. If so, reg[1], reg[2] and reg[3] should hold the
 	   exception class, term and trace, respectively. (If the
 	   handler is just a trap to native code, these registers will
 	   be ignored.) */
-	reg[0] = THE_NON_VALUE;
-	reg[1] = exception_tag[GET_EXC_CLASS(c_p->freason)];
-	reg[2] = Value;
-	reg[3] = c_p->ftrace;
-        if ((new_pc = next_catch(c_p, reg))) {
-	    c_p->cp = 0;	/* To avoid keeping stale references. */
-	    return new_pc;
-	}
-	if (c_p->catches > 0) erl_exit(1, "Catch not found");
+		 reg[0] = THE_NON_VALUE;
+		 reg[1] = exception_tag[GET_EXC_CLASS(c_p->freason)];
+		 reg[2] = Value;
+		 reg[3] = c_p->ftrace;
+		 if ((new_pc = next_catch(c_p, reg))) {
+			  c_p->cp = 0;	/* To avoid keeping stale references. */
+			  return new_pc;
+		 }
+		 if (c_p->catches > 0) erl_exit(1, "Catch not found");
     }
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
     terminate_proc(c_p, Value);
@@ -5423,6 +5450,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
 /*
  * Find the nearest catch handler
  */
+//找到最接近的异常handler
 static BeamInstr*
 next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
@@ -5432,73 +5460,77 @@ next_catch(Process* c_p, Eterm *reg) {
     BeamInstr i_return_trace      = beam_return_trace[0];
     BeamInstr i_return_to_trace   = beam_return_to_trace[0];
     BeamInstr i_return_time_trace = beam_return_time_trace[0];
-
+//拿Erlang进程的栈顶
     ptr = prev = c_p->stop;
     ASSERT(is_CP(*ptr));
     ASSERT(ptr <= STACK_START(c_p));
+//没有退栈的机会
+//直接返回NULL
     if (ptr == STACK_START(c_p)) return NULL;
     if ((is_not_CP(*ptr) || (*cp_val(*ptr) != i_return_trace &&
 			     *cp_val(*ptr) != i_return_to_trace &&
 			     *cp_val(*ptr) != i_return_time_trace ))
 	&& c_p->cp) {
 	/* Can not follow cp here - code may be unloaded */
-	BeamInstr *cpp = c_p->cp;
-	if (cpp == beam_exception_trace) {
-	    erts_trace_exception(c_p, cp_val(ptr[0]),
-				 reg[1], reg[2], ptr+1);
-	    /* Skip return_trace parameters */
-	    ptr += 2;
-	} else if (cpp == beam_return_trace) {
-	    /* Skip return_trace parameters */
-	    ptr += 2;
-	} else if (cpp == beam_return_time_trace) {
-	    /* Skip return_trace parameters */
-	    ptr += 1;
-	} else if (cpp == beam_return_to_trace) {
-	    have_return_to_trace = !0; /* Record next cp */
-	}
+		 BeamInstr *cpp = c_p->cp;
+		 if (cpp == beam_exception_trace) {
+			  erts_trace_exception(c_p, cp_val(ptr[0]),
+								   reg[1], reg[2], ptr+1);
+			  /* Skip return_trace parameters */
+			  ptr += 2;
+		 } else if (cpp == beam_return_trace) {
+			  /* Skip return_trace parameters */
+			  ptr += 2;
+		 } else if (cpp == beam_return_time_trace) {
+			  /* Skip return_trace parameters */
+			  ptr += 1;
+		 } else if (cpp == beam_return_to_trace) {
+			  have_return_to_trace = !0; /* Record next cp */
+		 }
     }
     while (ptr < STACK_START(c_p)) {
-	if (is_catch(*ptr)) {
-	    if (active_catches) goto found_catch;
-	    ptr++;
-	}
-	else if (is_CP(*ptr)) {
-	    prev = ptr;
-	    if (*cp_val(*prev) == i_return_trace) {
-		/* Skip stack frame variables */
-		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
-		    if (is_catch(*ptr) && active_catches) goto found_catch;
-		}
-		if (cp_val(*prev) == beam_exception_trace) {
-		    erts_trace_exception(c_p, cp_val(ptr[0]),
-					 reg[1], reg[2], ptr+1);
-		}
-		/* Skip return_trace parameters */
-		ptr += 2;
-	    } else if (*cp_val(*prev) == i_return_to_trace) {
-		/* Skip stack frame variables */
-		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
-		    if (is_catch(*ptr) && active_catches) goto found_catch;
-		}
-		have_return_to_trace = !0; /* Record next cp */
-		return_to_trace_ptr = NULL;
-	    } else if (*cp_val(*prev) == i_return_time_trace) {
-		/* Skip stack frame variables */
-		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
-		    if (is_catch(*ptr) && active_catches) goto found_catch;
-		}
-		/* Skip return_trace parameters */
-		ptr += 1;
-	    } else {
-		if (have_return_to_trace) {
-		    /* Record this cp as possible return_to trace cp */
-		    have_return_to_trace = 0;
-		    return_to_trace_ptr = ptr;
-		} else return_to_trace_ptr = NULL;
-		ptr++;
-	    }
-	} else ptr++;
+		 if (is_catch(*ptr)) {
+			  if (active_catches) goto found_catch;
+			  ptr++;
+		 }
+		 else if (is_CP(*ptr)) {
+			  prev = ptr;
+			  if (*cp_val(*prev) == i_return_trace) {
+				   /* Skip stack frame variables */
+				   while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
+						if (is_catch(*ptr) && active_catches) goto found_catch;
+				   }
+				   if (cp_val(*prev) == beam_exception_trace) {
+						erts_trace_exception(c_p, cp_val(ptr[0]),
+											 reg[1], reg[2], ptr+1);
+				   }
+				   /* Skip return_trace parameters */
+				   ptr += 2;
+			  } else if (*cp_val(*prev) == i_return_to_trace) {
+				   /* Skip stack frame variables */
+				   while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
+						if (is_catch(*ptr) && active_catches) goto found_catch;
+				   }
+				   have_return_to_trace = !0; /* Record next cp */
+				   return_to_trace_ptr = NULL;
+			  } else if (*cp_val(*prev) == i_return_time_trace) {
+				   /* Skip stack frame variables */
+				   while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
+						if (is_catch(*ptr) && active_catches) goto found_catch;
+				   }
+				   /* Skip return_trace parameters */
+				   ptr += 1;
+			  } else {
+				   if (have_return_to_trace) {
+						/* Record this cp as possible return_to trace cp */
+						have_return_to_trace = 0;
+						return_to_trace_ptr = ptr;
+				   } else return_to_trace_ptr = NULL;
+				   ptr++;
+			  }
+		 } else {
+			  ptr++;
+		 }
     }
     return NULL;
     
@@ -5511,7 +5543,7 @@ next_catch(Process* c_p, Eterm *reg) {
 	 * continues after the catch, a return_to trace message 
 	 * would be appropriate.
 	 */
-	erts_trace_return_to(c_p, cp_val(*return_to_trace_ptr));
+		 erts_trace_return_to(c_p, cp_val(*return_to_trace_ptr));
     }
     return catch_pc(*ptr);
 }
@@ -6024,13 +6056,13 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	 * No need to test args here -- done below.
 	 */
     error:
-	p->freason = BADARG;
-
+		 p->freason = BADARG;
+		 
     error2:
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = args;
-	return 0;
+		 reg[0] = module;
+		 reg[1] = function;
+		 reg[2] = args;
+		 return 0;
     }
 
     /* The module argument may be either an atom or an abstract module
@@ -6038,14 +6070,20 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
      */
     this = THE_NON_VALUE;
     if (is_not_atom(module)) {
-	Eterm* tp;
+		 Eterm* tp;
 
-        if (is_not_tuple(module)) goto error;
-        tp = tuple_val(module);
-        if (arityval(tp[0]) < 1) goto error;
-        this = module;
-        module = tp[1];
-        if (is_not_atom(module)) goto error;
+		 if (is_not_tuple(module)){ 
+			  goto error;
+		 }
+		 tp = tuple_val(module);
+		 if (arityval(tp[0]) < 1) {
+			  goto error;
+		 }
+		 this = module;
+		 module = tp[1];
+		 if (is_not_atom(module)) {
+			  goto error;
+		 }
     }
     
     /*
@@ -6058,16 +6096,16 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     tmp = args;
     arity = 0;
     while (is_list(tmp)) {
-	if (arity < (MAX_REG - 1)) {
-	    reg[arity++] = CAR(list_val(tmp));
-	    tmp = CDR(list_val(tmp));
-	} else {
-	    p->freason = SYSTEM_LIMIT;
-	    goto error2;
-	}
+		 if (arity < (MAX_REG - 1)) {
+			  reg[arity++] = CAR(list_val(tmp));
+			  tmp = CDR(list_val(tmp));
+		 } else {
+			  p->freason = SYSTEM_LIMIT;
+			  goto error2;
+		 }
     }
     if (is_not_nil(tmp)) {	/* Must be well-formed list */
-	goto error;
+		 goto error;
     }
     if (this != THE_NON_VALUE) {
         reg[arity++] = this;
@@ -6081,9 +6119,12 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
      */
 
     if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
+//没有export的函数，直接进入handle_error的流程
+		 if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) {
+			  goto error;
+		 }
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-	save_calls(p, ep);
+		 save_calls(p, ep);
     }
 
 #ifdef USE_VM_CALL_PROBES
@@ -6092,6 +6133,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
     }
 #endif
+//返回Erlang函数的地址
     return ep->addressv[erts_active_code_ix()];
 }
 

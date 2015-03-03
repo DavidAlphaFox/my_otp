@@ -221,6 +221,9 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #  define erts_align_attribute(SZ)
 #endif
 
+//Eterm 虽然是一个unsigned long/unsigned int/unsigned long long
+//但是实际的内容可以是一个经过处理的指针或一个整形
+//所以在Erts的move_系列指令中可以有些可以使用传值赋值而不是复杂的内存赋值
 /*
 ** Data types:
 **
