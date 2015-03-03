@@ -3155,6 +3155,9 @@ get_map_elements_fail:
      SWAPOUT;
      next = apply(c_p, r(0), x(1), x(2), reg);
      SWAPIN;
+//如果下一条指令不空,设定返回指令的地址
+//如果这是创建进程的第一个指令那么默认是normal_exit
+//将快存x0 赋值为 reg[0],同时将I设置为下一条指令
      if (next != NULL) {
 		  r(0) = reg[0];
 		  SET_CP(c_p, I+1);
