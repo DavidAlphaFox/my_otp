@@ -1726,8 +1726,10 @@ erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
 {
     /* No barrier needed, due to msg lock */
     erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
-    if (!(state & ERTS_PSFLG_ACTIVE))
-	erts_schedule_process(p, state, locks);
+//如果当前Erlang进程不是active的，立刻进行一次调度
+    if (!(state & ERTS_PSFLG_ACTIVE)){
+		 erts_schedule_process(p, state, locks);
+	}
 }
 #endif
 

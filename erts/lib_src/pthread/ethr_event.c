@@ -63,41 +63,41 @@ wait__(ethr_event *e, int spincount)
 	ETHR_FATAL_ERROR__(EINVAL);
 
     while (1) {
-	while (1) {
-	    val = ethr_atomic32_read(&e->futex);
-	    if (val == ETHR_EVENT_ON__)
-		return 0;
-	    if (sc == 0)
-		break;
-	    sc--;
-	    ETHR_SPIN_BODY;
-	    if (--until_yield == 0) {
-		until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-		res = ETHR_YIELD();
-		if (res != 0)
-		    ETHR_FATAL_ERROR__(res);
-	    }
-	}
+		 while (1) {
+			  val = ethr_atomic32_read(&e->futex);
+			  if (val == ETHR_EVENT_ON__)
+				   return 0;
+			  if (sc == 0)
+				   break;
+			  sc--;
+			  ETHR_SPIN_BODY;
+			  if (--until_yield == 0) {
+				   until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
+				   res = ETHR_YIELD();
+				   if (res != 0)
+						ETHR_FATAL_ERROR__(res);
+			  }
+		 }
 
-	if (val != ETHR_EVENT_OFF_WAITER__) {
-	    val = ethr_atomic32_cmpxchg(&e->futex,
-					ETHR_EVENT_OFF_WAITER__,
-					ETHR_EVENT_OFF__);
+		 if (val != ETHR_EVENT_OFF_WAITER__) {
+			  val = ethr_atomic32_cmpxchg(&e->futex,
+										  ETHR_EVENT_OFF_WAITER__,
+										  ETHR_EVENT_OFF__);
+			  
+			  if (val == ETHR_EVENT_ON__)
+				   return 0;
+			  ETHR_ASSERT(val == ETHR_EVENT_OFF__);
+		 }
 
-	    if (val == ETHR_EVENT_ON__)
-		return 0;
-	    ETHR_ASSERT(val == ETHR_EVENT_OFF__);
-	}
-
-	res = ETHR_FUTEX__(&e->futex,
-			   ETHR_FUTEX_WAIT__,
-			   ETHR_EVENT_OFF_WAITER__);
-	if (res == EINTR)
-	    break;
-	if (res != 0 && res != EWOULDBLOCK)
-	    ETHR_FATAL_ERROR__(res);
+		 res = ETHR_FUTEX__(&e->futex,
+							ETHR_FUTEX_WAIT__,
+							ETHR_EVENT_OFF_WAITER__);
+		 if (res == EINTR)
+			  break;
+		 if (res != 0 && res != EWOULDBLOCK)
+			  ETHR_FATAL_ERROR__(res);
     }
-
+	
     return res;
 }
 
@@ -111,11 +111,11 @@ ethr_event_init(ethr_event *e)
     ethr_atomic32_init(&e->state, ETHR_EVENT_OFF__);
     res = pthread_mutex_init(&e->mtx, NULL);
     if (res != 0)
-	return res;
+		 return res;
     res = pthread_cond_init(&e->cnd, NULL);
     if (res != 0) {
-	pthread_mutex_destroy(&e->mtx);
-	return res;
+		 pthread_mutex_destroy(&e->mtx);
+		 return res;
     }
     return 0;
 }
@@ -126,10 +126,10 @@ ethr_event_destroy(ethr_event *e)
     int res;
     res = pthread_mutex_destroy(&e->mtx);
     if (res != 0)
-	return res;
+		 return res;
     res = pthread_cond_destroy(&e->cnd);
     if (res != 0)
-	return res;
+		 return res;
     return 0;
 }
 

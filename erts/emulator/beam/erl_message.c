@@ -555,12 +555,13 @@ queue_message(Process *c_p,
     }
 #endif
 
-    if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE))
-	trace_receive(receiver, message);
+    if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)){
+		 trace_receive(receiver, message);
+	}
 
-    if (locked_msgq)
-	erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
-
+    if (locked_msgq){
+		 erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
+	}
     erts_proc_notify_new_message(receiver,
 #ifdef ERTS_SMP
 				 *receiver_locks

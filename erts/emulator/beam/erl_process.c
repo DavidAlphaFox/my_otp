@@ -1207,6 +1207,7 @@ erts_psd_set_init(Process *p, ErtsProcLocks plocks, int ix, void *data)
 void
 erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flags)
 {
+//判断是什么类型的休眠，然后唤醒
     switch (flags & ERTS_SSI_FLGS_SLEEP_TYPE) {
     case ERTS_SSI_FLG_POLL_SLEEPING:
 	erts_sys_schedule_interrupt(1);
@@ -2619,22 +2620,22 @@ sched_set_sleeptype(ErtsSchedulerSleepInfo *ssi, erts_aint32_t sleep_type)
     erts_aint32_t xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
 
     if (sleep_type == ERTS_SSI_FLG_TSE_SLEEPING)
-	erts_tse_reset(ssi->event);
+		 erts_tse_reset(ssi->event);
     else {
-	ASSERT(sleep_type == ERTS_SSI_FLG_POLL_SLEEPING);
-	erts_sys_schedule_interrupt(0);
+		 ASSERT(sleep_type == ERTS_SSI_FLG_POLL_SLEEPING);
+		 erts_sys_schedule_interrupt(0);
     }
 
     while (1) {
-	oflgs = erts_smp_atomic32_cmpxchg_acqb(&ssi->flags, nflgs, xflgs);
-	if (oflgs == xflgs)
-	    return nflgs;
-	if ((oflgs & (ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING))
-	    != (ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING)) {
-	    return oflgs;
-	}
-	xflgs = oflgs;
-	nflgs |= oflgs & ERTS_SSI_FLG_SUSPENDED;
+		 oflgs = erts_smp_atomic32_cmpxchg_acqb(&ssi->flags, nflgs, xflgs);
+		 if (oflgs == xflgs)
+			  return nflgs;
+		 if ((oflgs & (ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING))
+			 != (ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING)) {
+			  return oflgs;
+		 }
+		 xflgs = oflgs;
+		 nflgs |= oflgs & ERTS_SSI_FLG_SUSPENDED;
     }
 }
 
@@ -3297,14 +3298,18 @@ wake_scheduler_on_empty_runq(ErtsRunQueue *crq)
 static ERTS_INLINE void
 smp_notify_inc_runq(ErtsRunQueue *runq)
 {
+//此处唤醒睡眠中的scheduler
 #ifdef ERTS_SMP
     if (runq) {
 #ifdef ERTS_DIRTY_SCHEDULERS
-	if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
-	    wake_dirty_schedulers(runq, 1);
-	else
+		 if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix)){
+			  wake_dirty_schedulers(runq, 1);
+		 }
+		 else
 #endif
-	    wake_scheduler(runq);
+		 {
+			  wake_scheduler(runq);
+		 }
     }
 #endif
 }
@@ -5729,26 +5734,26 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 	     | (prio << ERTS_PSFLGS_ACT_PRIO_OFFSET));
 
     if (prev_proxy) {
-	proxy = prev_proxy;
-	ASSERT(erts_smp_atomic32_read_nob(&proxy->state) & ERTS_PSFLG_PROXY);
-	erts_smp_atomic32_set_nob(&proxy->state, state);
+		 proxy = prev_proxy;
+		 ASSERT(erts_smp_atomic32_read_nob(&proxy->state) & ERTS_PSFLG_PROXY);
+		 erts_smp_atomic32_set_nob(&proxy->state, state);
 #ifdef ERTS_SMP
-	RUNQ_SET_RQ(&proc->run_queue, rq);
+		 RUNQ_SET_RQ(&proc->run_queue, rq);
 #endif
     }
     else {
-	proxy = erts_alloc(ERTS_ALC_T_PROC, sizeof(Process));
+		 proxy = erts_alloc(ERTS_ALC_T_PROC, sizeof(Process));
 #ifdef DEBUG
-	{
-	    int i;
-	    Uint32 *ui32 = (Uint32 *) (char *) proxy;
-	    for (i = 0; i < sizeof(Process)/sizeof(Uint32); i++)
-		ui32[i] = (Uint32) 0xdeadbeef;
-	}
+		 {
+			  int i;
+			  Uint32 *ui32 = (Uint32 *) (char *) proxy;
+			  for (i = 0; i < sizeof(Process)/sizeof(Uint32); i++)
+				   ui32[i] = (Uint32) 0xdeadbeef;
+		 }
 #endif
-	erts_smp_atomic32_init_nob(&proxy->state, state);
+		 erts_smp_atomic32_init_nob(&proxy->state, state);
 #ifdef ERTS_SMP
-	erts_smp_atomic_init_nob(&proxy->run_queue,
+		 erts_smp_atomic_init_nob(&proxy->run_queue,
 				 erts_smp_atomic_read_nob(&proc->run_queue));
 #endif
     }
@@ -5997,25 +6002,29 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Proces
 static ERTS_INLINE void
 add2runq(Process *p, erts_aint32_t state, erts_aint32_t prio)
 {
+//得到当前Erlang进程所在的RunQueue
     ErtsRunQueue *runq = erts_get_runq_proc(p);
 
 #ifdef ERTS_SMP
+//检查是否是绑定的
     if (!(ERTS_PSFLG_BOUND & state)) {
-	ErtsRunQueue *new_runq = erts_check_emigration_need(runq, (int) prio);
-	if (new_runq) {
-	    RUNQ_SET_RQ(&p->run_queue, new_runq);
-	    runq = new_runq;
-	}
+//我们需要将这个进程迁移到另一个RunQueue中
+		 ErtsRunQueue *new_runq = erts_check_emigration_need(runq, (int) prio);
+		 if (new_runq) {
+			  RUNQ_SET_RQ(&p->run_queue, new_runq);
+			  runq = new_runq;
+		 }
     }
 #endif
     ASSERT(runq);
 
     erts_smp_runq_lock(runq);
-
+//将Erlang进程放到相应的RunQueue中
     /* Enqueue the process */
     enqueue_process(runq, (int) prio, p);
 
     erts_smp_runq_unlock(runq);
+//通知RunQueue
     smp_notify_inc_runq(runq);
 
 }
