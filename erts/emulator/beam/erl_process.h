@@ -1905,49 +1905,50 @@ ERTS_GLB_INLINE ErtsMigrationPaths *
 erts_get_migration_paths(void)
 {
     if (erts_thr_progress_is_managed_thread())
-	return erts_get_migration_paths_managed();
+		 return erts_get_migration_paths_managed();
     else
-	return NULL;
+		 return NULL;
 }
 
 ERTS_GLB_INLINE ErtsRunQueue *
 erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 {
+//得到迁移路径
     ErtsMigrationPaths *mps = erts_get_migration_paths();
     ErtsMigrationPath *mp;
     Uint32 flags;
 
     if (!mps)
-	return NULL;
+		 return NULL;
 
     mp = &mps->mpath[c_rq->ix];
     flags = mp->flags;
 
     if (ERTS_CHK_RUNQ_FLG_EMIGRATE(flags, prio)) {
-	int len;
+		 int len;
 
-	if (ERTS_CHK_RUNQ_FLG_EVACUATE(flags, prio)) {
+		 if (ERTS_CHK_RUNQ_FLG_EVACUATE(flags, prio)) {
 	    /* force emigration */
-	    return mp->prio[prio].runq;
-	}
+			  return mp->prio[prio].runq;
+		 }
 
-	if (flags & ERTS_RUNQ_FLG_INACTIVE) {
-	    /*
+		 if (flags & ERTS_RUNQ_FLG_INACTIVE) {
+		/*
 	     * Run queue was inactive at last balance. Verify that
 	     * it still is before forcing emigration.
 	     */
-	    if (ERTS_RUNQ_FLGS_GET(c_rq) & ERTS_RUNQ_FLG_INACTIVE)
-		return mp->prio[prio].runq;
-	}
+			  if (ERTS_RUNQ_FLGS_GET(c_rq) & ERTS_RUNQ_FLG_INACTIVE)
+				   return mp->prio[prio].runq;
+		 }
 
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
 	if (mp->sched_util) {
-	    ErtsRunQueue *rq = mp->prio[prio].runq;
-	    /* No migration if other is non-empty */
-	    if (!(ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY)
-		&& erts_get_sched_util(rq, 0, 1) < mp->prio[prio].limit.other
-		&& erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.this) {
-		return rq;
+		 ErtsRunQueue *rq = mp->prio[prio].runq;
+		 /* No migration if other is non-empty */
+		 if (!(ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY)
+			 && erts_get_sched_util(rq, 0, 1) < mp->prio[prio].limit.other
+			 && erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.this) {
+			  return rq;
 	    }
 	}
 	else

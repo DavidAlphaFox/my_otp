@@ -3346,19 +3346,19 @@ enqueue_process(ErtsRunQueue *runq, int prio, Process *p)
     erts_smp_inc_runq_len(runq, &runq->procs.prio_info[prio], prio);
 
     if (prio == PRIORITY_LOW) {
-	p->schedule_count = RESCHEDULE_LOW;
-	rpq = &runq->procs.prio[PRIORITY_NORMAL];
+		 p->schedule_count = RESCHEDULE_LOW;
+		 rpq = &runq->procs.prio[PRIORITY_NORMAL];
     }
     else {
-	p->schedule_count = 1;
-	rpq = &runq->procs.prio[prio];
+		 p->schedule_count = 1;
+		 rpq = &runq->procs.prio[prio];
     }
 
     p->next = NULL;
     if (rpq->last)
-	rpq->last->next = p;
+		 rpq->last->next = p;
     else
-	rpq->first = p;
+		 rpq->first = p;
     rpq->last = p;
 }
 
@@ -6028,7 +6028,7 @@ add2runq(Process *p, erts_aint32_t state, erts_aint32_t prio)
     smp_notify_inc_runq(runq);
 
 }
-
+//改变Erlang进程调度状态
 static ERTS_INLINE int
 change_proc_schedule_state(Process *p,
 			   erts_aint32_t clear_state_flags,
@@ -6059,60 +6059,60 @@ change_proc_schedule_state(Process *p,
 			       | ERTS_PSFLG_ACTIVE_SYS)) == 0);
 
     if (lock_status)
-	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+		 erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
 
     while (1) {
-	erts_aint32_t e;
-	n = e = a;
+		 erts_aint32_t e;
+		 n = e = a;
 
-	enqueue = ERTS_ENQUEUE_NOT;
+		 enqueue = ERTS_ENQUEUE_NOT;
 
-	if (a & ERTS_PSFLG_FREE)
-	    break; /* We don't want to schedule free processes... */
+		 if (a & ERTS_PSFLG_FREE)
+			  break; /* We don't want to schedule free processes... */
 
-	if (clear_state_flags)
-	    n &= ~clear_state_flags;
+		 if (clear_state_flags)
+			  n &= ~clear_state_flags;
 
-	if (set_state_flags)
-	    n |= set_state_flags;
-
-	if ((n & (ERTS_PSFLG_SUSPENDED
-		  | ERTS_PSFLG_RUNNING
-		  | ERTS_PSFLG_RUNNING_SYS
-		  | ERTS_PSFLG_IN_RUNQ
-		  | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE) {
+		 if (set_state_flags)
+			  n |= set_state_flags;
+//保证当前Erlang进程是且只是Active的
+		 if ((n & (ERTS_PSFLG_SUSPENDED
+				   | ERTS_PSFLG_RUNNING
+				   | ERTS_PSFLG_RUNNING_SYS
+				   | ERTS_PSFLG_IN_RUNQ
+				   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE) {
 	    /*
 	     * Active and seemingly need to be enqueued, but
 	     * process may be in a run queue via proxy, need
 	     * further inspection...
 	     */
-	    enqueue = check_enqueue_in_prio_queue(p, enq_prio_p, &n, a);
-	}
+			  enqueue = check_enqueue_in_prio_queue(p, enq_prio_p, &n, a);
+		 }
 
-	a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
-	if (a == e)
-	    break;
-	if (enqueue == ERTS_ENQUEUE_NOT && n == a)
-	    break;
+		 a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
+		 if (a == e)
+			  break;
+		 if (enqueue == ERTS_ENQUEUE_NOT && n == a)
+			  break;
     }
 
     if (prof_runnable_procs) {
 
 	/* Status lock prevents out of order "runnable proc" trace msgs */
 
-	if (((n & (ERTS_PSFLG_SUSPENDED
-		   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
-	    && (!(a & (ERTS_PSFLG_ACTIVE_SYS
-		       | ERTS_PSFLG_RUNNING
-		       | ERTS_PSFLG_RUNNING_SYS)
-		  && (!(a & ERTS_PSFLG_ACTIVE)
-		      || (a & ERTS_PSFLG_SUSPENDED))))) {
-	    /* We activated a prevously inactive process */
-	    profile_runnable_proc(p, am_active);
-	}
+		 if (((n & (ERTS_PSFLG_SUSPENDED
+					| ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
+			 && (!(a & (ERTS_PSFLG_ACTIVE_SYS
+						| ERTS_PSFLG_RUNNING
+						| ERTS_PSFLG_RUNNING_SYS)
+				   && (!(a & ERTS_PSFLG_ACTIVE)
+					   || (a & ERTS_PSFLG_SUSPENDED))))) {
+			  /* We activated a prevously inactive process */
+			  profile_runnable_proc(p, am_active);
+		 }
 
-	if (lock_status)
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+		 if (lock_status)
+			  erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     }
 
 
@@ -6120,7 +6120,7 @@ change_proc_schedule_state(Process *p,
 
     return enqueue;
 }
-
+//调度一个Erlang进程到调度器上
 static ERTS_INLINE void
 schedule_process(Process *p, erts_aint32_t in_state, ErtsProcLocks locks)
 {
