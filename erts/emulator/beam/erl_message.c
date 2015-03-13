@@ -426,14 +426,15 @@ erts_queue_dist_message(Process *rcvr,
 }
 
 /* Add a message last in message queue */
+//将消息放入目标进程的消息队列中
 static Sint
 queue_message(Process *c_p,
-	      Process* receiver,
-	      ErtsProcLocks *receiver_locks,
-	      erts_aint32_t *receiver_state,
-	      ErlHeapFragment* bp,
-	      Eterm message,
-	      Eterm seq_trace_token
+			  Process* receiver,
+			  ErtsProcLocks *receiver_locks,
+			  erts_aint32_t *receiver_state,
+			  ErlHeapFragment* bp,
+			  Eterm message,
+			  Eterm seq_trace_token
 #ifdef USE_VM_PROBES
 		   , Eterm dt_utag
 #endif
@@ -452,44 +453,52 @@ queue_message(Process *c_p,
 
     mp = message_alloc();
 
-    if (receiver_state)
-	state = *receiver_state;
-    else
-	state = erts_smp_atomic32_read_acqb(&receiver->state);
+    if (receiver_state){
+		 state = *receiver_state;
+	}else{
+		 state = erts_smp_atomic32_read_acqb(&receiver->state);
+	}
 
 #ifdef ERTS_SMP
-
-    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
-	goto exiting;
-
-    if (!(*receiver_locks & ERTS_PROC_LOCK_MSGQ)) {
-	if (erts_smp_proc_trylock(receiver, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
-	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
-	    if (*receiver_locks & ERTS_PROC_LOCK_STATUS) {
-		erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_STATUS);
-		need_locks |= ERTS_PROC_LOCK_STATUS;
-	    }
-	    erts_smp_proc_lock(receiver, need_locks);
+//如果目标进程处在退出的状态，直接进入退出清理
+    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)){
+		 goto exiting;
 	}
-	locked_msgq = 1;
-	state = erts_smp_atomic32_read_nob(&receiver->state);
-	if (receiver_state)
-	    *receiver_state = state;
+//如果当前没有目标Erlang进程的消息队列锁
+//尝试获取消息队列的锁
+    if (!(*receiver_locks & ERTS_PROC_LOCK_MSGQ)) {
+		 if (erts_smp_proc_trylock(receiver, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
+			  ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
+			  if (*receiver_locks & ERTS_PROC_LOCK_STATUS) {
+				   erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_STATUS);
+				   need_locks |= ERTS_PROC_LOCK_STATUS;
+			  }
+			  erts_smp_proc_lock(receiver, need_locks);
+		 }
+		 locked_msgq = 1;
+		 state = erts_smp_atomic32_read_nob(&receiver->state);
+//获取目标Erlang进程的状态
+		 if (receiver_state){
+			  *receiver_state = state;
+		 }
     }
 
 #endif
-
+//Erlang进程处于退出的状态
+//直接释放目标进程的锁，和当前消息
     if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
 #ifdef ERTS_SMP
     exiting:
 #endif
 	/* Drop message if receiver is exiting or has a pending exit... */
-	if (locked_msgq)
-	    erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
-	if (bp)
-	    free_message_buffer(bp);
-	message_free(mp);
-	return 0;
+		 if (locked_msgq){
+			  erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
+		 }
+		 if (bp){
+			  free_message_buffer(bp);
+		 }
+		 message_free(mp);
+		 return 0;
     }
 
     ERL_MESSAGE_TERM(mp) = message;
@@ -504,6 +513,8 @@ queue_message(Process *c_p,
     res = receiver->msg.len;
 #else
     res = receiver->msg_inq.len;
+//把消息attach的目标Erlang进程的消息队列或者private
+//的消息队列
     if (*receiver_locks & ERTS_PROC_LOCK_MAIN) {
 	/*
 	 * We move 'in queue' to 'private queue' and place
@@ -513,14 +524,16 @@ queue_message(Process *c_p,
 	 * we don't need to include the 'in queue' in
 	 * the root set when garbage collecting.
 	 */
-	res += receiver->msg.len;
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(receiver);
-	LINK_MESSAGE_PRIVQ(receiver, mp);
+//这个时候可以操作msg_inq和msg
+		 res += receiver->msg.len;
+		 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(receiver);
+		 LINK_MESSAGE_PRIVQ(receiver, mp);
     }
     else
 #endif
     {
-	LINK_MESSAGE(receiver, mp);
+//这个时候只操作msg_inq
+		 LINK_MESSAGE(receiver, mp);
     }
 
 #ifdef USE_VM_PROBES
@@ -561,7 +574,6 @@ queue_message(Process *c_p,
 #endif
     return res;
 }
-
 void
 erts_queue_message(Process* receiver,
 		   ErtsProcLocks *receiver_locks,
@@ -891,6 +903,7 @@ erts_send_message(Process* sender,
 		  unsigned flags)
 {
     Uint msize;
+//Erlang进程堆碎片
     ErlHeapFragment* bp = NULL;
     Eterm token = NIL;
     Sint res = 0;
@@ -904,8 +917,8 @@ erts_send_message(Process* sender,
     BM_STOP_TIMER(system);
     BM_MESSAGE(message,sender,receiver);
     BM_START_TIMER(send);
-
- #ifdef USE_VM_PROBES
+//可以使用Dtrace跟踪消息发送
+#ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
    if (DTRACE_ENABLED(message_send)) {
         erts_snprintf(sender_name, sizeof(DTRACE_CHARBUF_NAME(sender_name)),
@@ -916,70 +929,71 @@ erts_send_message(Process* sender,
 #endif
     if (SEQ_TRACE_TOKEN(sender) != NIL && !(flags & ERTS_SND_FLG_NO_SEQ_TRACE)) {
         Eterm* hp;
-	Eterm stoken = SEQ_TRACE_TOKEN(sender);
-	Uint seq_trace_size = 0;
+		Eterm stoken = SEQ_TRACE_TOKEN(sender);
+		Uint seq_trace_size = 0;
 #ifdef USE_VM_PROBES
-	Uint dt_utag_size = 0;
-	Eterm utag = NIL;
+		Uint dt_utag_size = 0;
+		Eterm utag = NIL;
 #endif
 
-	BM_SWAP_TIMER(send,size);
-	msize = size_object(message);
-	BM_SWAP_TIMER(size,send);
+		BM_SWAP_TIMER(send,size);
+//得到消息的大小
+		msize = size_object(message);
+		BM_SWAP_TIMER(size,send);
 
 #ifdef USE_VM_PROBES
-	if (stoken != am_have_dt_utag) {
+		if (stoken != am_have_dt_utag) {
 #endif
 
-	    seq_trace_update_send(sender);
-	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
-			     receiver->common.id, sender);
-	    seq_trace_size = 6; /* TUPLE5 */
+			 seq_trace_update_send(sender);
+			 seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
+							  receiver->common.id, sender);
+			 seq_trace_size = 6; /* TUPLE5 */
 #ifdef USE_VM_PROBES
-	}
-	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
-	    dt_utag_size = size_object(DT_UTAG(sender));
-	} else if (stoken == am_have_dt_utag ) {
-	    stoken = NIL;
-	}
+		}
+		if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
+			 dt_utag_size = size_object(DT_UTAG(sender));
+		} else if (stoken == am_have_dt_utag ) {
+			 stoken = NIL;
+		}
 #endif
-
-	bp = new_message_buffer(msize + seq_trace_size 
+//创建一个新的message buffer
+		bp = new_message_buffer(msize + seq_trace_size 
 #ifdef USE_VM_PROBES
-				+ dt_utag_size
+								+ dt_utag_size
 #endif
-				);
-	hp = bp->mem;
+			 );
+		hp = bp->mem;
 
         BM_SWAP_TIMER(send,copy);
-	token = copy_struct(stoken,
-			    seq_trace_size,
-			    &hp,
-			    &bp->off_heap);
+		token = copy_struct(stoken,
+							seq_trace_size,
+							&hp,
+							&bp->off_heap);
 
-	message = copy_struct(message, msize, &hp, &bp->off_heap);
+		message = copy_struct(message, msize, &hp, &bp->off_heap);
 #ifdef USE_VM_PROBES
-	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
-	    utag = copy_struct(DT_UTAG(sender), dt_utag_size, &hp, &bp->off_heap);
+		if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
+			 utag = copy_struct(DT_UTAG(sender), dt_utag_size, &hp, &bp->off_heap);
 #ifdef DTRACE_TAG_HARDDEBUG
-	    erts_fprintf(stderr,
-			 "Dtrace -> (%T) Spreading tag (%T) with "
-			 "message %T!\r\n",sender->common.id, utag, message);
+			 erts_fprintf(stderr,
+						  "Dtrace -> (%T) Spreading tag (%T) with "
+						  "message %T!\r\n",sender->common.id, utag, message);
 #endif
-	}
+		}
 #endif
         BM_MESSAGE_COPIED(msize);
         BM_SWAP_TIMER(copy,send);
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(message_send)) {
-	    if (stoken != NIL && stoken != am_have_dt_utag) {
-		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
-		tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
-		tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
-	    }
-	    DTRACE6(message_send, sender_name, receiver_name,
-		    msize, tok_label, tok_lastcnt, tok_serial);
+			 if (stoken != NIL && stoken != am_have_dt_utag) {
+				  tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
+				  tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
+				  tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
+			 }
+			 DTRACE6(message_send, sender_name, receiver_name,
+					 msize, tok_label, tok_lastcnt, tok_serial);
         }
 #endif
         res = queue_message(NULL,

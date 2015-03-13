@@ -1878,7 +1878,7 @@ void process_main(void)
      ErlMessage* msgp;
 
  loop_rec__:
-
+//在非SMP模式下是没有msg_inq这东西的
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
      msgp = PEEK_MESSAGE(c_p);
@@ -1886,38 +1886,44 @@ void process_main(void)
      if (!msgp) {
 #ifdef ERTS_SMP
 //SMP模式下，需要在处理消息前确认进程没有退出
-	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	 /* Make sure messages wont pass exit signals... */
-	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	     SWAPOUT;
-	     goto do_schedule; /* Will be rescheduled for exit */
-	 }
-	 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	 msgp = PEEK_MESSAGE(c_p);
-	 if (msgp)
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	 else
+		  erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		  /* Make sure messages wont pass exit signals... */
+		  if (ERTS_PROC_PENDING_EXIT(c_p)) {
+			   erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+			   SWAPOUT;
+			   goto do_schedule; /* Will be rescheduled for exit */
+		  }
+//消息匹配之前，先将msg_inq的消息移动到msg上
+//只有在msg上的消息才能被匹配，msg_inq相当一个缓冲
+//当msg在进行匹配的时候，依然能让别的Erlang进程对
+//当前正在执行的Erlang进程发消息切不阻塞发送进程
+		  ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+		  msgp = PEEK_MESSAGE(c_p);
+		  if (msgp){
+			   erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		  }
+		  else
 #endif
-	 {
+		  {
 //第二次尝试的时候，消息依然为空
 //直接进入wait_timeout状态
-	     SET_I((BeamInstr *) Arg(0));
-	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
-	 }
+			   SET_I((BeamInstr *) Arg(0));
+			   Goto(*I);		/* Jump to a wait or wait_timeout instruction */
+		  }
      }
+//这是一个宏不是一个函数
      ErtsMoveMsgAttachmentIntoProc(msgp, c_p, E, HTOP, FCALLS,
-				   {
-				       SWAPOUT;
-				       reg[0] = r(0);
-				       PROCESS_MAIN_CHK_LOCKS(c_p);
-				   },
-				   {
-				       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-				       PROCESS_MAIN_CHK_LOCKS(c_p);
-				       r(0) = reg[0];
-				       SWAPIN;
-				   });
+								   {
+										SWAPOUT;
+										reg[0] = r(0);
+										PROCESS_MAIN_CHK_LOCKS(c_p);
+								   },
+								   {
+										ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+										PROCESS_MAIN_CHK_LOCKS(c_p);
+										r(0) = reg[0];
+										SWAPIN;
+								   });
      if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
 	 /*
 	  * A corrupt distribution message that we weren't able to decode;

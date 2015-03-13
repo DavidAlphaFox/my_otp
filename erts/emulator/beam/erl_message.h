@@ -119,7 +119,6 @@ typedef struct {
 /* Get "current" message */
 #define PEEK_MESSAGE(p)  (*(p)->msg.save)
 
-
 /* Add message last in private message queue */
 #define LINK_MESSAGE_PRIVQ(p, mp) do { \
     *(p)->msg.last = (mp); \
@@ -131,6 +130,9 @@ typedef struct {
 #ifdef ERTS_SMP
 
 /* Move in message queue to end of private message queue */
+//当msg_inq的头节点不空
+//将头节点放到私有队列上,这样就完成了msg_inq的数据移动到
+//msg上的过程
 #define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(P)					\
 do {									\
     if ((P)->msg_inq.first) {						\
@@ -143,6 +145,11 @@ do {									\
     }									\
 } while (0)
 
+//当消息队列为空的时候
+//mp会直接赋值给msg->first,同时让msg->last指向mp->next
+//当消息队列不为空的时候
+//mp会直接链接到上一个msg的next上，同时让msg->last指向mp->next
+//这是一个非常快的有head和tail的链接构建方式
 /* Add message last in message queue */
 #define LINK_MESSAGE(p, mp) do { \
     *(p)->msg_inq.last = (mp); \

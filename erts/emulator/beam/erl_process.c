@@ -10691,7 +10691,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     }
 
     erts_get_default_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER_PROC(p));
-
+//初始化的时候msg->first = NULL
+//msg->last = &msg->first
+//*(msg->last) 相当与msg->first
     p->msg.first = NULL;
     p->msg.last = &p->msg.first;
     p->msg.save = &p->msg.first;
