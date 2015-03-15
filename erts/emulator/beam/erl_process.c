@@ -3841,7 +3841,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	    smp_notify_inc_runq(to_rq);
     }
 }
-
+//任务密取
 static int
 try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq, Uint32 flags)
 {
@@ -5894,93 +5894,93 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Proces
     a = state;
 
     while (1) {
-	n = e = a;
+		 n = e = a;
 
-	ASSERT(a & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
+		 ASSERT(a & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
 
-	enqueue = ERTS_ENQUEUE_NOT;
+		 enqueue = ERTS_ENQUEUE_NOT;
 
-	n &= ~(ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS);
-	if (a & ERTS_PSFLG_ACTIVE_SYS
-	    || (a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
-	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
-	}
-	a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
-	if (a == e)
-	    break;
+		 n &= ~(ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS);
+		 if (a & ERTS_PSFLG_ACTIVE_SYS
+			 || (a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
+			  enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
+		 }
+		 a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
+		 if (a == e)
+			  break;
     }
 
     switch (enqueue) {
     case ERTS_ENQUEUE_NOT:
-	if (erts_system_profile_flags.runnable_procs) {
+		 if (erts_system_profile_flags.runnable_procs) {
 
 	    /* Status lock prevents out of order "runnable proc" trace msgs */
-	    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
+			  ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-	    if (!(a & ERTS_PSFLG_ACTIVE_SYS)
-		&& (!(a & ERTS_PSFLG_ACTIVE)
-		    || (a & ERTS_PSFLG_SUSPENDED))) {
-		/* Process inactive */
-		profile_runnable_proc(p, am_inactive);
-	    }
-	}
-
-	if (proxy)
-	    free_proxy_proc(proxy);
-
-	erts_smp_runq_lock(c_rq);
-	return 0;
+			  if (!(a & ERTS_PSFLG_ACTIVE_SYS)
+				  && (!(a & ERTS_PSFLG_ACTIVE)
+					  || (a & ERTS_PSFLG_SUSPENDED))) {
+				   /* Process inactive */
+				   profile_runnable_proc(p, am_inactive);
+			  }
+		 }
+		 
+		 if (proxy)
+			  free_proxy_proc(proxy);
+		 
+		 erts_smp_runq_lock(c_rq);
+		 return 0;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 #ifdef ERTS_SMP
     case ERTS_ENQUEUE_DIRTY_CPU_QUEUE:
     case -ERTS_ENQUEUE_DIRTY_CPU_QUEUE:
-	runq = ERTS_DIRTY_CPU_RUNQ;
-	ASSERT(ERTS_SCHEDULER_IS_DIRTY_CPU(runq->scheduler));
+		 runq = ERTS_DIRTY_CPU_RUNQ;
+		 ASSERT(ERTS_SCHEDULER_IS_DIRTY_CPU(runq->scheduler));
 #ifdef ERTS_SMP
-	check_emigration_need = 0;
+		 check_emigration_need = 0;
 #endif
-	break;
+		 break;
 
     case ERTS_ENQUEUE_DIRTY_IO_QUEUE:
     case -ERTS_ENQUEUE_DIRTY_IO_QUEUE:
-	runq = ERTS_DIRTY_IO_RUNQ;
-	ASSERT(ERTS_SCHEDULER_IS_DIRTY_IO(runq->scheduler));
+		 runq = ERTS_DIRTY_IO_RUNQ;
+		 ASSERT(ERTS_SCHEDULER_IS_DIRTY_IO(runq->scheduler));
 #ifdef ERTS_SMP
-	check_emigration_need = 0;
+		 check_emigration_need = 0;
 #endif
-	break;
+		 break;
 #endif
 #endif
 
     default:
-	ASSERT(enqueue == ERTS_ENQUEUE_NORMAL_QUEUE
-	       || enqueue == -ERTS_ENQUEUE_NORMAL_QUEUE);
+		 ASSERT(enqueue == ERTS_ENQUEUE_NORMAL_QUEUE
+				q|| enqueue == -ERTS_ENQUEUE_NORMAL_QUEUE);
 
-	runq = erts_get_runq_proc(p);
+		 runq = erts_get_runq_proc(p);
 #ifdef ERTS_SMP
-	check_emigration_need = !(ERTS_PSFLG_BOUND & n);
+		 check_emigration_need = !(ERTS_PSFLG_BOUND & n);
 #endif
-	break;
+		 break;
     }
 
     ASSERT(!(n & ERTS_PSFLG_SUSPENDED) || (n & ERTS_PSFLG_ACTIVE_SYS));
 
     if (enqueue < 0)
-	sched_p = make_proxy_proc(proxy, p, enq_prio);
+		 sched_p = make_proxy_proc(proxy, p, enq_prio);
     else {
-	sched_p = p;
+		 sched_p = p;
 	if (proxy)
 	    free_proxy_proc(proxy);
     }
 
 #ifdef ERTS_SMP
     if (check_emigration_need) {
-	ErtsRunQueue *new_runq = erts_check_emigration_need(runq, enq_prio);
-	if (new_runq) {
-	    RUNQ_SET_RQ(&sched_p->run_queue, new_runq);
-	    runq = new_runq;
-	}
+		 ErtsRunQueue *new_runq = erts_check_emigration_need(runq, enq_prio);
+		 if (new_runq) {
+			  RUNQ_SET_RQ(&sched_p->run_queue, new_runq);
+			  runq = new_runq;
+		 }
     }
 #endif
 
@@ -5992,7 +5992,7 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Proces
     enqueue_process(runq, (int) enq_prio, sched_p);
 
     if (runq == c_rq)
-	return 1;
+		 return 1;
     erts_smp_runq_unlock(runq);
     smp_notify_inc_runq(runq);
     erts_smp_runq_lock(c_rq);
@@ -8976,12 +8976,12 @@ Process *schedule(Process *p, int calls)
 #endif
 
     if (ERTS_USE_MODIFIED_TIMING()) {
-	context_reds = ERTS_MODIFIED_TIMING_CONTEXT_REDS;
-	input_reductions = ERTS_MODIFIED_TIMING_INPUT_REDS;
+		 context_reds = ERTS_MODIFIED_TIMING_CONTEXT_REDS;
+		 input_reductions = ERTS_MODIFIED_TIMING_INPUT_REDS;
     }
     else {
-	context_reds = CONTEXT_REDS;
-	input_reductions = INPUT_REDUCTIONS;
+		 context_reds = CONTEXT_REDS;
+		 input_reductions = INPUT_REDUCTIONS;
     }
 
     ERTS_SMP_LC_ASSERT(ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data())
@@ -8991,12 +8991,12 @@ Process *schedule(Process *p, int calls)
      * Clean up after the process being scheduled out.
      */
     if (!p) {	/* NULL in the very first schedule() call */
-	esdp = erts_get_scheduler_data();
-	rq = erts_get_runq_current(esdp);
-	ASSERT(esdp);
-	fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
-	actual_reds = reds = 0;
-	erts_smp_runq_lock(rq);
+		 esdp = erts_get_scheduler_data();
+		 rq = erts_get_runq_current(esdp);
+		 ASSERT(esdp);
+		 fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
+		 actual_reds = reds = 0;
+		 erts_smp_runq_lock(rq);
     } else {
     sched_out_proc:
 
@@ -9076,7 +9076,7 @@ Process *schedule(Process *p, int calls)
 #else
 	    state = erts_smp_atomic32_read_nob(&p->state);
 	    if (!(state & ERTS_PSFLG_IN_RUNQ))
-		erts_free_proc(p);
+			 erts_free_proc(p);
 #endif
 	}
 

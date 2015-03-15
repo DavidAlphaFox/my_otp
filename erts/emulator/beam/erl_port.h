@@ -75,7 +75,7 @@ typedef struct erts_driver_t_ erts_driver_t;
 #endif
 
 #define SMALL_IO_QUEUE 5   /* Number of fixed elements */
-
+//Erlang的IOQueue是一个向量队列
 typedef struct {
     ErlDrvSizeT size;       /* total size in bytes */
 
@@ -160,6 +160,7 @@ struct _erl_drv_port {
 #ifdef ERTS_SMP
     erts_mtx_t *lock;
     ErtsXPortsList *xports;
+//RunQuque使用原子保存，需要的时候转化一下
     erts_smp_atomic_t run_queue;
 #else
     erts_atomic32_t refc;
@@ -219,16 +220,16 @@ erts_port_runq(Port *prt)
     ErtsRunQueue *rq1, *rq2;
     rq1 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
     if (!rq1)
-	return NULL;
+		 return NULL;
     while (1) {
-	erts_smp_runq_lock(rq1);
-	rq2 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
-	if (rq1 == rq2)
-	    return rq1;
-	erts_smp_runq_unlock(rq1);
-	rq1 = rq2;
-	if (!rq1)
-	    return NULL;
+		 erts_smp_runq_lock(rq1);
+		 rq2 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
+		 if (rq1 == rq2)
+			  return rq1;
+		 erts_smp_runq_unlock(rq1);
+		 rq1 = rq2;
+		 if (!rq1)
+			  return NULL;
     }
 #else
     return ERTS_RUNQ_IX(0);
@@ -595,8 +596,8 @@ erts_port_release(Port *prt)
     erts_smp_port_unlock(prt);
 #else
     if (prt->cleanup) {
-	prt->cleanup = 0;
-	erts_port_cleanup(prt);
+		 prt->cleanup = 0;
+		 erts_port_cleanup(prt);
     }
 #endif
 }

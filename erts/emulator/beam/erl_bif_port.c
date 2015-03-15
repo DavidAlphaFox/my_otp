@@ -48,36 +48,37 @@ static char **convert_args(Eterm);
 static void free_args(char **);
 
 char *erts_default_arg0 = "default";
-
+//参数是 Process* A__p Erterm* BIF__ARGS
 BIF_RETTYPE open_port_2(BIF_ALIST_2)
 {
     Port *port;
     Eterm port_id;
     char *str;
     int err_type, err_num;
-
+//传入当前Erlang进程（BIF_P),以及要打开的Driver的名称，和Driver的参数
     port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);
     if (!port) {
-	if (err_type == -3) {
-	    ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
-	    BIF_ERROR(BIF_P, err_num);
+		 if (err_type == -3) {
+			  ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
+			  BIF_ERROR(BIF_P, err_num);
 	} else if (err_type == -2) {
-	    str = erl_errno_id(err_num);
+			  str = erl_errno_id(err_num);
 	} else {
-	    str = "einval";
+			  str = "einval";
 	}
-	BIF_P->fvalue = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
-	BIF_ERROR(BIF_P, EXC_ERROR);
+		 BIF_P->fvalue = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
+		 BIF_ERROR(BIF_P, EXC_ERROR);
     }
-
+//Port创建成功后
+//将Port和要求创建的进程关联起来
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
 
     port_id = port->common.id;
     erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
     erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port_id);
-
+//释放创建进程的锁
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
-
+//释放Port的锁
     erts_port_release(port);
 
     BIF_RET(port_id);
@@ -249,13 +250,13 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
+		 BIF_RET(am_badarg);
 
     if (!term_to_Uint(BIF_ARG_2, &uint_op))
-	BIF_RET(am_badarg);
+		 BIF_RET(am_badarg);
 
     if (uint_op > (Uint) UINT_MAX)
-	BIF_RET(am_badarg);
+		 BIF_RET(am_badarg);
 
     op = (unsigned int) uint_op;
 
@@ -263,27 +264,27 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
     case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
-	retval = am_badarg;
-	break;
+		 retval = am_badarg;
+		 break;
     case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ref(retval));
-	break;
+		 ASSERT(is_internal_ref(retval));
+		 break;
     case ERTS_PORT_OP_DONE:
-	ASSERT(is_not_internal_ref(retval));
-	break;
+		 ASSERT(is_not_internal_ref(retval));
+		 break;
     default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_control() result");
-	retval = am_internal_error;
-	break;
+		 ERTS_INTERNAL_ERROR("Unexpected erts_port_control() result");
+		 retval = am_internal_error;
+		 break;
     }
 
     state = erts_smp_atomic32_read_acqb(&BIF_P->state);
     if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
 #ifdef ERTS_SMP
-	if (state & ERTS_PSFLG_PENDING_EXIT)
-	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+		 if (state & ERTS_PSFLG_PENDING_EXIT)
+			  erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
 #endif
-	ERTS_BIF_EXITED(BIF_P);
+		 ERTS_BIF_EXITED(BIF_P);
     }
 
     BIF_RET(retval);
@@ -612,7 +613,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
  * -3 if argument parsing failed or we are out of ports (*err_nump should contain
  * either BADARG or SYSTEM_LIMIT).
  */
-
+//用一个Driver创建一个Port
 static Port *
 open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
@@ -646,244 +647,247 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     linebuf = 0;
 
     *err_nump = 0;
-
+//检查参数
     if (is_not_list(settings) && is_not_nil(settings)) {
-	goto badarg;
+		 goto badarg;
     }
     /*
      * Parse the settings.
      */
-
+//检查settings是否争取
     if (is_not_nil(settings)) {
-	nargs = list_val(settings);
-	while (1) {
-	    if (is_tuple_arity(*nargs, 2)) {
-		tp = tuple_val(*nargs);
-		arity = *tp++;
-		option = *tp++;
-		if (option == am_packet) {
-		    if (is_not_small(*tp)) {
-			goto badarg;
-		    }
-		    opts.packet_bytes = signed_val(*tp);
-		    switch (opts.packet_bytes) {
-		    case 1:
-		    case 2:
-		    case 4:
-			break;
-		    default:
-			goto badarg;
-		   }
-		} else if (option == am_line) {
-		    if (is_not_small(*tp)) {
-			goto badarg;
-		    }
-		    linebuf = signed_val(*tp);
-		    if (linebuf <= 0) {
-			goto badarg;
-		    }
-		} else if (option == am_env) {
-		    byte* bytes;
-		    if ((bytes = convert_environment(p, *tp)) == NULL) {
-			goto badarg;
-		    }
-		    opts.envir = (char *) bytes;
-		} else if (option == am_args) {
-		    char **av;
-		    char **oav = opts.argv;
-		    if ((av = convert_args(*tp)) == NULL) {
-			goto badarg;
-		    }
-		    opts.argv = av;
-		    if (oav) {
-			opts.argv[0] = oav[0];
-			oav[0] = erts_default_arg0;
-			free_args(oav);
-		    }
+		 nargs = list_val(settings);
+		 while (1) {
+			  if (is_tuple_arity(*nargs, 2)) {
+				   tp = tuple_val(*nargs);
+				   arity = *tp++;
+				   option = *tp++;
+				   if (option == am_packet) {
+						if (is_not_small(*tp)) {
+							 goto badarg;
+						}
+						opts.packet_bytes = signed_val(*tp);
+						switch (opts.packet_bytes) {
+						case 1:
+						case 2:
+						case 4:
+							 break;
+						default:
+							 goto badarg;
+						}
+				   } else if (option == am_line) {
+						if (is_not_small(*tp)) {
+							 goto badarg;
+						}
+						linebuf = signed_val(*tp);
+						if (linebuf <= 0) {
+							 goto badarg;
+						}
+				   } else if (option == am_env) {
+						byte* bytes;
+						if ((bytes = convert_environment(p, *tp)) == NULL) {
+							 goto badarg;
+						}
+						opts.envir = (char *) bytes;
+				   } else if (option == am_args) {
+						char **av;
+						char **oav = opts.argv;
+						if ((av = convert_args(*tp)) == NULL) {
+							 goto badarg;
+						}
+						opts.argv = av;
+						if (oav) {
+							 opts.argv[0] = oav[0];
+							 oav[0] = erts_default_arg0;
+							 free_args(oav);
+						}
 
-		} else if (option == am_arg0) {
-		    char *a0;
-
-		    if ((a0 = erts_convert_filename_to_native(*tp, NULL, 0, ERTS_ALC_T_TMP, 1, 1, NULL)) == NULL) {
-			goto badarg;
-		    }
-		    if (opts.argv == NULL) {
-			opts.argv = erts_alloc(ERTS_ALC_T_TMP, 
-					       2 * sizeof(char **));
-			opts.argv[0] = a0;
-			opts.argv[1] = NULL;
-		    } else {
-			if (opts.argv[0] != erts_default_arg0) {
-			    erts_free(ERTS_ALC_T_TMP, opts.argv[0]);
-			}
-			opts.argv[0] = a0;
-		    }
-		} else if (option == am_cd) {
-		    edir = *tp;
-		} else if (option == am_parallelism) {
-		    if (*tp == am_true)
-			opts.parallelism = 1;
-		    else if (*tp == am_false)
-			opts.parallelism = 0;
-		    else
-			goto badarg;
-		} else {
-		    goto badarg;
-		}
-	    } else if (*nargs == am_stream) {
-		opts.packet_bytes = 0;
-	    } else if (*nargs == am_use_stdio) {
-		opts.use_stdio = 1;
-	    } else if (*nargs == am_stderr_to_stdout) {
-		opts.redir_stderr = 1;
-	    } else if (*nargs == am_line) {
-		linebuf = 512;
-	    } else if (*nargs == am_nouse_stdio) {
-		opts.use_stdio = 0;
-	    } else if (*nargs == am_binary) {
-		sflgs |= ERTS_PORT_SFLG_BINARY_IO;
-	    } else if (*nargs == am_in) {
-		opts.read_write |= DO_READ;
-	    } else if (*nargs == am_out) {
-		opts.read_write |= DO_WRITE;
-	    } else if (*nargs == am_eof) {
-		sflgs |= ERTS_PORT_SFLG_SOFT_EOF;
-	    } else if (*nargs == am_hide) {
-		opts.hide_window = 1;
-	    } else if (*nargs == am_exit_status) {
-		opts.exit_status = 1;
-	    } else if (*nargs == am_overlapped_io) {
-		opts.overlapped_io = 1;
-	    } else {
-		goto badarg;
-	    }
-	    if (is_nil(*++nargs)) 
-		break;
-	    if (is_not_list(*nargs)) {
-		goto badarg;
-	    }
-	    nargs = list_val(*nargs);
-	}
+				   } else if (option == am_arg0) {
+						char *a0;
+						
+						if ((a0 = erts_convert_filename_to_native(*tp, NULL, 0, ERTS_ALC_T_TMP, 1, 1, NULL)) 
+							== NULL) {
+							 goto badarg;
+						}
+						if (opts.argv == NULL) {
+							 opts.argv = erts_alloc(ERTS_ALC_T_TMP, 
+													2 * sizeof(char **));
+							 opts.argv[0] = a0;
+							 opts.argv[1] = NULL;
+						} else {
+							 if (opts.argv[0] != erts_default_arg0) {
+								  erts_free(ERTS_ALC_T_TMP, opts.argv[0]);
+							 }
+							 opts.argv[0] = a0;
+						}
+				   } else if (option == am_cd) {
+						edir = *tp;
+				   } else if (option == am_parallelism) {
+						if (*tp == am_true)
+							 opts.parallelism = 1;
+						else if (*tp == am_false)
+							 opts.parallelism = 0;
+						else
+							 goto badarg;
+				   } else {
+						goto badarg;
+				   }
+			  } else if (*nargs == am_stream) {
+				   opts.packet_bytes = 0;
+			  } else if (*nargs == am_use_stdio) {
+				   opts.use_stdio = 1;
+			  } else if (*nargs == am_stderr_to_stdout) {
+				   opts.redir_stderr = 1;
+			  } else if (*nargs == am_line) {
+				   linebuf = 512;
+			  } else if (*nargs == am_nouse_stdio) {
+				   opts.use_stdio = 0;
+			  } else if (*nargs == am_binary) {
+				   sflgs |= ERTS_PORT_SFLG_BINARY_IO;
+			  } else if (*nargs == am_in) {
+				   opts.read_write |= DO_READ;
+			  } else if (*nargs == am_out) {
+				   opts.read_write |= DO_WRITE;
+			  } else if (*nargs == am_eof) {
+				   sflgs |= ERTS_PORT_SFLG_SOFT_EOF;
+			  } else if (*nargs == am_hide) {
+				   opts.hide_window = 1;
+			  } else if (*nargs == am_exit_status) {
+				   opts.exit_status = 1;
+			  } else if (*nargs == am_overlapped_io) {
+				   opts.overlapped_io = 1;
+			  } else {
+				   goto badarg;
+			  }
+			  if (is_nil(*++nargs)) 
+				   break;
+			  if (is_not_list(*nargs)) {
+				   goto badarg;
+			  }
+			  nargs = list_val(*nargs);
+		 }
     }
     if (opts.read_write == 0)	/* implement default */
-	opts.read_write = DO_READ|DO_WRITE;
+		 opts.read_write = DO_READ|DO_WRITE;
 
     /* Mutually exclusive arguments. */
     if((linebuf && opts.packet_bytes) || 
        (opts.redir_stderr && !opts.use_stdio)) {
-	goto badarg;
+		 goto badarg;
     }
 
     /*
      * Parse the first argument and start the appropriate driver.
      */
-    
+//检查Driver的正确性
     if (is_atom(name) || (i = is_string(name))) {
 	/* a vanilla port */
-	if (is_atom(name)) {
-	    name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP,
-					   atom_tab(atom_val(name))->len+1);
-	    sys_memcpy((void *) name_buf,
-		       (void *) atom_tab(atom_val(name))->name, 
-		       atom_tab(atom_val(name))->len);
-	    name_buf[atom_tab(atom_val(name))->len] = '\0';
-	} else {
-	    name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-	    if (intlist_to_buf(name, name_buf, i) != i)
-		erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-	    name_buf[i] = '\0';
-	}
-	driver = &vanilla_driver;
+		 if (is_atom(name)) {
+			  name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP,
+											 atom_tab(atom_val(name))->len+1);
+			  sys_memcpy((void *) name_buf,
+						 (void *) atom_tab(atom_val(name))->name, 
+						 atom_tab(atom_val(name))->len);
+			  name_buf[atom_tab(atom_val(name))->len] = '\0';
+		 } else {
+			  name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
+			  if (intlist_to_buf(name, name_buf, i) != i)
+				   erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+			  name_buf[i] = '\0';
+		 }
+		 driver = &vanilla_driver;
     } else {   
-	if (is_not_tuple(name)) {
-	    goto badarg;		/* Not a process or fd port */
-	}
-	tp = tuple_val(name);
-	arity = *tp++;
+		 if (is_not_tuple(name)) {
+			  goto badarg;		/* Not a process or fd port */
+		 }
+		 tp = tuple_val(name);
+		 arity = *tp++;
 
-	if (arity == make_arityval(0)) {
-	    goto badarg;
-	}
-    
-	if (*tp == am_spawn || *tp == am_spawn_driver || *tp == am_spawn_executable) {	/* A process port */
-	    int encoding;
-	    if (arity != make_arityval(2)) {
-		goto badarg;
-	    }
-	    name = tp[1];
-	    encoding = erts_get_native_filename_encoding();
+		 if (arity == make_arityval(0)) {
+			  goto badarg;
+		 }
+//如果open_port第一个参数是tuple，那么需要知道Driver的类型
+//spawn类型的或者是fd类型的
+		 if (*tp == am_spawn || *tp == am_spawn_driver || *tp == am_spawn_executable) {	/* A process port */
+			  int encoding;
+			  if (arity != make_arityval(2)) {
+				   goto badarg;
+			  }
+			  name = tp[1];
+			  encoding = erts_get_native_filename_encoding();
 	    /* Do not convert the command to utf-16le yet, do that in win32 specific code */
 	    /* since the cmd is used for comparsion with drivers names and copied to port info */
-	    if (encoding == ERL_FILENAME_WIN_WCHAR) {
-		encoding = ERL_FILENAME_UTF8;
-	    }
-	    if ((name_buf = erts_convert_filename_to_encoding(name, NULL, 0, ERTS_ALC_T_TMP,0,1, encoding, NULL, 0))
-		== NULL) {
-		goto badarg;
-	    }
+			  if (encoding == ERL_FILENAME_WIN_WCHAR) {
+				   encoding = ERL_FILENAME_UTF8;
+			  }
+			  if ((name_buf = erts_convert_filename_to_encoding(name, NULL, 0, ERTS_ALC_T_TMP,0,1, 
+																encoding, NULL, 0))== NULL) {
+				   goto badarg;
+			  }
 
-	    if (*tp == am_spawn_driver) {
-		opts.spawn_type = ERTS_SPAWN_DRIVER;
-	    } else if (*tp == am_spawn_executable) {
-		opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
-	    }
+			  if (*tp == am_spawn_driver) {
+				   opts.spawn_type = ERTS_SPAWN_DRIVER;
+			  } else if (*tp == am_spawn_executable) {
+				   opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
+			  }
+			  
+			  driver = &spawn_driver;
+		 } else if (*tp == am_fd) { /* An fd port */
+			  int n;
+			  struct Sint_buf sbuf;
+			  char* p;
+			  
+			  if (arity != make_arityval(3)) {
+				   goto badarg;
+			  }
+			  if (is_not_small(tp[1]) || is_not_small(tp[2])) {
+				   goto badarg;
+			  }
+			  opts.ifd = unsigned_val(tp[1]);
+			  opts.ofd = unsigned_val(tp[2]);
 
-	    driver = &spawn_driver;
-	} else if (*tp == am_fd) { /* An fd port */
-	    int n;
-	    struct Sint_buf sbuf;
-	    char* p;
+			  /* Syntesize name from input and output descriptor. */
+			  name_buf = erts_alloc(ERTS_ALC_T_TMP,
+									2*sizeof(struct Sint_buf) + 2); 
+			  p = Sint_to_buf(opts.ifd, &sbuf);
+			  n = sys_strlen(p);
+			  sys_strncpy(name_buf, p, n);
+			  name_buf[n] = '/';
+			  p = Sint_to_buf(opts.ofd, &sbuf);
+			  sys_strcpy(name_buf+n+1, p);
 
-	    if (arity != make_arityval(3)) {
-		goto badarg;
-	    }
-	    if (is_not_small(tp[1]) || is_not_small(tp[2])) {
-		goto badarg;
-	    }
-	    opts.ifd = unsigned_val(tp[1]);
-	    opts.ofd = unsigned_val(tp[2]);
-
-	    /* Syntesize name from input and output descriptor. */
-	    name_buf = erts_alloc(ERTS_ALC_T_TMP,
-				  2*sizeof(struct Sint_buf) + 2); 
-	    p = Sint_to_buf(opts.ifd, &sbuf);
-	    n = sys_strlen(p);
-	    sys_strncpy(name_buf, p, n);
-	    name_buf[n] = '/';
-	    p = Sint_to_buf(opts.ofd, &sbuf);
-	    sys_strcpy(name_buf+n+1, p);
-
-	    driver = &fd_driver;
-	} else {
-	    goto badarg;
-	}
+			  driver = &fd_driver;
+		 } else {
+			  goto badarg;
+		 }
     }
 
     if ((driver != &spawn_driver && opts.argv != NULL) ||
-	(driver == &spawn_driver && 
-	 opts.spawn_type != ERTS_SPAWN_EXECUTABLE && 
-	 opts.argv != NULL)) {
-	/* Argument vector only if explicit spawn_executable */
-	goto badarg;
+		(driver == &spawn_driver && 
+		 opts.spawn_type != ERTS_SPAWN_EXECUTABLE && 
+		 opts.argv != NULL)) {
+		 /* Argument vector only if explicit spawn_executable */
+		 goto badarg;
     }
 
     if (edir != NIL) {
-	if ((opts.wd = erts_convert_filename_to_native(edir, NULL, 0, ERTS_ALC_T_TMP,0,1,NULL)) == NULL) {
-	    goto badarg;
-	}
+		 if ((opts.wd = erts_convert_filename_to_native(edir, NULL, 0, ERTS_ALC_T_TMP,0,1,NULL)) == NULL) {
+			  goto badarg;
+		 }
     }
 
     if (driver != &spawn_driver && opts.exit_status) {
-	goto badarg;
+		 goto badarg;
     }
     
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
         trace_virtual_sched(p, am_out);
     }
     
-
+//解除调用进程的主锁
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-
+//让Erlang创建一个port
+//io.c
     port = erts_open_driver(driver, p->common.id, name_buf, &opts, err_typep, err_nump);
 #ifdef USE_VM_PROBES
     if (port && DTRACE_ENABLED(port_open)) {
@@ -895,38 +899,39 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
 #endif
+//再次锁定调用进程的主锁
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-
+//port开启失败，返回结果未NULL
     if (!port) {
-	DEBUGF(("open_driver returned (%d:%d)\n",
-		err_typep ? *err_typep : 4711,
-		err_nump ? *err_nump : 4711));
-    	if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-            trace_virtual_sched(p, am_in);
-    	}
-	goto do_return;
+		 DEBUGF(("open_driver returned (%d:%d)\n",
+				 err_typep ? *err_typep : 4711,
+				 err_nump ? *err_nump : 4711));
+		 if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
+			  trace_virtual_sched(p, am_in);
+		 }
+		 goto do_return;
     }
-    
+//port开启成功
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
         trace_virtual_sched(p, am_in);
     }
 
     if (linebuf && port->linebuf == NULL){
-	port->linebuf = allocate_linebuf(linebuf);
-	sflgs |= ERTS_PORT_SFLG_LINEBUF_IO;
+		 port->linebuf = allocate_linebuf(linebuf);
+		 sflgs |= ERTS_PORT_SFLG_LINEBUF_IO;
     }
 
     if (sflgs)
-	erts_atomic32_read_bor_relb(&port->state, sflgs);
- 
+		 erts_atomic32_read_bor_relb(&port->state, sflgs);
+//释放名字和参数
  do_return:
     if (name_buf)
-	erts_free(ERTS_ALC_T_TMP, (void *) name_buf);
+		 erts_free(ERTS_ALC_T_TMP, (void *) name_buf);
     if (opts.argv) {
-	free_args(opts.argv);
+		 free_args(opts.argv);
     }
     if (opts.wd && opts.wd != ((char *)dir)) {
-	erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
+		 erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
     }
     return port;
     

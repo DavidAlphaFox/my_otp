@@ -222,7 +222,7 @@ erts_lc_is_port_locked(Port *prt)
 #endif /* #ifdef ERTS_SMP */
 
 static void initq(Port* prt);
-
+//在开启lnct或锁检查的时候才给Port设置唯一的ID
 #if defined(ERTS_ENABLE_LOCK_CHECK) || defined(ERTS_ENABLE_LOCK_COUNT)
 #define ERTS_PORT_INIT_INSTR_NEED_ID 1
 #else
@@ -246,8 +246,8 @@ static ERTS_INLINE void port_init_instr(Port *prt
 #ifdef ERTS_SMP
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
-	char *lock_str = "port_lock";
-	erts_mtx_init_locked_x(prt->lock, lock_str, id,
+		 char *lock_str = "port_lock";
+		 erts_mtx_init_locked_x(prt->lock, lock_str, id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
 			       (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
 #else
@@ -256,6 +256,7 @@ static ERTS_INLINE void port_init_instr(Port *prt
 			       );
     }
 #endif
+//初始化Port的调度
     erts_port_task_init_sched(&prt->sched, id);
 }
 
@@ -289,7 +290,7 @@ static void insert_port_struct(void *vprt, Eterm data)
 }
 
 #define ERTS_CREATE_PORT_FLAG_PARALLELISM		(1 << 0)
-
+//创建Port的过程
 static Port *create_port(char *name,
 			 erts_driver_t *driver,
 			 erts_mtx_t *driver_lock,
@@ -311,13 +312,13 @@ static Port *create_port(char *name,
 #ifdef ERTS_SMP
     if (!driver_lock) {
 	/* Align size for mutex following port struct */
-	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
-	size += sizeof(erts_mtx_t);
+		 port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
+		 size += sizeof(erts_mtx_t);
     }
     else
 #endif
 	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
-
+//获取busy_port数据结构大小
     busy_port_queue_size
 	= ((driver->flags & ERL_DRV_FLAG_NO_BUSY_MSGQ)
 	   ? 0
@@ -325,34 +326,36 @@ static Port *create_port(char *name,
     size += busy_port_queue_size;
 
     size += sys_strlen(name) + 1;
-
+//分配Port相关数据结构到内存中
     p = erts_alloc_fnf(ERTS_ALC_T_PORT, size);
     if (!p) {
-	if (enop)
-	    *enop = ENOMEM;
-	return NULL;
+		 if (enop)
+			  *enop = ENOMEM;
+		 return NULL;
     }
-
+//prt是Port结构的指针
     prt = (Port *) p;
+//内存区域向后面移动
     p += port_size;
-
+//得到busy_port_queue结构的指针地址，且移动内存区域
     if (!busy_port_queue_size)
-	busy_port_queue = NULL;
+		 busy_port_queue = NULL;
     else {
-	busy_port_queue = (ErtsPortTaskBusyPortQ *) p;
-	p += busy_port_queue_size;
+		 busy_port_queue = (ErtsPortTaskBusyPortQ *) p;
+		 p += busy_port_queue_size;
     }
 
 #ifdef ERTS_SMP
     if (driver_lock) {
-	prt->lock = driver_lock;
-	erts_mtx_lock(driver_lock);
+		 prt->lock = driver_lock;
+		 erts_mtx_lock(driver_lock);
     }
     else {
-	prt->lock = (erts_mtx_t *) p;
-	p += sizeof(erts_mtx_t);
-	state |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
+		 prt->lock = (erts_mtx_t *) p;
+		 p += sizeof(erts_mtx_t);
+		 state |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
     }
+//将当前的RunQueue设置为Port的RunQueue
     erts_smp_atomic_set_nob(&prt->run_queue,
 			    (erts_aint_t) erts_get_runq_current(NULL));
     prt->xports = NULL;
@@ -360,9 +363,10 @@ static Port *create_port(char *name,
     erts_atomic32_init_nob(&prt->refc, 1);
     prt->cleanup = 0;
 #endif
-    
+//准备向scheduler上调度
+//如果Port存在busy_port_queue则关联busy_port_queue到相应的scheduler上
     erts_port_task_pre_init_sched(&prt->sched, busy_port_queue);
-
+//设置Port数据结构的内容
     prt->name = p;
     sys_strcpy(p, name);
     prt->drv_ptr = driver;
@@ -376,6 +380,9 @@ static Port *create_port(char *name,
     prt->bytes_in = 0;
     prt->bytes_out = 0;
     prt->dist_entry = NULL;
+//默认将创建者进程和Port进行connected
+//connected和link不同
+//connected是告诉Port进程消息要发给谁
     ERTS_PORT_INIT_CONNECTED(prt, pid);
     prt->common.u.alive.reg = NULL;
 #ifdef ERTS_SMP
@@ -408,16 +415,16 @@ static Port *create_port(char *name,
 			       insert_port_struct)) {
 
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
-	port_init_instr_abort(prt);
+		 port_init_instr_abort(prt);
 #endif
 #ifdef ERTS_SMP
-	if (driver_lock)
-	    erts_mtx_unlock(driver_lock);
+		 if (driver_lock)
+			  erts_mtx_unlock(driver_lock);
 #endif
-	if (enop)
-	    *enop = 0;
-	erts_free(ERTS_ALC_T_PORT, prt);
-	return NULL;
+		 if (enop)
+			  *enop = 0;
+		 erts_free(ERTS_ALC_T_PORT, prt);
+		 return NULL;
     }
 
     ASSERT(prt == (Port *) (erts_ptab_pix2intptr_nob(
@@ -429,13 +436,13 @@ static Port *create_port(char *name,
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (erts_port_schedule_all_ops)
-	x_pts_flgs |= ERTS_PTS_FLG_FORCE_SCHED;
+		 x_pts_flgs |= ERTS_PTS_FLG_FORCE_SCHED;
 
     if (create_flags & ERTS_CREATE_PORT_FLAG_PARALLELISM)
-	x_pts_flgs |= ERTS_PTS_FLG_PARALLELISM;
+		 x_pts_flgs |= ERTS_PTS_FLG_PARALLELISM;
 
     if (x_pts_flgs)
-	erts_smp_atomic32_read_bor_nob(&prt->sched.flags, x_pts_flgs);
+		 erts_smp_atomic32_read_bor_nob(&prt->sched.flags, x_pts_flgs);
 
     erts_atomic32_set_relb(&prt->state, state);
     return prt;
@@ -496,6 +503,7 @@ erts_port_free(Port *prt)
 ** Once (reallocated) we never reset the pointer to the small vector
 ** This is a possible optimisation.
 */
+//初始化Port的IO队列
 static void initq(Port* prt)
 {
     ErlIOQueue* q = &prt->ioq;
@@ -591,170 +599,187 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     int cprt_flgs = 0;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
-
+//拿driver列表的读锁
     erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+//driver为空
+//找出第一个同名可用的driver
     if (!driver) {
-	for (driver = driver_list; driver; driver = driver->next) {
-	    if (sys_strcmp(driver->name, name) == 0)
-		break;
-	}
-	if (!driver) { 
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
-	    ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
-	}
+		 for (driver = driver_list; driver; driver = driver->next) {
+			  if (sys_strcmp(driver->name, name) == 0)
+				   break;
+		 }
+		 if (!driver) { 
+			  erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+			  ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
+		 }
     }
+//是spawn形式的driver
     if (driver == &spawn_driver) {
-	char *p;
-	erts_driver_t *d;
+		 char *p;
+		 erts_driver_t *d;
 
 	/*
 	 * Dig out the name of the driver or port program.
 	 */
+//如果不是SPAWN_EXECUTABLE，把driver设置成NULL
+		 if (!(opts->spawn_type & ERTS_SPAWN_EXECUTABLE)) {
+			  /* No spawn driver default */
+			  driver = NULL;
+		 }
 
-	if (!(opts->spawn_type & ERTS_SPAWN_EXECUTABLE)) {
-	    /* No spawn driver default */
-	    driver = NULL;
-	}
-
-
-	if (opts->spawn_type != ERTS_SPAWN_EXECUTABLE) {
-	    p = name;
-	    while(*p != '\0' && *p != ' ')
-		p++;
-	    if (*p == '\0')
-		p = NULL;
-	    else
-		*p = '\0';
+//如果不是SPAWN_EXECUTABLE，从现有driver表中找driver
+		 if (opts->spawn_type != ERTS_SPAWN_EXECUTABLE) {
+			  p = name;
+			  while(*p != '\0' && *p != ' ')
+				   p++;
+			  if (*p == '\0')
+				   p = NULL;
+			  else
+				   *p = '\0';
 
 	    /*
 	     * Search for a driver having this name.  Defaults to spawn_driver
 	     * if not found.
 	     */
-	    
-	    for (d = driver_list; d; d = d->next) {
-		if (strcmp(d->name, name) == 0 && 
-		    erts_ddll_driver_ok(d->handle)) {
-		    driver = d;
-		    break;
-		}
-	    }
-	    if (p != NULL)
-		*p = ' ';
-	}
+//找动态文件的句柄
+			  for (d = driver_list; d; d = d->next) {
+				   if (strcmp(d->name, name) == 0 && 
+					   erts_ddll_driver_ok(d->handle)) {
+						driver = d;
+						break;
+				   }
+			  }
+			  if (p != NULL)
+				   *p = ' ';
+		 }
     }
-
+//driver没有被找到，那么就直接报错
     if (driver == NULL || (driver != &spawn_driver && opts->exit_status)) {
-	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
-	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
+		 erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+		 ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
     }
 
 #ifdef ERTS_SMP
     driver_lock = driver->lock;
 #endif
-
+//增加动态文件的引用计数
     if (driver->handle != NULL) {
-	erts_ddll_increment_port_count(driver->handle);
-	erts_ddll_reference_driver(driver->handle);
+		 erts_ddll_increment_port_count(driver->handle);
+		 erts_ddll_reference_driver(driver->handle);
     }
+//释放driver列表
     erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 
     /*
      * We'll set up the port before calling the start function,
      * to allow message sending and setting timers in the start function.
      */
-
+/*
+ *Set scheduler hint for port parallelism.
+ *If set to true, the VM will schedule port tasks when doing so will improve parallelism in the system. 
+ *If set to false, the VM will try to perform port tasks immediately, 
+ *improving latency at the expense of parallelism. 
+ *The default can be set on system startup by passing the +spp command line argument to erl(1).
+ */
+//是否是可以并行，若不能并行，则需要直接执行Port相关的任务
     if (opts->parallelism)
-	cprt_flgs |= ERTS_CREATE_PORT_FLAG_PARALLELISM;
+		 cprt_flgs |= ERTS_CREATE_PORT_FLAG_PARALLELISM;
 
     port = create_port(name, driver, driver_lock, cprt_flgs, pid, &port_errno);
+//Port创建失败了
     if (!port) {
-	if (driver->handle) {
-	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
-	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
-	    erts_ddll_dereference_driver(driver->handle);
-	}
-	if (port_errno)
-	    ERTS_OPEN_DRIVER_RET(NULL, -2, port_errno);
-	else
-	    ERTS_OPEN_DRIVER_RET(NULL, -3, SYSTEM_LIMIT);
+		 if (driver->handle) {
+			  erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+			  erts_ddll_decrement_port_count(driver->handle);
+			  erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+			  erts_ddll_dereference_driver(driver->handle);
+		 }
+		 if (port_errno)
+			  ERTS_OPEN_DRIVER_RET(NULL, -2, port_errno);
+		 else
+			  ERTS_OPEN_DRIVER_RET(NULL, -3, SYSTEM_LIMIT);
     }
     
     if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
-	trace_port_open(port,
+		 trace_port_open(port,
 			pid,
 			erts_atom_put((byte *) port->name,
 				      strlen(port->name),
 				      ERTS_ATOM_ENC_LATIN1,
 				      1));
     }
-
     error_number = error_type = 0;
+//Port的start回调函数不为空
     if (driver->start) {
-	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
-	    trace_sched_ports_where(port, am_in, am_start);
-	}
-	port->caller = pid;
+		 if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
+			  trace_sched_ports_where(port, am_in, am_start);
+		 }
+//先设置调用Port的进程为创建进程
+		 port->caller = pid;
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_start)) {
             DTRACE_FORMAT_COMMON_PID_AND_PORT(pid, port)
             DTRACE3(driver_start, process_str, driver->name, port_str);
         }
 #endif
-	fpe_was_unmasked = erts_block_fpe();
-	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
-	if (((SWord) drv_data) == -1)
-	    error_type = -1;
-	else if (((SWord) drv_data) == -2) {
+		fpe_was_unmasked = erts_block_fpe();
+//获得Port的私有数据
+		drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
+		if (((SWord) drv_data) == -1)
+			 error_type = -1;
+		else if (((SWord) drv_data) == -2) {
 	    /*
 	     * We need to save errno quickly after the
 	     * call to the 'start' callback before
 	     * something else modify it.
 	     */
-	    error_type = -2;
-	    error_number = errno;
-	}
-	else if (((SWord) drv_data) == -3) {
-	    error_type = -3;
-	    error_number = BADARG;
-	}
+			 error_type = -2;
+			 error_number = errno;
+		}
+		else if (((SWord) drv_data) == -3) {
+			 error_type = -3;
+			 error_number = BADARG;
+		}
 
-	erts_unblock_fpe(fpe_was_unmasked);
-	port->caller = NIL;
-	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
-	    trace_sched_ports_where(port, am_out, am_start);
-	}
+		erts_unblock_fpe(fpe_was_unmasked);
+//清理掉Port的调用者进程
+		port->caller = NIL;
+		if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
+			 trace_sched_ports_where(port, am_out, am_start);
+		}
 #ifdef ERTS_SMP
-	if (port->xports)
-	    erts_port_handle_xports(port);
-	ASSERT(!port->xports);
+		if (port->xports)
+			 erts_port_handle_xports(port);
+		ASSERT(!port->xports);
 #endif
     }
-
+//如果发生任何错误，清理掉Port
+//返回NULL
     if (error_type) {
 	/*
 	 * Must clean up the port.
 	 */
 #ifdef ERTS_SMP
-	erts_cancel_smp_ptimer(port->common.u.alive.ptimer);
+		 erts_cancel_smp_ptimer(port->common.u.alive.ptimer);
 #else
-	erts_cancel_timer(&(port->common.u.alive.tm));
+		 erts_cancel_timer(&(port->common.u.alive.tm));
 #endif
-	stopq(port);
-	if (port->linebuf != NULL) {
-	    erts_free(ERTS_ALC_T_LINEBUF,
-		      (void *) port->linebuf);
-	    port->linebuf = NULL;
-	}
-	if (driver->handle != NULL) {
-	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
-	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
-	}
-	kill_port(port);
-	erts_port_release(port);
-	ERTS_OPEN_DRIVER_RET(NULL, error_type, error_number);
+		 stopq(port);
+		 if (port->linebuf != NULL) {
+			  erts_free(ERTS_ALC_T_LINEBUF,
+						(void *) port->linebuf);
+			  port->linebuf = NULL;
+		 }
+		 if (driver->handle != NULL) {
+			  erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+			  erts_ddll_decrement_port_count(driver->handle);
+			  erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+		 }
+		 kill_port(port);
+		 erts_port_release(port);
+		 ERTS_OPEN_DRIVER_RET(NULL, error_type, error_number);
     }
+//将Port的私有数据和Port进程关联
     port->drv_data = (UWord) drv_data;
     ERTS_OPEN_DRIVER_RET(port, 0, 0);
 
@@ -791,10 +816,10 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
     erts_mtx_t *driver_lock = NULL;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
-
+//如果不是Schedule线程，不可以创建Port
     /* Need to be called from a scheduler thread */
     if (!erts_get_scheduler_id())
-	return ERTS_INVALID_ERL_DRV_PORT;
+		 return ERTS_INVALID_ERL_DRV_PORT;
 
     creator_port = erts_drvport2port(creator_port_ix);
     if (creator_port == ERTS_INVALID_ERL_DRV_PORT)
@@ -1484,7 +1509,7 @@ port_sched_op_reply(Eterm to, Uint32 *ref_num, Eterm msg)
     }
 }
 
-
+//调度Erlang进程到Port的信号
 ErtsPortOpResult
 erts_schedule_proc2port_signal(Process *c_p,
 			       Port *prt,
@@ -1497,14 +1522,14 @@ erts_schedule_proc2port_signal(Process *c_p,
 {
     int sched_res;
     if (!refp) {
-	if (c_p)
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+		 if (c_p)
+			  erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     }
     else {
-	ASSERT(c_p);
-	sigdp->flags |= ERTS_P2P_SIG_DATA_FLG_REPLY;
-	erts_make_ref_in_array(sigdp->ref);
-	*refp = erts_proc_store_ref(c_p, sigdp->ref);
+		 ASSERT(c_p);
+		 sigdp->flags |= ERTS_P2P_SIG_DATA_FLG_REPLY;
+		 erts_make_ref_in_array(sigdp->ref);
+		 *refp = erts_proc_store_ref(c_p, sigdp->ref);
 
 	/*
 	 * Caller needs to wait for a message containing
@@ -1519,22 +1544,22 @@ erts_schedule_proc2port_signal(Process *c_p,
 	 *       otherwise, next receive will *not* work
 	 *       as expected!
 	 */
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		 
+		 if (ERTS_PROC_PENDING_EXIT(c_p)) {
+			  /* need to exit caller instead */
+			  erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+			  KILL_CATCHES(c_p);
+			  c_p->freason = EXC_EXIT;
+			  return ERTS_PORT_OP_CALLER_EXIT;
+		 }
 
-	if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	    /* need to exit caller instead */
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	    KILL_CATCHES(c_p);
-	    c_p->freason = EXC_EXIT;
-	    return ERTS_PORT_OP_CALLER_EXIT;
-	}
-
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	c_p->msg.save = c_p->msg.last;
-
-	erts_smp_proc_unlock(c_p,
-			     (ERTS_PROC_LOCK_MAIN
-			      | ERTS_PROC_LOCKS_MSG_RECEIVE));
+		 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+		 c_p->msg.save = c_p->msg.last;
+		 
+		 erts_smp_proc_unlock(c_p,
+							  (ERTS_PROC_LOCK_MAIN
+							   | ERTS_PROC_LOCKS_MSG_RECEIVE));
     }
 
 
@@ -1549,12 +1574,12 @@ erts_schedule_proc2port_signal(Process *c_p,
 					task_flags);
 
     if (c_p)
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
-
+		 erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	
     if (sched_res != 0) {
-	if (refp)
-	    *refp = NIL;
-	return ERTS_PORT_OP_DROPPED;
+		 if (refp)
+			  *refp = NIL;
+		 return ERTS_PORT_OP_DROPPED;
     }
     return ERTS_PORT_OP_SCHEDULED;
 }
@@ -1869,7 +1894,7 @@ port_sig_output(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *si
 
     return ERTS_PORT_REDS_CMD_OUTPUT;
 }
-
+//erlang:port_command进入这里面执行
 ErtsPortOpResult
 erts_port_output(Process *c_p,
 		 int flags,
@@ -4317,7 +4342,7 @@ done:
     return ERTS_PORT_REDS_CALL;
 }
 
-
+//erlang:port_controll进入这里执行
 ErtsPortOpResult
 erts_port_call(Process* c_p,
 	       Port *prt,
@@ -4336,7 +4361,7 @@ erts_port_call(Process* c_p,
 
     sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
     if (sched_flags & ERTS_PTS_FLG_EXIT) {
-	return ERTS_PORT_OP_BADARG;
+		 return ERTS_PORT_OP_BADARG;
     }
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
@@ -4344,33 +4369,33 @@ erts_port_call(Process* c_p,
     size = erts_encode_ext_size(data);
 
     if (!try_call)
-	bufp = erts_alloc(ERTS_ALC_T_DRV_CALL_DATA, size);
+		 bufp = erts_alloc(ERTS_ALC_T_DRV_CALL_DATA, size);
     else if (size <= sizeof(input_buf))
-	bufp = &input_buf[0];
+		 bufp = &input_buf[0];
     else
-	bufp = erts_alloc(ERTS_ALC_T_TMP, size);
+		 bufp = erts_alloc(ERTS_ALC_T_TMP, size);
 
     endp = (byte *) bufp;
     erts_encode_ext(data, &endp);
 
     if (endp - (byte *) bufp > size)
-	ERTS_INTERNAL_ERROR("erts_internal:port_call() - Buffer overflow");
+		 ERTS_INTERNAL_ERROR("erts_internal:port_call() - Buffer overflow");
 
     size = endp - (byte *) bufp;
 
     if (try_call) {
-	char resp_buf[255];
-	char* resp_bufp = &resp_buf[0];
-	ErlDrvSizeT resp_size = sizeof(resp_buf);
-	ErtsTryImmDrvCallResult try_call_res;
-	ErtsTryImmDrvCallState try_call_state
-	    = ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
-		c_p,
-		prt,
-		ERTS_PORT_SFLGS_INVALID_LOOKUP,
-		0,
-		0,
-		am_call);
+		 char resp_buf[255];
+		 char* resp_bufp = &resp_buf[0];
+		 ErlDrvSizeT resp_size = sizeof(resp_buf);
+		 ErtsTryImmDrvCallResult try_call_res;
+		 ErtsTryImmDrvCallState try_call_state
+			  = ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
+				   c_p,
+				   prt,
+				   ERTS_PORT_SFLGS_INVALID_LOOKUP,
+				   0,
+				   0,
+				   am_call);
 
 	try_call_res = try_imm_drv_call(&try_call_state);
 	switch (try_call_res) {
@@ -4448,8 +4473,8 @@ erts_port_call(Process* c_p,
 					 NULL,
 					 port_sig_call);
     if (res != ERTS_PORT_OP_SCHEDULED) {
-	cleanup_scheduled_call(bufp);
-	return ERTS_PORT_OP_BADARG;
+		 cleanup_scheduled_call(bufp);
+		 return ERTS_PORT_OP_BADARG;
     }
     return res;
 }

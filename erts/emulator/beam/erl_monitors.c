@@ -376,22 +376,22 @@ int erts_add_link(ErtsLink **root, Uint type, Eterm pid)
   
     dstack[0] = DIR_END;
     for (;;) {
-	if (!*this) { /* Found our place */
-	    state = 1;
-	    *this = create_link(type,pid);
-	    break;
-	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
-	    /* go left */
-	    dstack[dpos++] = DIR_LEFT;
-	    tstack[tpos++] = this;
-	    this = &((*this)->left);
-	} else if (c > 0) { /* go right */
-	    dstack[dpos++] = DIR_RIGHT;
-	    tstack[tpos++] = this;
-	    this = &((*this)->right);
-	} else { /* Equal key is an error for monitors */
-	    return -1;
-	}
+		 if (!*this) { /* Found our place */
+			  state = 1;
+			  *this = create_link(type,pid);
+			  break;
+		 } else if ((c = CMP(pid,(*this)->pid)) < 0) {
+			  /* go left */
+			  dstack[dpos++] = DIR_LEFT;
+			  tstack[tpos++] = this;
+			  this = &((*this)->left);
+		 } else if (c > 0) { /* go right */
+			  dstack[dpos++] = DIR_RIGHT;
+			  tstack[tpos++] = this;
+			  this = &((*this)->right);
+		 } else { /* Equal key is an error for monitors */
+			  return -1;
+		 }
     }
     insertion_rotation(dstack, dpos, tstack, tpos, state);
     return 0;

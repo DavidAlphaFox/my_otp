@@ -1704,6 +1704,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	    goto next_pollres;
 	}
 //开始处理事件
+//事件处理的过程中，会找出相应的Port，然后将相应的Port放入RunQueue
 	switch (state->type) {
 	case ERTS_EV_TYPE_DRV_SEL: { /* Requested via driver_select()... */
 	    ErtsPollEvents revents;

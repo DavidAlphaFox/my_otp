@@ -108,24 +108,25 @@ typedef struct ErtsPortTaskHandleList_ ErtsPortTaskHandleList;
 typedef struct {
     Port *next;
     struct {
-	struct {
-	    struct {
-		ErtsPortTask *first;
-		ErtsPortTask *last;
-		ErtsPortTaskBusyCallerTable *table;
-		ErtsPortTaskHandleList *nosuspend;
-	    } busy;
-	    ErtsPortTask *first;
-	} local;
-	struct {
-	    ErtsPortTask *first;
-	    ErtsPortTask *last;
-	} in;
-	ErtsPortTaskBusyPortQ *bpq;
+		 struct {
+			  struct {
+				   ErtsPortTask *first;
+				   ErtsPortTask *last;
+				   ErtsPortTaskBusyCallerTable *table;
+				   ErtsPortTaskHandleList *nosuspend;
+			  } busy;
+			  ErtsPortTask *first;
+		 } local;
+		 struct {
+			  ErtsPortTask *first;
+			  ErtsPortTask *last;
+		 } in;
+//设置busy_port_qyeue的最大和最小数量
+		 ErtsPortTaskBusyPortQ *bpq;
     } taskq;
-    erts_smp_atomic32_t flags;
+	 erts_smp_atomic32_t flags;
 #ifdef ERTS_SMP
-    erts_mtx_t mtx;
+	 erts_mtx_t mtx;
 #endif
 } ErtsPortTaskSched;
 
@@ -163,10 +164,10 @@ ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
 						   ErtsPortTaskBusyPortQ *bpq)
 {
     if (bpq) {
-	erts_aint_t low = (erts_aint_t) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW;
-	erts_smp_atomic_init_nob(&bpq->low, low);
- 	bpq->high = (ErlDrvSizeT) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH;
-	erts_smp_atomic_init_nob(&bpq->size, (erts_aint_t) 0);
+		 erts_aint_t low = (erts_aint_t) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW;
+		 erts_smp_atomic_init_nob(&bpq->low, low);
+		 bpq->high = (ErlDrvSizeT) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH;
+		 erts_smp_atomic_init_nob(&bpq->size, (erts_aint_t) 0);
     }
     ptsp->taskq.bpq = bpq;
 }

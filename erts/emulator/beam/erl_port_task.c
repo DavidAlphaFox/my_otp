@@ -1388,7 +1388,7 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 /*
  * Schedule a task.
  */
-
+//调度Port的任务到RunQueue上
 int
 erts_port_task_schedule(Eterm id,
 			ErtsPortTaskHandle *pthp,
@@ -1419,68 +1419,68 @@ erts_port_task_schedule(Eterm id,
 
 #ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED) {
-	if (pp)
-	    erts_port_inc_refc(pp);
-	erts_thr_progress_unmanaged_continue(dhndl);
+		 if (pp)
+			  erts_port_inc_refc(pp);
+		 erts_thr_progress_unmanaged_continue(dhndl);
     }
 #endif
 
     if (!pp)
-	goto fail;
+		 goto fail;
 
     if (type != ERTS_PORT_TASK_PROC_SIG) {
-	ptp = port_task_alloc();
+		 ptp = port_task_alloc();
 
-	ptp->type = type;
-	ptp->u.alive.flags = 0;
+		 ptp->type = type;
+		 ptp->u.alive.flags = 0;
+		 
+		 erts_smp_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
 
-	erts_smp_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
-
-	set_handle(ptp, pthp);
+		 set_handle(ptp, pthp);
     }
 
     switch (type) {
     case ERTS_PORT_TASK_INPUT:
     case ERTS_PORT_TASK_OUTPUT: {
-	va_list argp;
-	va_start(argp, type);
-	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
-	va_end(argp);
-	erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
-	break;
+		 va_list argp;
+		 va_start(argp, type);
+		 ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
+		 va_end(argp);
+		 erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
+		 break;
     }
     case ERTS_PORT_TASK_EVENT: {
-	va_list argp;
-	va_start(argp, type);
-	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
-	ptp->u.alive.td.io.event_data = va_arg(argp, ErlDrvEventData);
-	va_end(argp);
-	erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
-	break;
+		 va_list argp;
+		 va_start(argp, type);
+		 ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
+		 ptp->u.alive.td.io.event_data = va_arg(argp, ErlDrvEventData);
+		 va_end(argp);
+		 erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
+		 break;
     }
     case ERTS_PORT_TASK_PROC_SIG: {
-	va_list argp;
-	va_start(argp, type);
-	sigdp = va_arg(argp, ErtsProc2PortSigData *);
-	ptp = p2p_sig_data_to_task(sigdp);
-	ptp->u.alive.td.psig.callback = va_arg(argp, ErtsProc2PortSigCallback);
- 	ptp->u.alive.flags |= va_arg(argp, int);
-	va_end(argp);
-	if (!(ptp->u.alive.flags & ERTS_PT_FLG_NOSUSPEND))
-	    set_tmp_handle(ptp, pthp);
-	else {
-	    ns_pthlp = erts_alloc(ERTS_ALC_T_PT_HNDL_LIST,
-				  sizeof(ErtsPortTaskHandleList));
-	    set_handle(ptp, &ns_pthlp->handle);
-	}
-	break;
+		 va_list argp;
+		 va_start(argp, type);
+		 sigdp = va_arg(argp, ErtsProc2PortSigData *);
+		 ptp = p2p_sig_data_to_task(sigdp);
+		 ptp->u.alive.td.psig.callback = va_arg(argp, ErtsProc2PortSigCallback);
+		 ptp->u.alive.flags |= va_arg(argp, int);
+		 va_end(argp);
+		 if (!(ptp->u.alive.flags & ERTS_PT_FLG_NOSUSPEND))
+			  set_tmp_handle(ptp, pthp);
+		 else {
+			  ns_pthlp = erts_alloc(ERTS_ALC_T_PT_HNDL_LIST,
+									sizeof(ErtsPortTaskHandleList));
+			  set_handle(ptp, &ns_pthlp->handle);
+		 }
+		 break;
     }
     default:
-	break;
+		 break;
     }
 
     if (!enqueue_task(pp, ptp, sigdp, ns_pthlp, &act)) {
-	reset_handle(ptp);
+		 reset_handle(ptp);
 	if (ns_pthlp && !(act & ERTS_PTS_FLG_EXIT))
 	    goto abort_nosuspend;
 	else
@@ -1496,7 +1496,7 @@ erts_port_task_schedule(Eterm id,
 	erts_port_task_sched_lock(&pp->sched);
 
     while (1) {
-	erts_aint32_t new, exp;
+		 erts_aint32_t new, exp;
 
 	if ((act & add_flags) == add_flags
 	    && (act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
@@ -1520,17 +1520,17 @@ erts_port_task_schedule(Eterm id,
     }
 
     if (prof_runnable_ports) {
-	if (!(act & ERTS_PTS_FLG_EXEC_IMM))
-	    profile_runnable_port(pp, am_active);
-	erts_port_task_sched_unlock(&pp->sched);
-	prof_runnable_ports = 0;
+		 if (!(act & ERTS_PTS_FLG_EXEC_IMM))
+			  profile_runnable_port(pp, am_active);
+		 erts_port_task_sched_unlock(&pp->sched);
+		 prof_runnable_ports = 0;
     }
 
     /* Enqueue port on run-queue */
 
     runq = erts_port_runq(pp);
     if (!runq)
-	ERTS_INTERNAL_ERROR("Missing run-queue");
+		 ERTS_INTERNAL_ERROR("Missing run-queue");
 
 #ifdef ERTS_SMP
     xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
@@ -1538,28 +1538,28 @@ erts_port_task_schedule(Eterm id,
     ERTS_SMP_LC_VERIFY_RQ(runq, pp);
     if (xrunq) {
 	/* Emigrate port ... */
-	erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
-	erts_smp_runq_unlock(runq);
-	runq = erts_port_runq(pp);
-	if (!runq)
-	    ERTS_INTERNAL_ERROR("Missing run-queue");
+		 erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
+		 erts_smp_runq_unlock(runq);
+		 runq = erts_port_runq(pp);
+		 if (!runq)
+			  ERTS_INTERNAL_ERROR("Missing run-queue");
     }
 #endif
-
+//将Port放入的RunQueue给个调度的机会
     enqueue_port(runq, pp);
-
+//解锁RunQueue
     erts_smp_runq_unlock(runq);
-
+//唤醒RunQueue
     erts_smp_notify_inc_runq(runq);
 
 done:
 
     if (prof_runnable_ports)
-	erts_port_task_sched_unlock(&pp->sched);
+		 erts_port_task_sched_unlock(&pp->sched);
 
 #ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
-	erts_port_dec_refc(pp);
+		 erts_port_dec_refc(pp);
 #endif
 
     return 0;
