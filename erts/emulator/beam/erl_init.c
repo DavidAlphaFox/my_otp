@@ -1,3 +1,4 @@
+
 /*
  * %CopyrightBegin%
  *
@@ -684,6 +685,7 @@ early_init(int *argc, char **argv) /*
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
+//默认异步线程为10个
     erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
     H_MIN_SIZE = H_DEFAULT_SIZE;
