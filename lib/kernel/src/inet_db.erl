@@ -765,10 +765,12 @@ dnt(_) ->
 %%
 %% Register socket Modules
 %%
+%把端口和module进行绑定
+%此处使用Erlang的未注释BIF，port_set_data
 register_socket(Socket, Module) when is_port(Socket), is_atom(Module) ->
     try erlang:port_set_data(Socket, Module)
     catch
-	error:badarg -> false
+		error:badarg -> false
     end.
 
 unregister_socket(Socket) when is_port(Socket) ->

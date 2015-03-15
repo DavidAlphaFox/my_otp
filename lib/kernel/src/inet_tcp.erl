@@ -97,9 +97,10 @@ do_connect({A,B,C,D}, Port, Opts, Time) when ?ip(A,B,C,D), ?port(Port) ->
 	when ?ip(Ab,Bb,Cb,Db), ?port(BPort) ->
 	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
 		{ok, S} ->
+		   %调用prim_inet:connect来链接
 		    case prim_inet:connect(S, {A,B,C,D}, Port, Time) of
-			ok    -> {ok,S};
-			Error ->  prim_inet:close(S), Error
+				ok    -> {ok,S};
+				Error ->  prim_inet:close(S), Error
 		    end;
 		Error -> Error
 	    end;

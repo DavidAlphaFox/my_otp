@@ -19,7 +19,8 @@
 
 -module(gen_tcp).
 
-
+%gen_tcp主要是对后端的mod一个封装
+%处理参数异常和超时等问题
 -export([connect/3, connect/4, listen/2, accept/1, accept/2,
 	 shutdown/2, close/1]).
 -export([send/2, recv/2, recv/3, unrecv/2]).
@@ -135,10 +136,12 @@ connect(Address, Port, Opts) ->
       Timeout :: timeout(),
       Socket :: socket(),
       Reason :: inet:posix().
-
+%客户端发起链接
 connect(Address, Port, Opts, Time) ->
+%开启timer
     Timer = inet:start_timer(Time),
     Res = (catch connect1(Address,Port,Opts,Timer)),
+%不管成功还是失败要关掉timer
     _ = inet:stop_timer(Timer),
     case Res of
 	{ok,S} -> {ok,S};
@@ -146,14 +149,14 @@ connect(Address, Port, Opts, Time) ->
 	{'EXIT',Reason} -> exit(Reason);
 	Error -> Error
     end.
-
+%获取ip地址
 connect1(Address,Port,Opts,Timer) ->
     Mod = mod(Opts, Address),
     case Mod:getaddrs(Address,Timer) of
 	{ok,IPs} ->
 	    case Mod:getserv(Port) of
-		{ok,TP} -> try_connect(IPs,TP,Opts,Timer,Mod,{error,einval});
-		Error -> Error
+			{ok,TP} -> try_connect(IPs,TP,Opts,Timer,Mod,{error,einval});
+			Error -> Error
 	    end;
 	Error -> Error
     end.
@@ -161,10 +164,10 @@ connect1(Address,Port,Opts,Timer) ->
 try_connect([IP|IPs], Port, Opts, Timer, Mod, _) ->
     Time = inet:timeout(Timer),
     case Mod:connect(IP, Port, Opts, Time) of
-	{ok,S} -> {ok,S};
-	{error,einval} -> {error, einval};
-	{error,timeout} -> {error,timeout};
-	Err1 -> try_connect(IPs, Port, Opts, Timer, Mod, Err1)
+		{ok,S} -> {ok,S};
+		{error,einval} -> {error, einval};
+		{error,timeout} -> {error,timeout};
+		Err1 -> try_connect(IPs, Port, Opts, Timer, Mod, Err1)
     end;
 try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
     Err.
@@ -336,6 +339,7 @@ fdopen(Fd, Opts) ->
     Mod:fdopen(Fd, Opts).
 
 %% Get the tcp_module, but IPv6 address overrides default IPv4
+%根据地址情况获取后端模块
 mod(Address) ->
     case inet_db:tcp_module() of
 	inet_tcp when tuple_size(Address) =:= 8 ->

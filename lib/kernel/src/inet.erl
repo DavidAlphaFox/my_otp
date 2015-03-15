@@ -1226,7 +1226,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	   Type :: socket_type(),
 	   Module :: atom()) ->
 	{'ok', socket()} | {'error', posix()}.
-
+%此处使用Erlang的驱动prim_inet
 open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
   when is_integer(FdO), FdO < 0;
        is_list(FdO) ->
@@ -1234,25 +1234,28 @@ open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
 	if  is_list(FdO) -> FdO;
 	    true -> []
 	end,
+	%开启端口
     case prim_inet:open(Protocol, Family, Type, OpenOpts) of
 	{ok,S} ->
+		%为端口设置选项
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
+			%尝试组册端口，注册成功后将端口注册到inet_db中
 		    case if is_list(Addr) ->
-				 bindx(S, Addr, Port);
-			    true ->
-				 prim_inet:bind(S, Addr, Port)
+						 bindx(S, Addr, Port);
+					true ->
+						 prim_inet:bind(S, Addr, Port)
 			 end of
 			{ok, _} -> 
-			    inet_db:register_socket(S, Module),
-			    {ok,S};
+					inet_db:register_socket(S, Module),
+					{ok,S};
 			Error  ->
-			    prim_inet:close(S),
-			    Error
+					prim_inet:close(S),
+					Error
 		    end;
 		Error  ->
-		    prim_inet:close(S),
-		    Error
+				prim_inet:close(S),
+				Error
 	    end;
 	Error ->
 	    Error
@@ -1516,43 +1519,50 @@ udp_close(S) when is_port(S) ->
     end.
 
 %% Set controlling process for TCP socket.
+%%改变控制进程就是让Port的原有所有者发生变更
+%%就是让原来的所有者不再和port进行link
+%%让新的所有者和port进行link
 tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
     case erlang:port_info(S, connected) of
-	{connected, NewOwner} ->
-	    ok;
-	{connected, Pid} when Pid =/= self() ->
-	    {error, not_owner};
-	undefined ->
-	    {error, einval};
-	_ ->
-	    case prim_inet:getopt(S, active) of
-		{ok, A0} ->
-		    case A0 of
-			false -> ok;
-			_ -> ok = prim_inet:setopt(S, active, false)
-		    end,
-		    case tcp_sync_input(S, NewOwner, false) of
-			true ->  %% socket already closed, 
-			    ok;
-			false ->
-			    try erlang:port_connect(S, NewOwner) of
-				true -> 
-				    unlink(S), %% unlink from port
-				    case A0 of
-					false -> ok;
-					_ -> ok = prim_inet:setopt(S, active, A0)
-				    end,
-				    ok
-			    catch
-				error:Reason -> 
-				    {error, Reason}
-			    end
-		    end;
-		Error ->
-		    Error
-	    end
+		{connected, NewOwner} ->
+			ok;
+		{connected, Pid} when Pid =/= self() ->
+			{error, not_owner};
+		undefined ->
+			{error, einval};
+		_ ->
+			case prim_inet:getopt(S, active) of
+				{ok, A0} ->
+					%先要关掉Port主动向link的进程发送消息的设置
+					case A0 of
+						false -> ok;
+						_ -> ok = prim_inet:setopt(S, active, false)
+					end,
+					%在改变link关系的过程中，Port存在已经发送一定量消息给原来
+					%link过的进程，所以要将这些消息先转发到新的Owner上之后
+					%再让新的Owner和Port关联起来，之后自己和Port解除绑定关系
+					case tcp_sync_input(S, NewOwner, false) of
+						true ->  %% socket already closed, 
+							ok;
+						false ->
+							try erlang:port_connect(S, NewOwner) of
+								true -> 
+									unlink(S), %% unlink from port
+									case A0 of
+										false -> ok;
+										_ -> ok = prim_inet:setopt(S, active, A0)
+									end,
+									ok
+							catch
+								error:Reason -> 
+									{error, Reason}
+							end
+					end;
+				Error ->
+					Error
+			end
     end.
-
+%快速的翻阅整个消息队列
 tcp_sync_input(S, Owner, Flag) ->
     receive
 	{tcp, S, Data} ->
