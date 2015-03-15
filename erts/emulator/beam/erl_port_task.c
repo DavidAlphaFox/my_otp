@@ -881,15 +881,16 @@ free_nosuspend_handles(ErtsPortTaskHandleList *free_nshp)
 static ERTS_INLINE void
 enqueue_port(ErtsRunQueue *runq, Port *pp)
 {
+//将自己添加到RunQueue的执行链表上
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
     pp->sched.next = NULL;
     if (runq->ports.end) {
-	ASSERT(runq->ports.start);
-	runq->ports.end->sched.next = pp;
+		 ASSERT(runq->ports.start);
+		 runq->ports.end->sched.next = pp;
     }
     else {
-	ASSERT(!runq->ports.start);
-	runq->ports.start = pp;
+		 ASSERT(!runq->ports.start);
+		 runq->ports.start = pp;
     }
 
     runq->ports.end = pp;
@@ -978,30 +979,30 @@ prepare_exec(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
     erts_aint32_t act = erts_smp_atomic32_read_nob(&pp->sched.flags);
 
     if (!pp->sched.taskq.local.busy.first || (act & ERTS_PTS_FLG_BUSY_PORT)) {
-	*execqp = pp->sched.taskq.local.first;
-	*processing_busy_q_p = 0;
+		 *execqp = pp->sched.taskq.local.first;
+		 *processing_busy_q_p = 0;
     }
     else {
-	*execqp = pp->sched.taskq.local.busy.first;
-	*processing_busy_q_p = 1;
+		 *execqp = pp->sched.taskq.local.busy.first;
+		 *processing_busy_q_p = 1;
     }
 
     ERTS_PT_DBG_CHK_TASK_QS(pp, *execqp, *processing_busy_q_p);
-
+//更新状态
     while (1) {
-	erts_aint32_t new, exp;
+		 erts_aint32_t new, exp;
 
-	new = exp = act;
+		 new = exp = act;
 
-	new &= ~ERTS_PTS_FLG_IN_RUNQ;
-	new |= ERTS_PTS_FLG_EXEC;
+		 new &= ~ERTS_PTS_FLG_IN_RUNQ;
+		 new |= ERTS_PTS_FLG_EXEC;
 
-	act = erts_smp_atomic32_cmpxchg_nob(&pp->sched.flags, new, exp);
+		 act = erts_smp_atomic32_cmpxchg_nob(&pp->sched.flags, new, exp);
 
-	ASSERT(act & ERTS_PTS_FLG_IN_RUNQ);
+		 ASSERT(act & ERTS_PTS_FLG_IN_RUNQ);
 
-	if (exp == act)
-	    break;
+		 if (exp == act)
+			  break;
     }
 }
 
@@ -1631,7 +1632,7 @@ erts_port_task_free_port(Port *pp)
  * erts_port_task_execute() is called by scheduler threads between
  * scheduling of processes. Run-queue lock should be held by caller.
  */
-
+//执行Port的任务
 int
 erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 {
@@ -1651,8 +1652,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     pp = pop_port(runq);
     if (!pp) {
-	res = 0;
-	goto done;
+		 res = 0;
+		 goto done;
     }
 
     ERTS_SMP_LC_VERIFY_RQ(runq, pp);
@@ -1662,18 +1663,18 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     *curr_port_pp = pp;
     
     if (erts_sched_stat.enabled) {
-	ErtsSchedulerData *esdp = erts_get_scheduler_data();
-	Uint old = ERTS_PORT_SCHED_ID(pp, esdp->no);
-	int migrated = old && old != esdp->no;
+		 ErtsSchedulerData *esdp = erts_get_scheduler_data();
+		 Uint old = ERTS_PORT_SCHED_ID(pp, esdp->no);
+		 int migrated = old && old != esdp->no;
 
-	erts_smp_spin_lock(&erts_sched_stat.lock);
-	erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].total_executed++;
-	erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].executed++;
-	if (migrated) {
-	    erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].total_migrated++;
-	    erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].migrated++;
-	}
-	erts_smp_spin_unlock(&erts_sched_stat.lock);
+		 erts_smp_spin_lock(&erts_sched_stat.lock);
+		 erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].total_executed++;
+		 erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].executed++;
+		 if (migrated) {
+			  erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].total_migrated++;
+			  erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].migrated++;
+		 }
+		 erts_smp_spin_unlock(&erts_sched_stat.lock);
     }
 
     prepare_exec(pp, &execq, &processing_busy_q);
@@ -1682,7 +1683,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     /* trace port scheduling, in */
     if (IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
-	trace_sched_ports(pp, am_in);
+		 trace_sched_ports(pp, am_in);
     }
 
     fpe_was_unmasked = erts_block_fpe();
@@ -1692,137 +1693,137 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     goto begin_handle_tasks;
 
     while (1) {
-	erts_aint32_t task_state;
-	ErtsPortTask *ptp;
+		 erts_aint32_t task_state;
+		 ErtsPortTask *ptp;
+		 
+		 ptp = select_task_for_exec(pp, &execq, &processing_busy_q);
+		 if (!ptp)
+			  break;
 
-	ptp = select_task_for_exec(pp, &execq, &processing_busy_q);
-	if (!ptp)
-	    break;
+		 task_state = erts_smp_atomic32_cmpxchg_nob(&ptp->state,
+													ERTS_PT_STATE_EXECUTING,
+													ERTS_PT_STATE_SCHEDULED);
+		 if (task_state != ERTS_PT_STATE_SCHEDULED) {
+			  ASSERT(task_state == ERTS_PT_STATE_ABORTED);
+			  goto aborted_port_task;
+		 }
 
-	task_state = erts_smp_atomic32_cmpxchg_nob(&ptp->state,
-						   ERTS_PT_STATE_EXECUTING,
-						   ERTS_PT_STATE_SCHEDULED);
-	if (task_state != ERTS_PT_STATE_SCHEDULED) {
-	    ASSERT(task_state == ERTS_PT_STATE_ABORTED);
-	    goto aborted_port_task;
-	}
+		 if (erts_system_monitor_long_schedule != 0) {
+			  start_time = erts_timestamp_millis();
+		 }
 
-	if (erts_system_monitor_long_schedule != 0) {
-	    start_time = erts_timestamp_millis();
-	}
-
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
-	ERTS_SMP_CHK_NO_PROC_LOCKS;
-	ASSERT(pp->drv_ptr);
-
-	switch (ptp->type) {
-	case ERTS_PORT_TASK_TIMEOUT:
-	    reset_handle(ptp);
-	    reds = ERTS_PORT_REDS_TIMEOUT;
-	    if (!(state & ERTS_PORT_SFLGS_DEAD)) {
-                DTRACE_DRIVER(driver_timeout, pp);
-		(*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
+		 ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+		 ERTS_SMP_CHK_NO_PROC_LOCKS;
+		 ASSERT(pp->drv_ptr);
+		 
+		 switch (ptp->type) {
+		 case ERTS_PORT_TASK_TIMEOUT:
+			  reset_handle(ptp);
+			  reds = ERTS_PORT_REDS_TIMEOUT;
+			  if (!(state & ERTS_PORT_SFLGS_DEAD)) {
+				   DTRACE_DRIVER(driver_timeout, pp);
+				   (*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
             }
-	    break;
-	case ERTS_PORT_TASK_INPUT:
-	    reds = ERTS_PORT_REDS_INPUT;
-	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
-            DTRACE_DRIVER(driver_ready_input, pp);
-	    /* NOTE some windows/ose drivers use ->ready_input
-	       for input and output */
-	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
-					ptp->u.alive.td.io.event);
-	    reset_executed_io_task_handle(ptp);
-	    io_tasks_executed++;
-	    break;
-	case ERTS_PORT_TASK_OUTPUT:
-	    reds = ERTS_PORT_REDS_OUTPUT;
-	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
-            DTRACE_DRIVER(driver_ready_output, pp);
-	    (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data,
-					 ptp->u.alive.td.io.event);
-	    reset_executed_io_task_handle(ptp);
-	    io_tasks_executed++;
-	    break;
-	case ERTS_PORT_TASK_EVENT:
-	    reds = ERTS_PORT_REDS_EVENT;
-	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
-            DTRACE_DRIVER(driver_event, pp);
-	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
-				  ptp->u.alive.td.io.event,
-				  ptp->u.alive.td.io.event_data);
-	    reset_executed_io_task_handle(ptp);
-	    io_tasks_executed++;
-	    break;
-	case ERTS_PORT_TASK_PROC_SIG: {
-	    ErtsProc2PortSigData *sigdp = &ptp->u.alive.td.psig.data;
-	    reset_handle(ptp);
-	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
-	    if (!pp->sched.taskq.bpq)
-		reds = ptp->u.alive.td.psig.callback(pp,
-						     state,
-						     ERTS_PROC2PORT_SIG_EXEC,
-						     sigdp);
-	    else {
-		ErlDrvSizeT size = erts_proc2port_sig_command_data_size(sigdp);
-		reds = ptp->u.alive.td.psig.callback(pp,
-						     state,
-						     ERTS_PROC2PORT_SIG_EXEC,
-						     sigdp);
-		dequeued_proc2port_data(pp, size);
-	    }
-	    break;
-	}
-	case ERTS_PORT_TASK_DIST_CMD:
-	    reset_handle(ptp);
-	    reds = erts_dist_command(pp, CONTEXT_REDS - pp->reds);
-	    break;
-	default:
-	    erl_exit(ERTS_ABORT_EXIT,
-		     "Invalid port task type: %d\n",
-		     (int) ptp->type);
-	    break;
-	}
-
-	reds += erts_port_driver_callback_epilogue(pp, &state);
-
-	if (start_time != 0) {
-	    Sint64 diff = erts_timestamp_millis() - start_time;
-	    if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
-		monitor_long_schedule_port(pp,ptp->type,(Uint) diff);
-	    }
-	}
-	start_time = 0;
+			  break;
+		 case ERTS_PORT_TASK_INPUT:
+			  reds = ERTS_PORT_REDS_INPUT;
+			  ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
+			  DTRACE_DRIVER(driver_ready_input, pp);
+			  /* NOTE some windows/ose drivers use ->ready_input
+				 for input and output */
+			  (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
+										  ptp->u.alive.td.io.event);
+			  reset_executed_io_task_handle(ptp);
+			  io_tasks_executed++;
+			  break;
+		 case ERTS_PORT_TASK_OUTPUT:
+			  reds = ERTS_PORT_REDS_OUTPUT;
+			  ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
+			  DTRACE_DRIVER(driver_ready_output, pp);
+			  (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data,
+										   ptp->u.alive.td.io.event);
+			  reset_executed_io_task_handle(ptp);
+			  io_tasks_executed++;
+			  break;
+		 case ERTS_PORT_TASK_EVENT:
+			  reds = ERTS_PORT_REDS_EVENT;
+			  ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
+			  DTRACE_DRIVER(driver_event, pp);
+			  (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
+									ptp->u.alive.td.io.event,
+									ptp->u.alive.td.io.event_data);
+			  reset_executed_io_task_handle(ptp);
+			  io_tasks_executed++;
+			  break;
+		 case ERTS_PORT_TASK_PROC_SIG: {
+			  ErtsProc2PortSigData *sigdp = &ptp->u.alive.td.psig.data;
+			  reset_handle(ptp);
+			  ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
+			  if (!pp->sched.taskq.bpq)
+				   reds = ptp->u.alive.td.psig.callback(pp,
+														state,
+														ERTS_PROC2PORT_SIG_EXEC,
+														sigdp);
+			  else {
+				   ErlDrvSizeT size = erts_proc2port_sig_command_data_size(sigdp);
+				   reds = ptp->u.alive.td.psig.callback(pp,
+														state,
+														ERTS_PROC2PORT_SIG_EXEC,
+														sigdp);
+				   dequeued_proc2port_data(pp, size);
+			  }
+			  break;
+		 }
+		 case ERTS_PORT_TASK_DIST_CMD:
+			  reset_handle(ptp);
+			  reds = erts_dist_command(pp, CONTEXT_REDS - pp->reds);
+			  break;
+		 default:
+			  erl_exit(ERTS_ABORT_EXIT,
+					   "Invalid port task type: %d\n",
+					   (int) ptp->type);
+			  break;
+		 }
+		 
+		 reds += erts_port_driver_callback_epilogue(pp, &state);
+		 
+		 if (start_time != 0) {
+			  Sint64 diff = erts_timestamp_millis() - start_time;
+			  if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
+				   monitor_long_schedule_port(pp,ptp->type,(Uint) diff);
+			  }
+		 }
+		 start_time = 0;
 
     aborted_port_task:
-	schedule_port_task_free(ptp);
+		 schedule_port_task_free(ptp);
 
     begin_handle_tasks:
-	if (state & ERTS_PORT_SFLG_FREE) {
-	    reds += ERTS_PORT_REDS_FREE;
-	    begin_port_cleanup(pp, &execq, &processing_busy_q);
+		 if (state & ERTS_PORT_SFLG_FREE) {
+			  reds += ERTS_PORT_REDS_FREE;
+			  begin_port_cleanup(pp, &execq, &processing_busy_q);
+			  
+			  break;
+		 }
+		 
+		 vreds += ERTS_PORT_CALLBACK_VREDS;
+		 reds += ERTS_PORT_CALLBACK_VREDS;
 
-	    break;
-	}
-
-	vreds += ERTS_PORT_CALLBACK_VREDS;
-	reds += ERTS_PORT_CALLBACK_VREDS;
-
-	pp->reds += reds;
-	reds = 0;
-
-	if (pp->reds >= CONTEXT_REDS)
-	    break;
+		 pp->reds += reds;
+		 reds = 0;
+		 
+		 if (pp->reds >= CONTEXT_REDS)
+			  break;
     }
 
     erts_unblock_fpe(fpe_was_unmasked);
 
 
     if (io_tasks_executed) {
-	ASSERT(erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
-	       >= io_tasks_executed);
-	erts_smp_atomic_add_relb(&erts_port_task_outstanding_io_tasks,
-				 -1*io_tasks_executed);
+		 ASSERT(erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
+				>= io_tasks_executed);
+		 erts_smp_atomic_add_relb(&erts_port_task_outstanding_io_tasks,
+								  -1*io_tasks_executed);
     }
 
 #ifdef ERTS_SMP
@@ -1841,34 +1842,34 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
  
     if (active) {
 #ifdef ERTS_SMP
-	ErtsRunQueue *xrunq;
+		 ErtsRunQueue *xrunq;
 #endif
 
-	ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
+		 ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
 
 #ifdef ERTS_SMP
-	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
-	ERTS_SMP_LC_ASSERT(runq != xrunq);
-	ERTS_SMP_LC_VERIFY_RQ(runq, pp);
-	if (!xrunq) {
+		 xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
+		 ERTS_SMP_LC_ASSERT(runq != xrunq);
+		 ERTS_SMP_LC_VERIFY_RQ(runq, pp);
+		 if (!xrunq) {
 #endif
-	    enqueue_port(runq, pp);
+			  enqueue_port(runq, pp);
 	    /* No need to notify ourselves about inc in runq. */
 #ifdef ERTS_SMP
-	}
-	else {
+		 }
+		 else {
 	    /* Emigrate port... */
-	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
-	    erts_smp_runq_unlock(runq);
+			  erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
+			  erts_smp_runq_unlock(runq);
 
-	    xrunq = erts_port_runq(pp);
-	    ASSERT(xrunq);
-	    enqueue_port(xrunq, pp);
-	    erts_smp_runq_unlock(xrunq);
-	    erts_smp_notify_inc_runq(xrunq);
+			  xrunq = erts_port_runq(pp);
+			  ASSERT(xrunq);
+			  enqueue_port(xrunq, pp);
+			  erts_smp_runq_unlock(xrunq);
+			  erts_smp_notify_inc_runq(xrunq);
 
-	    erts_smp_runq_lock(runq);
-	}
+			  erts_smp_runq_lock(runq);
+		 }
 #endif
     }
 

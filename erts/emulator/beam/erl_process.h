@@ -422,29 +422,29 @@ struct ErtsRunQueue_ {
     int wakeup_other;
     int wakeup_other_reds;
     int halt_in_progress;
-
+//RunQueue的Erlang进程链表
     struct {
-	ErtsProcList *pending_exiters;
-	Uint context_switches;
-	Uint reductions;
+		 ErtsProcList *pending_exiters;
+		 Uint context_switches;
+		 Uint reductions;
 
-	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
+		 ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
 
 	/* We use the same prio queue for low and
 	   normal prio processes */
-	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
+		 ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
     } procs;
 
     struct {
-	ErtsMiscOpList *start;
-	ErtsMiscOpList *end;
-	erts_smp_atomic_t evac_runq;
+		 ErtsMiscOpList *start;
+		 ErtsMiscOpList *end;
+		 erts_smp_atomic_t evac_runq;
     } misc;
-
+//RunQueue的Erlang的Ports链表
     struct {
-	ErtsRunQueueInfo info;
-	Port *start;
-	Port *end;
+		 ErtsRunQueueInfo info;
+		 Port *start;
+		 Port *end;
     } ports;
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
     ErtsRunQueueSchedUtil sched_util;
