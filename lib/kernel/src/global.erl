@@ -156,7 +156,7 @@
 %%% The new_nodes messages has been augmented with the global lock id.
 %%%
 %%% R14A (OTP-8527): The deleter process has been removed.
-
+%global本质还是一个gen_server
 start() -> 
     gen_server:start({local, global_name_server}, ?MODULE, [], []).
 
@@ -370,18 +370,20 @@ set_lock(Id, Nodes, infinity) ->
 
 set_lock({_ResourceId, _LockRequesterId}, [], _Retries, _Times) ->
     true;
+%尝试在特定的节点上设置锁
 set_lock({_ResourceId, _LockRequesterId} = Id, Nodes, Retries, Times) ->
     ?trace({set_lock,{me,self()},Id,{nodes,Nodes},
             {retries,Retries}, {times,Times}}),
     case set_lock_on_nodes(Id, Nodes) of
-	true -> 
+		true -> 
             ?trace({set_lock_true, Id}),
             true;
         false=Reply when Retries =:= 0 ->
             Reply;
-	false ->
-	    random_sleep(Times),
-	    set_lock(Id, Nodes, dec(Retries), Times+1)
+		false ->
+%随机的睡眠下然后再去尝试下
+			random_sleep(Times),
+			set_lock(Id, Nodes, dec(Retries), Times+1)
     end.
 
 -spec del_lock(Id) -> 'true' when
@@ -438,7 +440,7 @@ info() ->
 %%%-----------------------------------------------------------------
 
 -spec init([]) -> {'ok', state()}.
-
+%使用ets表来缓存
 init([]) ->
     process_flag(trap_exit, true),
     _ = ets:new(global_locks, [set, named_table, protected]),
@@ -457,7 +459,7 @@ init([]) ->
              false -> 
                  no_trace
          end,
-
+%启动两个进程分别做locker和registrar的处理
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
                the_registrar = start_the_registrar()},
@@ -980,6 +982,8 @@ trans_all_known(Fun) ->
     Id = {?GLOBAL_RID, self()},
     Nodes = set_lock_known(Id, 0),
     try
+%当锁住了所有的节点，才执行相关的操作
+%全局的大锁呀，用多了性能还是比较差的
         Fun(Nodes)
     after
         delete_global_lock(Id, Nodes)
@@ -988,10 +992,13 @@ trans_all_known(Fun) ->
 set_lock_known(Id, Times) -> 
     Known = get_known(),
     Nodes = [node() | Known],
+%Boss是List中最后的那个元素
     Boss = the_boss(Nodes),
     %% Use the  same convention (a boss) as lock_nodes_safely. Optimization.
+%先锁定住Boss
     case set_lock_on_nodes(Id, [Boss]) of
         true ->
+%接这锁住剩下的节点
             case lock_on_known_nodes(Id, Known, Nodes) of
                 true ->
                     Nodes;
@@ -1027,12 +1034,14 @@ set_lock_on_nodes(Id, Nodes) ->
             Reply
     end.
 
-%% Probe lock on local node to see if one should go on trying other nodes.
+%% Probe lock on local node to see if one should go on trying other nodes.										   
 local_lock_check(_Id, [_] = _Nodes) ->
     true;
-local_lock_check(Id, Nodes) ->
+local_lock_check(Id, Nodes) -
+%先检查自身是否在Nodes中，如果在其中则检查是否能给本地上锁
     not lists:member(node(), Nodes) orelse (can_set_lock(Id) =/= false).
-
+%如果某个Node返回了false,则认为失败
+%如果Nodes的数量大于1，则回滚所有返回成功的节点
 check_replies([{_Node, true} | T], Id, Replies) ->
     check_replies(T, Id, Replies);
 check_replies([{_Node, false=Reply} | _T], _Id, [_]) ->
@@ -1253,7 +1262,7 @@ handle_set_lock(Id, Pid, S) ->
         false=Reply ->
             {Reply, S}
     end.
-
+%检查某个锁是否能被锁定
 can_set_lock({ResourceId, LockRequesterId}) ->
     case ets:lookup(global_locks, ResourceId) of
 	[{ResourceId, LockRequesterId, PidRefs}] ->
@@ -2067,20 +2076,20 @@ get_known() ->
 
 random_sleep(Times) ->
     case (Times rem 10) of
-	0 -> erase(random_seed);
-	_ -> ok
+		0 -> erase(random_seed);
+		_ -> ok
     end,
     case get(random_seed) of
-	undefined ->
-	    {A1, A2, A3} = now(),
-	    _ = random:seed(A1, A2, A3 + erlang:phash(node(), 100000)),
+		undefined ->
+			{A1, A2, A3} = now(),
+			_ = random:seed(A1, A2, A3 + erlang:phash(node(), 100000)),
             ok;
-	_ -> ok
+		_ -> ok
     end,
     %% First time 1/4 seconds, then doubling each time up to 8 seconds max.
     Tmax = if Times > 5 -> 8000;
-	      true -> ((1 bsl Times) * 1000) div 8
-	   end,
+			  true -> ((1 bsl Times) * 1000) div 8
+		   end,
     T = random:uniform(Tmax),
     ?trace({random_sleep, {me,self()}, {times,Times}, {t,T}, {tmax,Tmax}}),
     receive after T -> ok end.
