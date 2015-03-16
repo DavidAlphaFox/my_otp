@@ -50,7 +50,7 @@ ethr_event_destroy(ethr_event *e)
 {
     return 0;
 }
-
+//等待事件,以及spin的时间
 static ETHR_INLINE int
 wait__(ethr_event *e, int spincount)
 {
@@ -132,7 +132,9 @@ ethr_event_destroy(ethr_event *e)
 		 return res;
     return 0;
 }
-
+//非Linux的时间等待和spin次数
+//采用的方案是先用lockless的方式循环spin次数
+//之后会使用pthread的cond_wait方式
 static ETHR_INLINE int
 wait__(ethr_event *e, int spincount)
 {
@@ -142,31 +144,31 @@ wait__(ethr_event *e, int spincount)
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
     if (spincount < 0)
-	ETHR_FATAL_ERROR__(EINVAL);
+		 ETHR_FATAL_ERROR__(EINVAL);
 
     while (1) {
-	val = ethr_atomic32_read(&e->state);
-	if (val == ETHR_EVENT_ON__)
-	    return 0;
-	if (sc == 0)
-	    break;
-	sc--;
-	ETHR_SPIN_BODY;
-	if (--until_yield == 0) {
-	    until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-	    res = ETHR_YIELD();
-	    if (res != 0)
-		ETHR_FATAL_ERROR__(res);
-	}
+		 val = ethr_atomic32_read(&e->state);
+		 if (val == ETHR_EVENT_ON__)
+			  return 0;
+		 if (sc == 0)
+			  break;
+		 sc--;
+		 ETHR_SPIN_BODY;
+		 if (--until_yield == 0) {
+			  until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
+			  res = ETHR_YIELD();
+			  if (res != 0)
+				   ETHR_FATAL_ERROR__(res);
+		 }
     }
 
     if (val != ETHR_EVENT_OFF_WAITER__) {
-	val = ethr_atomic32_cmpxchg(&e->state,
-				    ETHR_EVENT_OFF_WAITER__,
-				    ETHR_EVENT_OFF__);
-	if (val == ETHR_EVENT_ON__)
-	    return 0;
-	ETHR_ASSERT(val == ETHR_EVENT_OFF__);
+		 val = ethr_atomic32_cmpxchg(&e->state,
+									 ETHR_EVENT_OFF_WAITER__,
+									 ETHR_EVENT_OFF__);
+		 if (val == ETHR_EVENT_ON__)
+			  return 0;
+		 ETHR_ASSERT(val == ETHR_EVENT_OFF__);
     }
 
     ETHR_ASSERT(val == ETHR_EVENT_OFF_WAITER__
@@ -174,24 +176,24 @@ wait__(ethr_event *e, int spincount)
 
     res = pthread_mutex_lock(&e->mtx);
     if (res != 0)
-	ETHR_FATAL_ERROR__(res);
-
+		 ETHR_FATAL_ERROR__(res);
+	
     while (1) {
-
-	val = ethr_atomic32_read(&e->state);
-	if (val == ETHR_EVENT_ON__)
-	    break;
-
-	res = pthread_cond_wait(&e->cnd, &e->mtx);
-	if (res == EINTR)
-	    break;
-	if (res != 0)
-	    ETHR_FATAL_ERROR__(res);
+		 
+		 val = ethr_atomic32_read(&e->state);
+		 if (val == ETHR_EVENT_ON__)
+			  break;
+		 
+		 res = pthread_cond_wait(&e->cnd, &e->mtx);
+		 if (res == EINTR)
+			  break;
+		 if (res != 0)
+			  ETHR_FATAL_ERROR__(res);
     }
 
     ulres = pthread_mutex_unlock(&e->mtx);
     if (ulres != 0)
-	ETHR_FATAL_ERROR__(ulres);
+		 ETHR_FATAL_ERROR__(ulres);
 
     return res; /* 0 || EINTR */
 }

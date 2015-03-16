@@ -524,41 +524,41 @@ erts_thr_q_inspect(ErtsThrQ_t *q, int ensure_empty)
 #else
     ErtsThrQElement_t *head = ErtsThrQDirtyReadEl(&q->head.head);
     if (ensure_empty) {
-	erts_aint_t inext;
-	inext = erts_atomic_read_acqb(&head->next);
-	if (inext != ERTS_AINT_NULL) {
-	    if (&q->tail.data.marker != (ErtsThrQElement_t *) inext)
-		return ERTS_THR_Q_DIRTY;
-	    else {
-		head = (ErtsThrQElement_t *) inext;
-		ErtsThrQDirtySetEl(&q->head.head, head);
-		inext = erts_atomic_read_acqb(&head->next);
-		if (inext != ERTS_AINT_NULL)
-		    return ERTS_THR_Q_DIRTY;
-	    }
-	}
+		 erts_aint_t inext;
+		 inext = erts_atomic_read_acqb(&head->next);
+		 if (inext != ERTS_AINT_NULL) {
+			  if (&q->tail.data.marker != (ErtsThrQElement_t *) inext)
+				   return ERTS_THR_Q_DIRTY;
+			  else {
+				   head = (ErtsThrQElement_t *) inext;
+				   ErtsThrQDirtySetEl(&q->head.head, head);
+				   inext = erts_atomic_read_acqb(&head->next);
+				   if (inext != ERTS_AINT_NULL)
+						return ERTS_THR_Q_DIRTY;
+			  }
+		 }
     }
 
     if (q->head.first == head) {
-	if (!q->head.used_marker) {
-	    erts_aint_t inext;
-	    inext = erts_atomic_read_acqb(&head->next);
-	    if (inext == ERTS_AINT_NULL)
-		return ERTS_THR_Q_DIRTY;
-	}
-	return ERTS_THR_Q_CLEAN;
+		 if (!q->head.used_marker) {
+			  erts_aint_t inext;
+			  inext = erts_atomic_read_acqb(&head->next);
+			  if (inext == ERTS_AINT_NULL)
+				   return ERTS_THR_Q_DIRTY;
+		 }
+		 return ERTS_THR_Q_CLEAN;
     }
 
     if (q->head.first != q->head.unref_end)
-	return ERTS_THR_Q_DIRTY;
+		 return ERTS_THR_Q_DIRTY;
 
 #ifdef ERTS_SMP
     if (q->head.next.thr_progress_reached)
 #endif
     {
-	int um_refc_ix = q->head.next.um_refc_ix;
-	if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0)
-	    return ERTS_THR_Q_DIRTY;
+		 int um_refc_ix = q->head.next.um_refc_ix;
+		 if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0)
+			  return ERTS_THR_Q_DIRTY;
     }
     return ERTS_THR_Q_NEED_THR_PRGR;
 #endif
@@ -738,12 +738,12 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
     ErtsThrQElement_t *tmp;
 
     if (!q->first)
-	return NULL;
+		 return NULL;
     tmp = q->first;
     res = tmp->data.ptr;
     q->first = tmp->next;
     if (!q->first)
-	q->last = NULL;
+		 q->last = NULL;
 
     element_free(q, tmp);
 
@@ -756,21 +756,21 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
     head = ErtsThrQDirtyReadEl(&q->head.head);
     inext = erts_atomic_read_acqb(&head->next);
     if (inext == ERTS_AINT_NULL)
-	return NULL;
+		 return NULL;
     head = (ErtsThrQElement_t *) inext;
     ErtsThrQDirtySetEl(&q->head.head, head);
     if (head == &q->tail.data.marker) {
-	inext = erts_atomic_read_acqb(&head->next);
-	if (inext == ERTS_AINT_NULL)
-	    return NULL;
-	head = (ErtsThrQElement_t *) inext;
-	ErtsThrQDirtySetEl(&q->head.head, head);
+		 inext = erts_atomic_read_acqb(&head->next);
+		 if (inext == ERTS_AINT_NULL)
+			  return NULL;
+		 head = (ErtsThrQElement_t *) inext;
+		 ErtsThrQDirtySetEl(&q->head.head, head);
     }
     res = head->data.ptr;
 #if ERTS_THR_Q_DBG_CHK_DATA
     head->data.ptr = NULL;
     if (!res)
-	erl_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
+		 erl_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
 #endif
     clean(q,
 	  (q->head.deq_fini.automatic

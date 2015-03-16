@@ -173,50 +173,50 @@ erts_init_async(void)
     async = NULL;
     if (erts_async_max_threads > 0) {
 #if ERTS_USE_ASYNC_READY_Q
-	ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
+		 ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
 #endif
-	erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
-	char *ptr;
-	size_t tot_size = 0;
-	int i;
+		 erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
+		 char *ptr;
+		 size_t tot_size = 0;
+		 int i;
 
-	tot_size += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAsyncData));
-	tot_size += sizeof(ErtsAlgndAsyncQ)*erts_async_max_threads;
+		 tot_size += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAsyncData));
+		 tot_size += sizeof(ErtsAlgndAsyncQ)*erts_async_max_threads;
 #if ERTS_USE_ASYNC_READY_Q
-	tot_size += sizeof(ErtsAlgndAsyncReadyQ)*erts_no_schedulers;
+		 tot_size += sizeof(ErtsAlgndAsyncReadyQ)*erts_no_schedulers;
 #endif
 
-	ptr = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_ASYNC_DATA,
-						 tot_size);
+		 ptr = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_ASYNC_DATA,
+												  tot_size);
 
-	async = (ErtsAsyncData *) ptr;
-	ptr += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAsyncData));
+		 async = (ErtsAsyncData *) ptr;
+		 ptr += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAsyncData));
+		 
+		 async->init.data.no_initialized = 0;
+		 erts_mtx_init(&async->init.data.mtx, "async_init_mtx");
+		 erts_cnd_init(&async->init.data.cnd);
+		 erts_atomic_init_nob(&async->init.data.id, 0);
 
-	async->init.data.no_initialized = 0;
-	erts_mtx_init(&async->init.data.mtx, "async_init_mtx");
-	erts_cnd_init(&async->init.data.cnd);
-	erts_atomic_init_nob(&async->init.data.id, 0);
-
-	async->queue = (ErtsAlgndAsyncQ *) ptr;
-	ptr += sizeof(ErtsAlgndAsyncQ)*erts_async_max_threads;
+		 async->queue = (ErtsAlgndAsyncQ *) ptr;
+		 ptr += sizeof(ErtsAlgndAsyncQ)*erts_async_max_threads;
 
 #if ERTS_USE_ASYNC_READY_Q
 
-	qinit.live.queue = ERTS_THR_Q_LIVE_LONG;
-	qinit.live.objects = ERTS_THR_Q_LIVE_SHORT;
-	qinit.notify = erts_notify_check_async_ready_queue;
+		 qinit.live.queue = ERTS_THR_Q_LIVE_LONG;
+		 qinit.live.objects = ERTS_THR_Q_LIVE_SHORT;
+		 qinit.notify = erts_notify_check_async_ready_queue;
+		 
+		 async->ready_queue = (ErtsAlgndAsyncReadyQ *) ptr;
+		 ptr += sizeof(ErtsAlgndAsyncReadyQ)*erts_no_schedulers;
 
-	async->ready_queue = (ErtsAlgndAsyncReadyQ *) ptr;
-	ptr += sizeof(ErtsAlgndAsyncReadyQ)*erts_no_schedulers;
-
-	for (i = 1; i <= erts_no_schedulers; i++) {
-	    ErtsAsyncReadyQ *arq = async_ready_q(i);
+		 for (i = 1; i <= erts_no_schedulers; i++) {
+			  ErtsAsyncReadyQ *arq = async_ready_q(i);
 #if ERTS_USE_ASYNC_READY_ENQ_MTX
-	    erts_mtx_init(&arq->x.data.enq_mtx, "async_enq_mtx");
+			  erts_mtx_init(&arq->x.data.enq_mtx, "async_enq_mtx");
 #endif
-	    erts_thr_q_finalize_dequeue_state_init(&arq->fin_deq);
-	    qinit.arg = (void *) (SWord) i;
-	    erts_thr_q_initialize(&arq->thr_q, &qinit);
+			  erts_thr_q_finalize_dequeue_state_init(&arq->fin_deq);
+			  qinit.arg = (void *) (SWord) i;
+			  erts_thr_q_initialize(&arq->thr_q, &qinit);
 	}
 
 #endif
@@ -232,13 +232,13 @@ erts_init_async(void)
 #endif
 
 	for (i = 0; i < erts_async_max_threads; i++) {
-	    ErtsAsyncQ *aq = async_q(i);
+		 ErtsAsyncQ *aq = async_q(i);
 
 #ifdef ETHR_HAVE_THREAD_NAMES
-            sprintf(thr_opts.name, "async_%d", i+1);
+		 sprintf(thr_opts.name, "async_%d", i+1);
 #endif
 
-	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
+		 erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
 
 #ifdef ETHR_HAVE_THREAD_NAMES
@@ -248,7 +248,7 @@ erts_init_async(void)
 
 	erts_mtx_lock(&async->init.data.mtx);
 	while (async->init.data.no_initialized != erts_async_max_threads)
-	    erts_cnd_wait(&async->init.data.cnd, &async->init.data.mtx);
+		 erts_cnd_wait(&async->init.data.cnd, &async->init.data.mtx);
 	erts_mtx_unlock(&async->init.data.mtx);
 
 	erts_mtx_destroy(&async->init.data.mtx);
@@ -275,12 +275,12 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 
     if (is_internal_port(a->port)) {
 #if ERTS_USE_ASYNC_READY_Q
-	ErtsAsyncReadyQ *arq = async_ready_q(a->sched_id);
-	a->q.prep_enq = erts_thr_q_prepare_enqueue(&arq->thr_q);
+		 ErtsAsyncReadyQ *arq = async_ready_q(a->sched_id);
+		 a->q.prep_enq = erts_thr_q_prepare_enqueue(&arq->thr_q);
 #endif
 	/* make sure the driver will stay around */
-	if (a->hndl)
-	    erts_ddll_reference_referenced_driver(a->hndl);
+		 if (a->hndl)
+			  erts_ddll_reference_referenced_driver(a->hndl);
     }
 
 #if ERTS_ASYNC_PRINT_JOB
@@ -315,83 +315,85 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 #endif
 
     while (1) {
-	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
-	if (a) {
-
+//去当前队列中取一个任务
+		 ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
+		 if (a) {
+//如果使用async_ready_queue
+//将任务的async_ready_queue取出来
 #if ERTS_USE_ASYNC_READY_Q
-	    *prep_enq = a->q.prep_enq;
-	    erts_thr_q_get_finalize_dequeue_data(q, &a->q.fin_deq);
-	    if (saved_fin_deq)
-		erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
+			  *prep_enq = a->q.prep_enq;
+			  erts_thr_q_get_finalize_dequeue_data(q, &a->q.fin_deq);
+			  if (saved_fin_deq)
+				   erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
 #endif
 #ifdef USE_VM_PROBES
-            if (DTRACE_ENABLED(aio_pool_get)) {
-                DTRACE_CHARBUF(port_str, 16);
+			  if (DTRACE_ENABLED(aio_pool_get)) {
+				   DTRACE_CHARBUF(port_str, 16);
 
-                erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
-                              "%T", a->port);
+				   erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+								 "%T", a->port);
                 /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
-                len = -1;
-                DTRACE2(aio_pool_get, port_str, len);
-            }
+				   len = -1;
+				   DTRACE2(aio_pool_get, port_str, len);
+			  }
 #endif
-	    return a;
-	}
+			  return a;
+		 }
 
-	if (ERTS_THR_Q_DIRTY != erts_thr_q_clean(q)) {
-	    ErtsThrQFinDeQ_t tmp_fin_deq;
+		 if (ERTS_THR_Q_DIRTY != erts_thr_q_clean(q)) {
+			  ErtsThrQFinDeQ_t tmp_fin_deq;
 
-	    erts_tse_reset(tse);
+			  erts_tse_reset(tse);
 
 #if ERTS_USE_ASYNC_READY_Q
-	chk_fin_deq:
-	    if (erts_thr_q_get_finalize_dequeue_data(q, &tmp_fin_deq)) {
-		if (!saved_fin_deq) {
-		    erts_thr_q_finalize_dequeue_state_init(&fin_deq);
-		    saved_fin_deq = 1;
-		}
-		erts_thr_q_append_finalize_dequeue_data(&fin_deq,
-							&tmp_fin_deq);
-	    }
+		 chk_fin_deq:
+			  if (erts_thr_q_get_finalize_dequeue_data(q, &tmp_fin_deq)) {
+				   if (!saved_fin_deq) {
+						erts_thr_q_finalize_dequeue_state_init(&fin_deq);
+						saved_fin_deq = 1;
+				   }
+				   erts_thr_q_append_finalize_dequeue_data(&fin_deq,
+														   &tmp_fin_deq);
+			  }
 #endif
 
-	    switch (erts_thr_q_inspect(q, 1)) {
-	    case ERTS_THR_Q_DIRTY:
-		break;
-	    case ERTS_THR_Q_NEED_THR_PRGR:
+			  switch (erts_thr_q_inspect(q, 1)) {
+			  case ERTS_THR_Q_DIRTY:
+				   break;
+			  case ERTS_THR_Q_NEED_THR_PRGR:
 #ifdef ERTS_SMP
-	    {
-		ErtsThrPrgrVal prgr = erts_thr_q_need_thr_progress(q);
-		erts_thr_progress_wakeup(NULL, prgr);
-		/*
-		 * We do no dequeue finalizing in hope that a new async
-		 * job will arrive before we are woken due to thread
-		 * progress...
-		 */
-		erts_tse_wait(tse);
-		break;
-	    }
+			  {
+				   ErtsThrPrgrVal prgr = erts_thr_q_need_thr_progress(q);
+				   erts_thr_progress_wakeup(NULL, prgr);
+				   /*
+					* We do no dequeue finalizing in hope that a new async
+					* job will arrive before we are woken due to thread
+					* progress...
+					*/
+				   erts_tse_wait(tse);
+				   break;
+			  }
 #endif
-	    case ERTS_THR_Q_CLEAN:
+			  case ERTS_THR_Q_CLEAN:
 
 #if ERTS_USE_ASYNC_READY_Q
-		if (saved_fin_deq) {
-		    if (erts_thr_q_finalize_dequeue(&fin_deq))
-			goto chk_fin_deq;
-		    else
-			saved_fin_deq = 0;
-		}
+				   if (saved_fin_deq) {
+						if (erts_thr_q_finalize_dequeue(&fin_deq))
+							 goto chk_fin_deq;
+						else
+							 saved_fin_deq = 0;
+				   }
 #endif
 
-		erts_tse_wait(tse);
-		break;
+				   erts_tse_wait(tse);
+				   break;
 
-	    default:
-		ASSERT(0);
-		break;
-	    }
-
-	}
+			  default:
+				   ASSERT(0);
+				   break;
+			  }
+		
+		 }
     }
 }
 
@@ -496,25 +498,28 @@ static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
 
     return tse;
 }
-
+//异步线程的主函数
 static void *async_main(void* arg)
 {
     ErtsAsyncQ *aq = (ErtsAsyncQ *) arg;
     erts_tse_t *tse = async_thread_init(aq);
 
     while (1) {
-	ErtsThrQPrepEnQ_t *prep_enq;
-	ErtsAsync *a = async_get(&aq->thr_q, tse, &prep_enq);
-	if (is_nil(a->port))
-	    break; /* Time to die */
+		 ErtsThrQPrepEnQ_t *prep_enq;
+//从异步队列中取出一个任务		 
+		 ErtsAsync *a = async_get(&aq->thr_q, tse, &prep_enq);
+//异步任务关联的Port为nil的时候，代表退出逻辑
+		 if (is_nil(a->port))
+			  break; /* Time to die */
 
 #if ERTS_ASYNC_PRINT_JOB
-	erts_fprintf(stderr, "<- %ld\n", a->async_id);
+		 erts_fprintf(stderr, "<- %ld\n", a->async_id);
 #endif
-
-	a->async_invoke(a->async_data);
-
-	async_reply(a, prep_enq);
+//执行异步任务函数
+//如果异步任务函数有问题需要自己去做异常处理
+		 a->async_invoke(a->async_data);
+//回复结果
+		 async_reply(a, prep_enq);
     }
 
     return NULL;
@@ -606,7 +611,7 @@ unsigned int driver_async_port_key(ErlDrvPort port)
 {
     ErlDrvTermData td = driver_mk_port(port);
     if (td == (ErlDrvTermData) NIL) {
-	return 0;
+		 return 0;
     }
     return (unsigned int) (UWord) internal_port_data(td);
 }
@@ -625,6 +630,7 @@ unsigned int driver_async_port_key(ErlDrvPort port)
 **      async_data     data to pass to invoke function
 **      async_free     function for relase async_data in case of failure
 */
+//erlang的驱动使用异步线程池来完成长时间的操作
 long driver_async(ErlDrvPort ix, unsigned int* key,
 		  void (*async_invoke)(void*), void* async_data,
 		  void (*async_free)(void*))
@@ -638,7 +644,7 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
 
     sched_id = erts_get_scheduler_id();
     if (!sched_id)
-	sched_id = 1;
+		 sched_id = 1;
 #endif
 
     prt = erts_drvport2port(ix);
