@@ -144,23 +144,25 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 		  int no_suspend)
 {
     int failure;
+//远程节点不是存活状态
     if (!erts_is_alive)
-	return ERTS_DSIG_PREP_NOT_ALIVE;
+		 return ERTS_DSIG_PREP_NOT_ALIVE;
+//还没有和远程节点建立连接
     if (!dep)
-	return ERTS_DSIG_PREP_NOT_CONNECTED;
+		 return ERTS_DSIG_PREP_NOT_CONNECTED;
     if (dspl == ERTS_DSP_RWLOCK)
-	erts_smp_de_rwlock(dep);
+		 erts_smp_de_rwlock(dep);
     else
-	erts_smp_de_rlock(dep);
+		 erts_smp_de_rlock(dep);
     if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
-	failure = ERTS_DSIG_PREP_NOT_CONNECTED;
-	goto fail;
+		 failure = ERTS_DSIG_PREP_NOT_CONNECTED;
+		 goto fail;
     }
     if (no_suspend) {
-	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_smp_mtx_lock(&dep->qlock);
+		 failure = ERTS_DSIG_PREP_CONNECTED;
+		 erts_smp_mtx_lock(&dep->qlock);
 	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
-	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
+		 failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
 	erts_smp_mtx_unlock(&dep->qlock);
 	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
 	    goto fail;
@@ -171,14 +173,14 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     dsdp->connection_id = dep->connection_id;
     dsdp->no_suspend = no_suspend;
     if (dspl == ERTS_DSP_NO_LOCK)
-	erts_smp_de_runlock(dep);
+		 erts_smp_de_runlock(dep);
     return ERTS_DSIG_PREP_CONNECTED;
 
  fail:
     if (dspl == ERTS_DSP_RWLOCK)
-	erts_smp_de_rwunlock(dep);
+		 erts_smp_de_rwunlock(dep);
     else
-	erts_smp_de_runlock(dep);
+		 erts_smp_de_runlock(dep);
     return failure;
 
 }

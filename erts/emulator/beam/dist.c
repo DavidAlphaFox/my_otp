@@ -590,7 +590,7 @@ trap_function(Eterm func, int arity)
 {
     return erts_export_put(am_erlang, func, arity);
 }
-
+//初始化远程连接的模块
 void init_dist(void)
 {
     init_nodes_monitors();
@@ -600,7 +600,7 @@ void init_dist(void)
 
     erts_smp_atomic_init_nob(&no_nodes, 0);
     erts_smp_atomic_init_nob(&no_caches, 0);
-
+//trap_function是相当等于将Erlang的函数引入Erts中使用
     /* Lookup/Install all references to trap functions */
     dsend2_trap = trap_function(am_dsend,2);
     dsend3_trap = trap_function(am_dsend,3);
@@ -2862,8 +2862,9 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 
 BIF_RETTYPE node_1(BIF_ALIST_1)
 { 
+//检查是否是正确的node
     if (is_not_node_container(BIF_ARG_1))
-      BIF_ERROR(BIF_P, BADARG);
+		 BIF_ERROR(BIF_P, BADARG);
     BIF_RET(node_container_node_name(BIF_ARG_1));
 }
 

@@ -229,29 +229,33 @@ erts_sysname_to_connected_dist_entry(Eterm sysname)
     DistEntry de;
     DistEntry *res_dep;
     de.sysname = sysname;
-  
+//当前节点自己
+//返回自己
     if(erts_this_dist_entry->sysname == sysname) {
-	erts_refc_inc(&erts_this_dist_entry->refc, 2);
-	return erts_this_dist_entry;
+		 erts_refc_inc(&erts_this_dist_entry->refc, 2);
+		 return erts_this_dist_entry;
     }
-
+//给远程节点表加读锁
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
     res_dep = (DistEntry *) hash_get(&erts_dist_table, (void *) &de);
+//在远程节点表中找到节点
     if (res_dep) {
-	erts_aint_t refc = erts_refc_inctest(&res_dep->refc, 1);
-	if (refc < 2) /* Pending delete */
-	    erts_refc_inc(&res_dep->refc, 1);
+		 erts_aint_t refc = erts_refc_inctest(&res_dep->refc, 1);
+//如果refc小于2，那么增加引用
+		 if (refc < 2) /* Pending delete */
+			  erts_refc_inc(&res_dep->refc, 1);
     }
+//释放读锁
     erts_smp_rwmtx_runlock(&erts_dist_table_rwmtx);
     if (res_dep) {
-	int deref;
-	erts_smp_rwmtx_rlock(&res_dep->rwmtx);
-	deref = is_nil(res_dep->cid);
-	erts_smp_rwmtx_runlock(&res_dep->rwmtx);
-	if (deref) {
-	    erts_deref_dist_entry(res_dep);
-	    res_dep = NULL;
-	}
+		 int deref;
+		 erts_smp_rwmtx_rlock(&res_dep->rwmtx);
+		 deref = is_nil(res_dep->cid);
+		 erts_smp_rwmtx_runlock(&res_dep->rwmtx);
+		 if (deref) {
+			  erts_deref_dist_entry(res_dep);
+			  res_dep = NULL;
+		 }
     }
     return res_dep;
 }

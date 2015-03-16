@@ -1797,7 +1797,7 @@ ebif_bang_2(BIF_ALIST_2)
 #define SEND_AWAIT_RESULT	(-7)
 
 Sint do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp);
-
+//erlang:send发送到远程的代码
 static Sint remote_send(Process *p, DistEntry *dep,
 			Eterm to, Eterm full_to, Eterm msg, int suspend)
 {
@@ -1811,39 +1811,39 @@ static Sint remote_send(Process *p, DistEntry *dep,
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
-	res = SEND_TRAP;
-	break;
+		 res = SEND_TRAP;
+		 break;
     case ERTS_DSIG_PREP_WOULD_SUSPEND:
-	ASSERT(!suspend);
-	res = SEND_YIELD;
-	break;
+		 ASSERT(!suspend);
+		 res = SEND_YIELD;
+		 break;
     case ERTS_DSIG_PREP_CONNECTED: {
 
-	if (is_atom(to))
-	    code = erts_dsig_send_reg_msg(&dsd, to, msg);
-	else
-	    code = erts_dsig_send_msg(&dsd, to, msg);
-	/*
-	 * Note that reductions have been bumped on calling
-	 * process by erts_dsig_send_reg_msg() or
-	 * erts_dsig_send_msg().
-	 */
-	if (code == ERTS_DSIG_SEND_YIELD)
-	    res = SEND_YIELD_RETURN;
-	else
-	    res = 0;
-	break;
+		 if (is_atom(to))
+			  code = erts_dsig_send_reg_msg(&dsd, to, msg);
+		 else
+			  code = erts_dsig_send_msg(&dsd, to, msg);
+		 /*
+		  * Note that reductions have been bumped on calling
+		  * process by erts_dsig_send_reg_msg() or
+		  * erts_dsig_send_msg().
+		  */
+		 if (code == ERTS_DSIG_SEND_YIELD)
+			  res = SEND_YIELD_RETURN;
+		 else
+			  res = 0;
+		 break;
     }
     default:
-	ASSERT(! "Invalid dsig prepare result");
-	res = SEND_INTERNAL_ERROR;
+		 ASSERT(! "Invalid dsig prepare result");
+		 res = SEND_INTERNAL_ERROR;
     }
 
     if (res >= 0) {
-	if (IS_TRACED(p))
-	    trace_send(p, full_to, msg);
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-	    save_calls(p, &exp_send);
+		 if (IS_TRACED(p))
+			  trace_send(p, full_to, msg);
+		 if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+			  save_calls(p, &exp_send);
     }
 
     return res;
@@ -1856,214 +1856,217 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
     Process* rp;
     DistEntry *dep;
     Eterm* tp;
-
+//如果是本地的Pid
     if (is_internal_pid(to)) {
-	if (IS_TRACED(p))
-	    trace_send(p, to, msg);
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-	    save_calls(p, &exp_send);
+		 if (IS_TRACED(p))
+			  trace_send(p, to, msg);
+		 if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+			  save_calls(p, &exp_send);
 
-	rp = erts_proc_lookup_raw(to);	
-	if (!rp)
-	    return 0;
+		 rp = erts_proc_lookup_raw(to);	
+		 if (!rp)
+			  return 0;
+//如果是远程的Pid
     } else if (is_external_pid(to)) {
-	dep = external_pid_dist_entry(to);
-	if(dep == erts_this_dist_entry) {
+		 dep = external_pid_dist_entry(to);
+		 if(dep == erts_this_dist_entry) {
 #if DEBUG
-	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp,
-			  "Discarding message %T from %T to %T in an old "
-			  "incarnation (%d) of this node (%d)\n",
-			  msg,
-			  p->common.id,
-			  to,
-			  external_pid_creation(to),
-			  erts_this_node->creation);
-	    erts_send_error_to_logger(p->group_leader, dsbufp);
+			  erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+			  erts_dsprintf(dsbufp,
+							"Discarding message %T from %T to %T in an old "
+							"incarnation (%d) of this node (%d)\n",
+							msg,
+							p->common.id,
+							to,
+							external_pid_creation(to),
+							erts_this_node->creation);
+			  erts_send_error_to_logger(p->group_leader, dsbufp);
 #endif
-	    return 0;
-	}
-	return remote_send(p, dep, to, to, msg, suspend);
+			  return 0;
+		 }
+		 return remote_send(p, dep, to, to, msg, suspend);
     } else if (is_atom(to)) {
-	Eterm id = erts_whereis_name_to_id(p, to);
+		 Eterm id = erts_whereis_name_to_id(p, to);
+//区分是Pid还是Port
+		 rp = erts_proc_lookup(id);
+		 if (rp) {
+			  if (IS_TRACED(p))
+				   trace_send(p, to, msg);
+			  if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+				   save_calls(p, &exp_send);
+			  goto send_message;
+		 }
+		 
+		 pt = erts_port_lookup(id,
+							   (erts_port_synchronous_ops
+								? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+								: ERTS_PORT_SFLGS_INVALID_LOOKUP));
+		 if (pt) {
+			  portid = id;
+			  goto port_common;
+		 }
 
-	rp = erts_proc_lookup(id);
-	if (rp) {
-	    if (IS_TRACED(p))
-		trace_send(p, to, msg);
-	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-		save_calls(p, &exp_send);
-	    goto send_message;
-	}
-
-	pt = erts_port_lookup(id,
-			      (erts_port_synchronous_ops
-			       ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
-			       : ERTS_PORT_SFLGS_INVALID_LOOKUP));
-	if (pt) {
-	    portid = id;
-	    goto port_common;
-	}
-
-	if (IS_TRACED(p))
-	    trace_send(p, to, msg);
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-	    save_calls(p, &exp_send);
-	
-	return SEND_BADARG;
+		 if (IS_TRACED(p))
+			  trace_send(p, to, msg);
+		 if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+			  save_calls(p, &exp_send);
+		 
+		 return SEND_BADARG;
+//如果是远程Port
     } else if (is_external_port(to)
-	       && (external_port_dist_entry(to)
-		   == erts_this_dist_entry)) {
+			   && (external_port_dist_entry(to) == erts_this_dist_entry)) {
 #if DEBUG
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Discarding message %T from %T to %T in an old "
-		      "incarnation (%d) of this node (%d)\n",
-		      msg,
-		      p->common.id,
-		      to,
-		      external_port_creation(to),
-		      erts_this_node->creation);
-	erts_send_error_to_logger(p->group_leader, dsbufp);
+		 erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+		 erts_dsprintf(dsbufp,
+					   "Discarding message %T from %T to %T in an old "
+					   "incarnation (%d) of this node (%d)\n",
+					   msg,
+					   p->common.id,
+					   to,
+					   external_port_creation(to),
+					   erts_this_node->creation);
+		 erts_send_error_to_logger(p->group_leader, dsbufp);
 #endif
-	return 0;
+		 return 0;
+//如果是本地Port
     } else if (is_internal_port(to)) {
-	int ret_val;
-	portid = to;
+		 int ret_val;
+		 portid = to;
 
-	pt = erts_port_lookup(portid,
-			      (erts_port_synchronous_ops
-			       ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
-			       : ERTS_PORT_SFLGS_INVALID_LOOKUP));
-
-      port_common:
-	ret_val = 0;
+		 pt = erts_port_lookup(portid,
+							   (erts_port_synchronous_ops
+								? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+								: ERTS_PORT_SFLGS_INVALID_LOOKUP));
+		 
+	port_common:
+		 ret_val = 0;
         
-	if (pt) {
-	    int ps_flags = suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
-	    *refp = NIL;
+		 if (pt) {
+			  int ps_flags = suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
+			  *refp = NIL;
 
-	    switch (erts_port_command(p, ps_flags, pt, msg, refp)) {
-	    case ERTS_PORT_OP_CALLER_EXIT:
-		/* We are exiting... */
-		return SEND_USER_ERROR;
-	    case ERTS_PORT_OP_BUSY:
-		/* Nothing has been sent */
-		if (suspend)
-		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
-		return SEND_YIELD;
-	    case ERTS_PORT_OP_BUSY_SCHEDULED:
-		/* Message was sent */
-		if (suspend) {
-		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
-		    ret_val = SEND_YIELD_RETURN;
-		    break;
-		}
-		/* Fall through */
-	    case ERTS_PORT_OP_SCHEDULED:
-		if (is_not_nil(*refp)) {
-		    ASSERT(is_internal_ref(*refp));
-		    ret_val = SEND_AWAIT_RESULT;
-		}
-		break;
-	    case ERTS_PORT_OP_DROPPED:
-	    case ERTS_PORT_OP_BADARG:
-	    case ERTS_PORT_OP_DONE:
-		break;
-	    default:
-		ERTS_INTERNAL_ERROR("Unexpected erts_port_command() result");
-		break;
-	    }
-	}
+			  switch (erts_port_command(p, ps_flags, pt, msg, refp)) {
+			  case ERTS_PORT_OP_CALLER_EXIT:
+				   /* We are exiting... */
+				   return SEND_USER_ERROR;
+			  case ERTS_PORT_OP_BUSY:
+				   /* Nothing has been sent */
+				   if (suspend)
+						erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
+				   return SEND_YIELD;
+			  case ERTS_PORT_OP_BUSY_SCHEDULED:
+				   /* Message was sent */
+				   if (suspend) {
+						erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
+						ret_val = SEND_YIELD_RETURN;
+						break;
+				   }
+				   /* Fall through */
+			  case ERTS_PORT_OP_SCHEDULED:
+				   if (is_not_nil(*refp)) {
+						ASSERT(is_internal_ref(*refp));
+						ret_val = SEND_AWAIT_RESULT;
+				   }
+				   break;
+			  case ERTS_PORT_OP_DROPPED:
+			  case ERTS_PORT_OP_BADARG:
+			  case ERTS_PORT_OP_DONE:
+				   break;
+			  default:
+				   ERTS_INTERNAL_ERROR("Unexpected erts_port_command() result");
+				   break;
+			  }
+		 }
 	
-	if (IS_TRACED(p)) 	/* trace once only !! */
-	    trace_send(p, portid, msg);
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-	    save_calls(p, &exp_send);
+		 if (IS_TRACED(p)) 	/* trace once only !! */
+			  trace_send(p, portid, msg);
+		 if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+			  save_calls(p, &exp_send);
 	
-	if (SEQ_TRACE_TOKEN(p) != NIL
+		 if (SEQ_TRACE_TOKEN(p) != NIL
 #ifdef USE_VM_PROBES
-	    && SEQ_TRACE_TOKEN(p) != am_have_dt_utag
+			 && SEQ_TRACE_TOKEN(p) != am_have_dt_utag
 #endif
-	    ) {
-	    seq_trace_update_send(p);
-	    seq_trace_output(SEQ_TRACE_TOKEN(p), msg, 
-			     SEQ_TRACE_SEND, portid, p);
-	}	    
+			  ) {
+			  seq_trace_update_send(p);
+			  seq_trace_output(SEQ_TRACE_TOKEN(p), msg, 
+							   SEQ_TRACE_SEND, portid, p);
+		 }	    
 	
-	if (ERTS_PROC_IS_EXITING(p)) {
-	    KILL_CATCHES(p); /* Must exit */
-	    return SEND_USER_ERROR;
-	}
-	return ret_val;
+		 if (ERTS_PROC_IS_EXITING(p)) {
+			  KILL_CATCHES(p); /* Must exit */
+			  return SEND_USER_ERROR;
+		 }
+		 return ret_val;
+//远程且使用命名
     } else if (is_tuple(to)) { /* Remote send */
-	int ret;
-	tp = tuple_val(to);
-	if (*tp != make_arityval(2))
-	    return SEND_BADARG;
-	if (is_not_atom(tp[1]) || is_not_atom(tp[2]))
-	    return SEND_BADARG;
+		 int ret;
+		 tp = tuple_val(to);
+		 if (*tp != make_arityval(2))
+			  return SEND_BADARG;
+		 if (is_not_atom(tp[1]) || is_not_atom(tp[2]))
+			  return SEND_BADARG;
 	
 	/* sysname_to_connected_dist_entry will return NULL if there
 	   is no dist_entry or the dist_entry has no port,
 	   but remote_send() will handle that. */
-
-	dep = erts_sysname_to_connected_dist_entry(tp[2]);
-
-	if (dep == erts_this_dist_entry) {
-	    Eterm id;
-	    erts_deref_dist_entry(dep);
-	    if (IS_TRACED(p))
-		trace_send(p, to, msg);
-	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-		save_calls(p, &exp_send);
-
-	    id = erts_whereis_name_to_id(p, tp[1]);
-
-	    rp = erts_proc_lookup_raw(id);
-	    if (rp)
-		goto send_message;
-	    pt = erts_port_lookup(id,
-				  (erts_port_synchronous_ops
-				   ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
-				   : ERTS_PORT_SFLGS_INVALID_LOOKUP));
-	    if (pt) {
-		portid = id;
-		goto port_common;
-	    }
-	    return 0;
-	}
-
-	ret = remote_send(p, dep, tp[1], to, msg, suspend);
-	if (dep)
-	    erts_deref_dist_entry(dep);
-	return ret;
+//先要连接接到远程节点
+		 dep = erts_sysname_to_connected_dist_entry(tp[2]);
+//远程是自己，相当于调用本地	
+		 if (dep == erts_this_dist_entry) {
+			  Eterm id;
+			  erts_deref_dist_entry(dep);
+			  if (IS_TRACED(p))
+				   trace_send(p, to, msg);
+			  if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+				   save_calls(p, &exp_send);
+			  
+			  id = erts_whereis_name_to_id(p, tp[1]);
+			  
+			  rp = erts_proc_lookup_raw(id);
+			  if (rp)
+				   goto send_message;
+			  pt = erts_port_lookup(id,
+									(erts_port_synchronous_ops
+									 ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+									 : ERTS_PORT_SFLGS_INVALID_LOOKUP));
+			  if (pt) {
+				   portid = id;
+				   goto port_common;
+			  }
+			  return 0;
+		 }
+//调用remote_send向远程发送
+		 ret = remote_send(p, dep, tp[1], to, msg, suspend);
+		 if (dep)
+			  erts_deref_dist_entry(dep);
+		 return ret;
     } else {
-	if (IS_TRACED(p)) /* XXX Is this really neccessary ??? */
-	    trace_send(p, to, msg);
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
-	    save_calls(p, &exp_send);
-	return SEND_BADARG;
+		 if (IS_TRACED(p)) /* XXX Is this really neccessary ??? */
+			  trace_send(p, to, msg);
+		 if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+			  save_calls(p, &exp_send);
+		 return SEND_BADARG;
     }
     
- send_message: {
-	ErtsProcLocks rp_locks = 0;
-	Sint res;
+send_message: {
+		 ErtsProcLocks rp_locks = 0;
+		 Sint res;
 #ifdef ERTS_SMP
-	if (p == rp)
-	    rp_locks |= ERTS_PROC_LOCK_MAIN;
+		 if (p == rp)
+			  rp_locks |= ERTS_PROC_LOCK_MAIN;
 #endif
 	/* send to local process */
-	res = erts_send_message(p, rp, &rp_locks, msg, 0);
-	if (erts_use_sender_punish)
-	    res *= 4;
-	else
-	    res = 0;
-	erts_smp_proc_unlock(rp,
-			     p == rp
-			     ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)
-			     : rp_locks);
-	return res;
+		 res = erts_send_message(p, rp, &rp_locks, msg, 0);
+		 if (erts_use_sender_punish)
+			  res *= 4;
+		 else
+			  res = 0;
+		 erts_smp_proc_unlock(rp,
+							  p == rp
+							  ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)
+							  : rp_locks);
+		 return res;
     }
 }
 
@@ -2170,43 +2173,43 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     result = do_send(p, to, msg, !0, &ref);
     
     if (result > 0) {
-	ERTS_VBUMP_REDS(p, result);
-	if (ERTS_IS_PROC_OUT_OF_REDS(p))
-	    goto yield_return;
-	BIF_RET(msg);
+		 ERTS_VBUMP_REDS(p, result);
+		 if (ERTS_IS_PROC_OUT_OF_REDS(p))
+			  goto yield_return;
+		 BIF_RET(msg);
     }
 
     switch (result) {
     case 0:
 	/* May need to yield even though we do not bump reds here... */
-	if (ERTS_IS_PROC_OUT_OF_REDS(p))
-	    goto yield_return;
-	BIF_RET(msg); 
-	break;
+		 if (ERTS_IS_PROC_OUT_OF_REDS(p))
+			  goto yield_return;
+		 BIF_RET(msg); 
+		 break;
     case SEND_TRAP:
-	BIF_TRAP2(dsend2_trap, p, to, msg); 
-	break;
+		 BIF_TRAP2(dsend2_trap, p, to, msg); 
+		 break;
     case SEND_YIELD:
-	ERTS_BIF_YIELD2(bif_export[BIF_send_2], p, to, msg);
-	break;
+		 ERTS_BIF_YIELD2(bif_export[BIF_send_2], p, to, msg);
+		 break;
     case SEND_YIELD_RETURN:
     yield_return:
-	ERTS_BIF_YIELD_RETURN(p, msg);
+		 ERTS_BIF_YIELD_RETURN(p, msg);
     case SEND_AWAIT_RESULT:
-	ASSERT(is_internal_ref(ref));
-	BIF_TRAP3(await_port_send_result_trap, p, ref, msg, msg);
+		 ASSERT(is_internal_ref(ref));
+		 BIF_TRAP3(await_port_send_result_trap, p, ref, msg, msg);
     case SEND_BADARG:
-	BIF_ERROR(p, BADARG); 
-	break;
+		 BIF_ERROR(p, BADARG); 
+		 break;
     case SEND_USER_ERROR:
-	BIF_ERROR(p, EXC_ERROR); 
-	break;
+		 BIF_ERROR(p, EXC_ERROR); 
+		 break;
     case SEND_INTERNAL_ERROR:
-	BIF_ERROR(p, EXC_INTERNAL_ERROR);
-	break;
+		 BIF_ERROR(p, EXC_INTERNAL_ERROR);
+		 break;
     default:
-	ASSERT(! "Illegal send result"); 
-	break;
+		 ASSERT(! "Illegal send result"); 
+		 break;
     }
     ASSERT(! "Can not arrive here");
     BIF_ERROR(p, BADARG);
