@@ -734,12 +734,12 @@ static ErlIOVec *ev_copy(ErlIOVec *dest, ErlIOVec *source) {
 static void cq_enq(file_descriptor *desc, struct t_data *d) {
     ASSERT(d);
     if (desc->cq_head) {
-	ASSERT(desc->cq_tail);
-	ASSERT(!desc->cq_tail->next);
-	desc->cq_tail = desc->cq_tail->next = d;
+		 ASSERT(desc->cq_tail);
+		 ASSERT(!desc->cq_tail->next);
+		 desc->cq_tail = desc->cq_tail->next = d;
     } else {
-	ASSERT(desc->cq_tail == NULL);
-	desc->cq_head = desc->cq_tail = d;
+		 ASSERT(desc->cq_tail == NULL);
+		 desc->cq_head = desc->cq_tail = d;
     }
     d->next = NULL;
 }
@@ -748,11 +748,11 @@ static struct t_data *cq_deq(file_descriptor *desc) {
     struct t_data *d = desc->cq_head;
     ASSERT(d || (!d && !desc->cq_tail));
     if (d) {
-	ASSERT(!d->next || (d->next && desc->cq_tail != d));
-	if ((desc->cq_head = d->next) == NULL) {
-	    ASSERT(desc->cq_tail == d);
-	    desc->cq_tail = NULL;
-	}
+		 ASSERT(!d->next || (d->next && desc->cq_tail != d));
+		 if ((desc->cq_head = d->next) == NULL) {
+			  ASSERT(desc->cq_tail == d);
+			  desc->cq_tail = NULL;
+		 }
     }	
     return d;
 }
@@ -2066,13 +2066,13 @@ static void cq_execute(file_descriptor *desc) {
     struct t_data *d;
     register void *void_ptr; /* Soft cast variable */
     if (desc->timer_state == timer_again)
-	return;
+		 return;
 #ifdef HAVE_SENDFILE
     if (desc->sendfile_state == sending)
-	return;
+		 return;
 #endif
     if (! (d = cq_deq(desc)))
-	return;
+		 return;
     TRACE_F(("x%i", (int) d->command));
     d->again = sys_info.async_threads == 0;
     DRIVER_ASYNC(d->level, desc, d->invoke, void_ptr=d, d->free);
