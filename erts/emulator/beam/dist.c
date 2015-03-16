@@ -2668,10 +2668,10 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     /* get dist_entry */
     dep = erts_find_or_insert_dist_entry(BIF_ARG_1);
     if (dep == erts_this_dist_entry)
-	goto badarg;
+		 goto badarg;
     else if (!dep)
-	goto system_limit; /* Should never happen!!! */
-
+		 goto system_limit; /* Should never happen!!! */
+//通过Port的ID获取Port的结构
     pp = erts_id2port_sflgs(BIF_ARG_2,
 			    BIF_P,
 			    ERTS_PROC_LOCK_MAIN,
@@ -2680,29 +2680,30 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
 
     if (!pp || (erts_atomic32_read_nob(&pp->state)
 		& ERTS_PORT_SFLG_EXITING))
-	goto badarg;
+		 goto badarg;
 
     if ((pp->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY) == 0)
-	goto badarg;
-
+		 goto badarg;
+//如果当前cid和传入的Port的ID相同，且port的sist_entry和找到的dep相同
+//那么直接进入结束阶段
     if (dep->cid == BIF_ARG_2 && pp->dist_entry == dep)
-	goto done; /* Already set */
+		 goto done; /* Already set */
 
     if (dep->status & ERTS_DE_SFLG_EXITING) {
-	/* Suspend on dist entry waiting for the exit to finish */
-	ErtsProcList *plp = erts_proclist_create(BIF_P);
-	plp->next = NULL;
-	erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-	erts_smp_mtx_lock(&dep->qlock);
-	erts_proclist_store_last(&dep->suspended, plp);
-	erts_smp_mtx_unlock(&dep->qlock);
-	goto yield;
+		 /* Suspend on dist entry waiting for the exit to finish */
+		 ErtsProcList *plp = erts_proclist_create(BIF_P);
+		 plp->next = NULL;
+		 erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+		 erts_smp_mtx_lock(&dep->qlock);
+		 erts_proclist_store_last(&dep->suspended, plp);
+		 erts_smp_mtx_unlock(&dep->qlock);
+		 goto yield;
     }
 
     ASSERT(!(dep->status & ERTS_DE_SFLG_EXITING));
 
     if (pp->dist_entry || is_not_nil(dep->cid))
-	goto badarg;
+		 goto badarg;
 
     erts_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
 
@@ -2711,10 +2712,10 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
      * instead use "busy dist entry" functionality.
      */
     {
-	ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
-	erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(pp), &disable, NULL);
+		 ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
+		 erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(pp), &disable, NULL);
     }
-
+//更新Port所关联的dist
     pp->dist_entry = dep;
 
     dep->version = version;
@@ -2736,17 +2737,17 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     ASSERT(dep->qsize == 0);
     erts_smp_mtx_unlock(&dep->qlock);
 #endif
-
+//更新dist_entry的cid
     erts_set_dist_entry_connected(dep, BIF_ARG_2, flags);
 
     if (flags & DFLAG_DIST_HDR_ATOM_CACHE)
-	create_cache(dep);
+		 create_cache(dep);
 
     erts_smp_de_rwunlock(dep);
     dep = NULL; /* inc of refc transferred to port (dist_entry field) */
-
+//增加远程节点的数量
     inc_no_nodes();
-
+//发送监控信息到调用的进程
     send_nodes_mon_msgs(BIF_P,
 			am_nodeup,
 			BIF_ARG_1,
@@ -2755,12 +2756,12 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
  done:
 
     if (dep && dep != erts_this_dist_entry) {
-	erts_smp_de_rwunlock(dep);
-	erts_deref_dist_entry(dep);
+		 erts_smp_de_rwunlock(dep);
+		 erts_deref_dist_entry(dep);
     }
 
     if (pp)
-	erts_port_release(pp);
+		 erts_port_release(pp);
 
     return ret;
 

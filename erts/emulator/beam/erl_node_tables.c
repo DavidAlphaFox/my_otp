@@ -259,7 +259,7 @@ erts_sysname_to_connected_dist_entry(Eterm sysname)
     }
     return res_dep;
 }
-
+//在远程节点列表中添加名字
 DistEntry *erts_find_or_insert_dist_entry(Eterm sysname)
 {
     DistEntry *res;
