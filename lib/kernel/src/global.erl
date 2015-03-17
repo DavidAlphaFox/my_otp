@@ -665,7 +665,7 @@ handle_call(Request, From, S) ->
 %%========================================================================
 
 -spec handle_cast(term(), state()) -> {'noreply', state()}.
-
+%从远端获得了init_connect的消息
 handle_cast({init_connect, Vsn, Node, InitMsg}, S) ->
     %% Sent from global_name_server at Node.
     ?trace({'####', init_connect, {vsn, Vsn}, {node,Node},{initmsg,InitMsg}}),
@@ -676,16 +676,16 @@ handle_cast({init_connect, Vsn, Node, InitMsg}, S) ->
 	    init_connect(?vsn, Node, InitMsg, HisTag, S#state.resolvers, S);
 	{HisVsn, HisTag} ->
 	    init_connect(HisVsn, Node, InitMsg, HisTag, S#state.resolvers, S);
-	%% To be future compatible
-	Tuple when is_tuple(Tuple) ->
-	    List = tuple_to_list(Tuple),
-	    [_HisVsn, HisTag | _] = List,
-	    %% use own version handling if his is newer.
-	    init_connect(?vsn, Node, InitMsg, HisTag, S#state.resolvers, S);
-	_ ->
-	    Txt = io_lib:format("Illegal global protocol version ~p Node: ~p\n",
+		%% To be future compatible
+		Tuple when is_tuple(Tuple) ->
+			List = tuple_to_list(Tuple),
+			[_HisVsn, HisTag | _] = List,
+			%% use own version handling if his is newer.
+			init_connect(?vsn, Node, InitMsg, HisTag, S#state.resolvers, S);
+		_ ->
+			Txt = io_lib:format("Illegal global protocol version ~p Node: ~p\n",
                                 [Vsn, Node]),
-	    error_logger:info_report(lists:flatten(Txt))
+			error_logger:info_report(lists:flatten(Txt))
     end,
     {noreply, S};
 
@@ -734,11 +734,11 @@ handle_cast({exchange_ops, Node, MyTag, Ops, Resolved}, S0) ->
             {mytag,MyTag}}),
     S = trace_message(S0, {exit_resolver, Node}, [MyTag]),
     case get({sync_tag_my, Node}) of
-	MyTag ->
+		MyTag ->
             Known = S#state.known,
-	    gen_server:cast({global_name_server, Node},
-			    {resolved, node(), Resolved, Known,
-			     Known,get_names_ext(),get({sync_tag_his,Node})}),
+			gen_server:cast({global_name_server, Node},
+							{resolved, node(), Resolved, Known,
+							 Known,get_names_ext(),get({sync_tag_his,Node})}),
             case get({save_ops, Node}) of
                 {resolved, HisKnown, Names_ext, HisResolved} ->
                     put({save_ops, Node}, Ops),
@@ -861,13 +861,13 @@ handle_info({extra_nodedown, Node}, S0) ->
     S1 = trace_message(S0, {extra_nodedown, Node}, []),
     S = handle_nodedown(Node, S1),
     {noreply, S};
-
+%如果是本节点的nodeup信息，说明本节点在进行改名操作
 handle_info({nodeup, Node}, S) when Node =:= node() ->
     ?trace({'####', local_nodeup, {node, Node}}),
     %% Somebody started the distribution dynamically - change
     %% references to old node name ('nonode@nohost') to Node.
     {noreply, change_our_node_name(Node, S)};
-
+%不是全互联连接
 handle_info({nodeup, _Node}, S) when not S#state.connect_all ->
     {noreply, S};
 
@@ -877,20 +877,23 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
               lists:keymember(Node, 1, S0#state.resolvers),
     ?trace({'####', nodeup, {node,Node}, {isknown,IsKnown}}),
     S1 = trace_message(S0, {nodeup, Node}, []),
+%如果是已知节点直接忽略
     case IsKnown of
-	true ->
-	    {noreply, S1};
-	false ->
-	    resend_pre_connect(Node),
+		true ->
+			{noreply, S1};
+		false ->
+%考虑重连时候的情况
+			resend_pre_connect(Node),
 
-	    %% now() is used as a tag to separate different synch sessions
-	    %% from each others. Global could be confused at bursty nodeups
-	    %% because it couldn't separate the messages between the different
-	    %% synch sessions started by a nodeup.
-	    MyTag = now(),
-	    put({sync_tag_my, Node}, MyTag),
+			%% now() is used as a tag to separate different synch sessions
+			%% from each others. Global could be confused at bursty nodeups
+			%% because it couldn't separate the messages between the different
+			%% synch sessions started by a nodeup.
+			MyTag = now(),
+			put({sync_tag_my, Node}, MyTag),
             ?trace({sending_nodeup_to_locker, {node,Node},{mytag,MyTag}}),
-	    S1#state.the_locker ! {nodeup, Node, MyTag},
+%如果没有收到init_connect消息的时候，locker进程是无法处理nodeup的
+			S1#state.the_locker ! {nodeup, Node, MyTag},
 
             %% In order to be compatible with unpatched R7 a locker
             %% process was spawned. Vsn 5 is no longer compatible with
@@ -898,14 +901,15 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
             %% The permanent locker takes its place.
             NotAPid = no_longer_a_pid,
             Locker = {locker, NotAPid, S1#state.known, S1#state.the_locker},
-	    InitC = {init_connect, {?vsn, MyTag}, node(), Locker},
-	    Rs = S1#state.resolvers,
+			InitC = {init_connect, {?vsn, MyTag}, node(), Locker},
+			Rs = S1#state.resolvers,
             ?trace({casting_init_connect, {node,Node},{initmessage,InitC},
                     {resolvers,Rs}}),
-	    gen_server:cast({global_name_server, Node}, InitC),
+%向对端进程发送init_connect消息，将自己的known和自己的locker的PID发送给对方
+			gen_server:cast({global_name_server, Node}, InitC),
             Resolver = start_resolver(Node, MyTag),
             S = trace_message(S1, {new_resolver, Node}, [MyTag, Resolver]),
-	    {noreply, S#state{resolvers = [{Node, MyTag, Resolver} | Rs]}}
+			{noreply, S#state{resolvers = [{Node, MyTag, Resolver} | Rs]}}
     end;
 
 handle_info({whereis, Name, From}, S) ->
@@ -1058,6 +1062,8 @@ check_replies([], _Id, _Replies) ->
 %% Another node wants to synchronize its registered names with us.
 %% Both nodes must have a lock before they are allowed to continue.
 %%========================================================================
+%Vsn对方的vsn，Node是对方的节点，HisTag是对方的tag
+%InitMsg是从对方得到的消息
 init_connect(Vsn, Node, InitMsg, HisTag, Resolvers, S) ->
     %% It is always the responsibility of newer versions to understand
     %% older versions of the protocol.
@@ -1066,11 +1072,12 @@ init_connect(Vsn, Node, InitMsg, HisTag, Resolvers, S) ->
     case lists:keyfind(Node, 1, Resolvers) of
         {Node, MyTag, _Resolver} ->
             MyTag = get({sync_tag_my, Node}), % assertion
-	    {locker, _NoLongerAPid, _HisKnown0, HisTheLocker} = InitMsg,
-	    ?trace({init_connect,{histhelocker,HisTheLocker}}),
-	    HisKnown = [],
-	    S#state.the_locker ! {his_the_locker, HisTheLocker,
-				  {Vsn,HisKnown}, S#state.known};
+			{locker, _NoLongerAPid, _HisKnown0, HisTheLocker} = InitMsg,
+			?trace({init_connect,{histhelocker,HisTheLocker}}),
+			HisKnown = [],
+%给自己的locker发送对方的locker信息
+			S#state.the_locker ! {his_the_locker, HisTheLocker,
+								  {Vsn,HisKnown}, S#state.known};
         false ->
             ?trace({init_connect,{pre_connect,Node},{histag,HisTag}}),
             put({pre_connect, Node}, {Vsn, InitMsg, HisTag})
@@ -1214,11 +1221,11 @@ resolver(Node, Tag) ->
 
 resend_pre_connect(Node) ->
     case erase({pre_connect, Node}) of
-	{Vsn, InitMsg, HisTag} ->
-	    gen_server:cast(self(), 
+		{Vsn, InitMsg, HisTag} ->
+			gen_server:cast(self(), 
                             {init_connect, {Vsn, HisTag}, Node, InitMsg});
-	_ ->
-	    ok
+		_ ->
+			ok
     end.
 
 ins_name(Name, Pid, Method, FromPidOrNode, ExtraInfo, S0) ->
@@ -1587,10 +1594,12 @@ the_locker_message({his_the_locker, HisTheLocker, HisKnown0, _MyKnown}, S) ->
     {HisVsn, _HisKnown} = HisKnown0,
     true = HisVsn > 4,
     receive
+%得到本次同步发送请求的节点
         {nodeup, Node, MyTag} when node(HisTheLocker) =:= Node ->
             ?trace({the_locker_nodeup, {node,Node},{mytag,MyTag}}),
             Him = #him{node = node(HisTheLocker), my_tag = MyTag,
                        locker = HisTheLocker, vsn = HisVsn},
+			%调用add_node
             loop_the_locker(add_node(Him, S));
         {cancel, Node, _Tag, no_fun} when node(HisTheLocker) =:= Node ->
             loop_the_locker(S)
@@ -1891,13 +1900,14 @@ remove_node2(Node, [E | Rest]) ->
     [E | remove_node2(Node, Rest)].
 
 add_node(Him, S) ->
+%根据域名来区分是local还是remote
     case is_node_local(Him#him.node) of
         true ->
             S#multi{local = [Him | S#multi.local]};
         false ->
             S#multi{remote = [Him | S#multi.remote]}
     end.
-
+%是否是和本节点在一个域下
 is_node_local(Node) ->
     {ok, Host} = inet:gethostname(),
     case catch split_node(atom_to_list(Node), $@, []) of
