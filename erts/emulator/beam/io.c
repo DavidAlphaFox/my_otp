@@ -3643,7 +3643,7 @@ static void sweep_one_link(ErtsLink *lnk, void *vpsc)
  * that is to kill a port till reason kill. Then the port is stopped.
  * 
  */
-
+//Port退出
 int
 erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
 {
@@ -3711,25 +3711,25 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
        erts_sweep_monitors(moni, &sweep_one_monitor, NULL);
    } 
    DRV_MONITOR_UNLOCK_PDL(p);
-
+//如果这个Port是和分布式有关系的，那么删除掉相应节点的相关信息
    if ((state & ERTS_PORT_SFLG_DISTRIBUTION) && p->dist_entry) {
-       erts_do_net_exits(p->dist_entry, rreason);
-       erts_deref_dist_entry(p->dist_entry); 
-       p->dist_entry = NULL;
-       erts_atomic32_read_band_relb(&p->state,
-				    ~ERTS_PORT_SFLG_DISTRIBUTION);
+		erts_do_net_exits(p->dist_entry, rreason);
+		erts_deref_dist_entry(p->dist_entry); 
+		p->dist_entry = NULL;
+		erts_atomic32_read_band_relb(&p->state,
+									 ~ERTS_PORT_SFLG_DISTRIBUTION);
    }
-       
+//如果不是kill且ioq内部有数据，那么要flush掉       
    if ((reason != am_kill) && !is_port_ioq_empty(p)) {
        /* must turn exiting flag off */
-       erts_atomic32_read_bset_relb(&p->state,
-				    (ERTS_PORT_SFLG_EXITING
-				     | ERTS_PORT_SFLG_CLOSING),
-				    ERTS_PORT_SFLG_CLOSING);
-      flush_port(p);
+		erts_atomic32_read_bset_relb(&p->state,
+									 (ERTS_PORT_SFLG_EXITING
+									  | ERTS_PORT_SFLG_CLOSING),
+									 ERTS_PORT_SFLG_CLOSING);
+		flush_port(p);
    }
    else {
-       terminate_port(p);
+		terminate_port(p);
    }
 
    return 1;
@@ -4923,36 +4923,36 @@ erts_stale_drv_select(Eterm port,
     erts_dsprintf_buf_t *dsbufp;
 
     if (drv_port == ERTS_INVALID_ERL_DRV_PORT) {
-	Port *prt = erts_port_lookup_raw(port);
-	if (prt)
-	    drv_port = ERTS_Port2ErlDrvPort(prt);
-	else
-	    drv_port = ERTS_INVALID_ERL_DRV_PORT;
+		 Port *prt = erts_port_lookup_raw(port);
+		 if (prt)
+			  drv_port = ERTS_Port2ErlDrvPort(prt);
+		 else
+			  drv_port = ERTS_INVALID_ERL_DRV_PORT;
     }
 
     pnp = erts_get_port_names(port, drv_port);
 
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
-	type = "Input/Output";
-	goto deselect;
+		 type = "Input/Output";
+		 goto deselect;
     case ERL_DRV_WRITE:
-	type = "Output";
-	goto deselect;
+		 type = "Output";
+		 goto deselect;
     case ERL_DRV_READ:
-	type = "Input";
+		 type = "Input";
     deselect:
-	if (deselect) {
-	    driver_select(drv_port, hndl,
-			  mode | ERL_DRV_USE_NO_CALLBACK,
-			  0);
-	}
-	break;
+		 if (deselect) {
+			  driver_select(drv_port, hndl,
+							mode | ERL_DRV_USE_NO_CALLBACK,
+							0);
+		 }
+		 break;
     default:
-	type = "Event";
-	if (deselect)
-	    driver_event(drv_port, hndl, NULL);
-	break;
+		 type = "Event";
+		 if (deselect)
+			  driver_event(drv_port, hndl, NULL);
+		 break;
     }
 
     dsbufp = erts_create_logger_dsbuf();
@@ -5182,7 +5182,7 @@ cleanup_b2t_states(struct b2t_states__ *b2tsp)
  *       0 if the message was not delivered (bad to pid or closed port)
  *       1 if the message was delivered successfully
  */
-
+//从一个数组创建出一个Erlang的Term然后发送到目标进程上
 static int
 driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 {
@@ -5734,14 +5734,16 @@ deliver_term_check_port(ErlDrvTermData port_id, Eterm *connected_p)
 		       : !erts_lc_is_port_locked(prt));
     return 1;
 }
-
+//driver需要返回消息给connected的Erlang进程
 int erl_drv_output_term(ErlDrvTermData port_id, ErlDrvTermData* data, int len)
 {
     /* May be called from arbitrary thread */
     Eterm connected;
+//如果能正常的取到connected
     int res = deliver_term_check_port(port_id, &connected);
     if (res <= 0)
-	return res;
+		 return res;
+//发送消息给connected的Erlang进程
     return driver_deliver_term(connected, data, len);
 }
 
@@ -7026,22 +7028,22 @@ int driver_exit(ErlDrvPort ix, int err)
     connected = ERTS_PORT_GET_CONNECTED(prt);
     rp = erts_pid2proc(NULL, 0, connected, ERTS_PROC_LOCK_LINK);
     if (rp) {
-	rlnk = erts_remove_link(&ERTS_P_LINKS(rp),prt->common.id);
+		 rlnk = erts_remove_link(&ERTS_P_LINKS(rp),prt->common.id);
     }
 
     lnk = erts_remove_link(&ERTS_P_LINKS(prt), connected);
 
 #ifdef ERTS_SMP
     if (rp)
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+		 erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 #endif
 
     if (rlnk != NULL) {
-	erts_destroy_link(rlnk);
+		 erts_destroy_link(rlnk);
     }
 
     if (lnk != NULL) {
-	erts_destroy_link(lnk);
+		 erts_destroy_link(lnk);
     }
 
     if (err == 0)

@@ -516,45 +516,45 @@ deselect(ErtsDrvEventState *state, int mode)
     abort_tasks(state, mode);
 
     if (!mode)
-	rm_events = state->events;
+		 rm_events = state->events;
     else {
-	rm_events = 0;
-	ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL);
-	if (mode & ERL_DRV_READ) {
-	    state->driver.select->inport = NIL;
-	    rm_events |= ERTS_POLL_EV_IN;
-	}
-	if (mode & ERL_DRV_WRITE) {
-	    state->driver.select->outport = NIL;
-	    rm_events |= ERTS_POLL_EV_OUT;
-	}
+		 rm_events = 0;
+		 ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL);
+		 if (mode & ERL_DRV_READ) {
+			  state->driver.select->inport = NIL;
+			  rm_events |= ERTS_POLL_EV_IN;
+		 }
+		 if (mode & ERL_DRV_WRITE) {
+			  state->driver.select->outport = NIL;
+			  rm_events |= ERTS_POLL_EV_OUT;
+		 }
     }
 
     state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, rm_events, 0, &do_wake);
 
     if (!(state->events)) {
-	switch (state->type) {
-	case ERTS_EV_TYPE_DRV_SEL:
-	    state->driver.select->inport = NIL;
-	    state->driver.select->outport = NIL;
-	    break;
+		 switch (state->type) {
+		 case ERTS_EV_TYPE_DRV_SEL:
+			  state->driver.select->inport = NIL;
+			  state->driver.select->outport = NIL;
+			  break;
 #if ERTS_CIO_HAVE_DRV_EVENT
-	case ERTS_EV_TYPE_DRV_EV:
-	    state->driver.event->port = NIL;
-	    state->driver.event->data = NULL;
-	    state->driver.event->removed_events = (ErtsPollEvents) 0;
-	    break;
+		 case ERTS_EV_TYPE_DRV_EV:
+			  state->driver.event->port = NIL;
+			  state->driver.event->data = NULL;
+			  state->driver.event->removed_events = (ErtsPollEvents) 0;
+			  break;
 #endif
-	case ERTS_EV_TYPE_NONE:
-	    break;
-	default:
-	    ASSERT(0);
-	    break;
-	}
-	    
-	state->type = ERTS_EV_TYPE_NONE;
-	state->flags &= ~ERTS_EV_FLAG_USED;
-	remember_removed(state, &pollset);
+		 case ERTS_EV_TYPE_NONE:
+			  break;
+		 default:
+			  ASSERT(0);
+			  break;
+		 }
+		 
+		 state->type = ERTS_EV_TYPE_NONE;
+		 state->flags &= ~ERTS_EV_FLAG_USED;
+		 remember_removed(state, &pollset);
     }
 }
 
@@ -1526,15 +1526,15 @@ iready(Eterm id, ErtsDrvEventState *state, erts_aint_t current_cio_time)
     if (io_task_schedule_allowed(state,
 				 ERTS_PORT_TASK_INPUT,
 				 current_cio_time)) {
-	ErtsIoTask *iotask = &state->driver.select->iniotask;
-	erts_smp_atomic_set_nob(&iotask->executed_time, current_cio_time);
-	if (erts_port_task_schedule(id,
-				    &iotask->task,
-				    ERTS_PORT_TASK_INPUT,
-				    (ErlDrvEvent) state->fd) != 0) {
-	    stale_drv_select(id, state, ERL_DRV_READ);
-	}
-	add_active_fd(state->fd);
+		 ErtsIoTask *iotask = &state->driver.select->iniotask;
+		 erts_smp_atomic_set_nob(&iotask->executed_time, current_cio_time);
+		 if (erts_port_task_schedule(id,
+									 &iotask->task,
+									 ERTS_PORT_TASK_INPUT,
+									 (ErlDrvEvent) state->fd) != 0) {
+			  stale_drv_select(id, state, ERL_DRV_READ);
+		 }
+		 add_active_fd(state->fd);
     }
 }
 
@@ -1614,17 +1614,17 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
 #ifdef ERTS_BREAK_REQUESTED
     if (ERTS_BREAK_REQUESTED)
-	erts_do_break_handling();
+		 erts_do_break_handling();
 #endif
 
     /* Figure out timeout value */
 //当调度器的RunQueue不为空的时候，不能一直等待
 //需要计算出最小等待时间
     if (do_wait) {
-	erts_time_remaining(&wait_time);
+		 erts_time_remaining(&wait_time);
     } else {			/* poll only */
-	wait_time.tv_sec = 0;
-	wait_time.tv_usec = 0;
+		 wait_time.tv_sec = 0;
+		 wait_time.tv_usec = 0;
     }
 
     /*
@@ -1658,51 +1658,51 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
 #ifdef ERTS_BREAK_REQUESTED
     if (ERTS_BREAK_REQUESTED)
-	erts_do_break_handling();
+		 erts_do_break_handling();
 #endif
 
     if (poll_ret != 0) {
-	erts_smp_atomic_set_nob(&pollset.in_poll_wait, 0);
-	forget_removed(&pollset);
-	erts_free(ERTS_ALC_T_TMP, pollres);
-	if (poll_ret == EAGAIN) {
-	    goto restart;
-	}
+		 erts_smp_atomic_set_nob(&pollset.in_poll_wait, 0);
+		 forget_removed(&pollset);
+		 erts_free(ERTS_ALC_T_TMP, pollres);
+		 if (poll_ret == EAGAIN) {
+			  goto restart;
+		 }
 
-	if (poll_ret != ETIMEDOUT
-	    && poll_ret != EINTR
+		 if (poll_ret != ETIMEDOUT
+			 && poll_ret != EINTR
 #ifdef ERRNO_BLOCK
-	    && poll_ret != ERRNO_BLOCK
+			 && poll_ret != ERRNO_BLOCK
 #endif
-	    ) {
-	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp, "erts_poll_wait() failed: %s (%d)\n",
-			  erl_errno_id(poll_ret), poll_ret);
-	    erts_send_error_to_logger_nogl(dsbufp);
-	}
-	return;
+			  ) {
+			  erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+			  erts_dsprintf(dsbufp, "erts_poll_wait() failed: %s (%d)\n",
+							erl_errno_id(poll_ret), poll_ret);
+			  erts_send_error_to_logger_nogl(dsbufp);
+		 }
+		 return;
     }
 
     for (i = 0; i < pollres_len; i++) {
 
-	ErtsSysFdType fd = (ErtsSysFdType) pollres[i].fd;
-	ErtsDrvEventState *state;
+		 ErtsSysFdType fd = (ErtsSysFdType) pollres[i].fd;
+		 ErtsDrvEventState *state;
 
-	erts_smp_mtx_lock(fd_mtx(fd));
+		 erts_smp_mtx_lock(fd_mtx(fd));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-	state = &drv_ev_state[ (int) fd];
+		 state = &drv_ev_state[ (int) fd];
 #else
-	state = hash_get_drv_ev_state(fd);
-	if (!state) {
-	    goto next_pollres;
-	}
+		 state = hash_get_drv_ev_state(fd);
+		 if (!state) {
+			  goto next_pollres;
+		 }
 #endif
 
-	/* Skip this fd if it was removed from pollset */
-	if (is_removed(state)) {
-	    goto next_pollres;
-	}
+		 /* Skip this fd if it was removed from pollset */
+		 if (is_removed(state)) {
+			  goto next_pollres;
+		 }
 //开始处理事件
 //事件处理的过程中，会找出相应的Port，然后将相应的Port放入RunQueue
 	switch (state->type) {
@@ -1722,34 +1722,34 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 		 * to an event not selected. revents might give us a clue
 		 * on which one to call.
 		 */ 
-		if ((revents & ERTS_POLL_EV_IN)
-		    || (!(revents & ERTS_POLL_EV_OUT)
-			&& state->events & ERTS_POLL_EV_IN)) {
-		    iready(state->driver.select->inport, state, current_cio_time);
-		}
-		else if (state->events & ERTS_POLL_EV_OUT) {
-		    oready(state->driver.select->outport, state, current_cio_time);
-		}
+			 if ((revents & ERTS_POLL_EV_IN)
+				 || (!(revents & ERTS_POLL_EV_OUT)
+					 && state->events & ERTS_POLL_EV_IN)) {
+				  iready(state->driver.select->inport, state, current_cio_time);
+			 }
+			 else if (state->events & ERTS_POLL_EV_OUT) {
+				  oready(state->driver.select->outport, state, current_cio_time);
+			 }
 	    }
 	    else if (revents & (ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) {
-		if (revents & ERTS_POLL_EV_OUT) {
-		    oready(state->driver.select->outport, state, current_cio_time);
-		}
-		/* Someone might have deselected input since revents
-		   was read (true also on the non-smp emulator since
-		   oready() may have been called); therefore, update
-		   revents... */
-		revents &= ~(~state->events & ERTS_POLL_EV_IN);
-		if (revents & ERTS_POLL_EV_IN) {
-		    iready(state->driver.select->inport, state, current_cio_time);
-		}
+			 if (revents & ERTS_POLL_EV_OUT) {
+				  oready(state->driver.select->outport, state, current_cio_time);
+			 }
+			 /* Someone might have deselected input since revents
+				was read (true also on the non-smp emulator since
+				oready() may have been called); therefore, update
+				revents... */
+			 revents &= ~(~state->events & ERTS_POLL_EV_IN);
+			 if (revents & ERTS_POLL_EV_IN) {
+				  iready(state->driver.select->inport, state, current_cio_time);
+			 }
 	    }
 	    else if (revents & ERTS_POLL_EV_NVAL) {
-		bad_fd_in_pollset(state,
-				  state->driver.select->inport,
-				  state->driver.select->outport,
-				  state->events);
-		add_active_fd(state->fd);
+			 bad_fd_in_pollset(state,
+							   state->driver.select->inport,
+							   state->driver.select->outport,
+							   state->events);
+			 add_active_fd(state->fd);
 	    }
 	    break;
 	}
@@ -1765,9 +1765,9 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	    revents &= ~state->driver.event->removed_events;
 
 	    if (revents) {
-		event_data->events = state->events;
-		event_data->revents = revents;
-		eready(state->driver.event->port, state, event_data, current_cio_time);
+			 event_data->events = state->events;
+			 event_data->revents = revents;
+			 eready(state->driver.event->port, state, event_data, current_cio_time);
 	    }
 	    break;
 	}
@@ -1777,16 +1777,16 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	    break;
 
 	default: { /* Error */
-	    erts_dsprintf_buf_t *dsbufp;
-	    dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp,
-			  "Invalid event request type for fd in erts_poll()! "
-			  "fd=%d, event request type=%sd\n", (int) state->fd,
-			  (int) state->type);
-	    ASSERT(0);
-	    deselect(state, 0);
-	    add_active_fd(state->fd);
-	    break;
+		 erts_dsprintf_buf_t *dsbufp;
+		 dsbufp = erts_create_logger_dsbuf();
+		 erts_dsprintf(dsbufp,
+					   "Invalid event request type for fd in erts_poll()! "
+					   "fd=%d, event request type=%sd\n", (int) state->fd,
+					   (int) state->type);
+		 ASSERT(0);
+		 deselect(state, 0);
+		 add_active_fd(state->fd);
+		 break;
 	}
 	}
 

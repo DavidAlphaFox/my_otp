@@ -417,7 +417,7 @@ set_node_not_alive(void *unused)
     nodedown.bp = NULL;
     erts_smp_thr_progress_unblock();
     if (bp)
-	free_message_buffer(bp);
+		 free_message_buffer(bp);
 }
 
 static ERTS_INLINE void
@@ -1083,7 +1083,7 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 **
 **   assert  hlen == 0 !!!
 */
-
+//发送网络消息，其中包含关闭分布式连接用的Port的代码
 int erts_net_message(Port *prt,
 		     DistEntry *dep,
 		     byte *hbuf,
