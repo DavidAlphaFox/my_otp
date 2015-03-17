@@ -231,7 +231,9 @@ start_link() -> gen_server:start_link({local, global_group}, global_group,[],[])
 stop() -> gen_server:call(global_group, stop, infinity).
 
 init([]) ->
+%把进程优先级调高，只要能执行这个，必然先执行它
     process_flag(priority, max),
+%监控节点
     ok = net_kernel:monitor_nodes(true),
     put(registered_names, [undefined]),
     put(send, [undefined]),
@@ -243,7 +245,9 @@ init([]) ->
 	     _ ->
 		 true
 	 end,
+%得到节点类型
     PT = publish_arg(),
+%更新广播范围
     case application:get_env(kernel, global_groups) of
 	undefined ->
 	    update_publish_nodes(PT),

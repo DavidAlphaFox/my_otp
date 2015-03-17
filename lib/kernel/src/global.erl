@@ -1530,6 +1530,7 @@ init_the_locker_fun(DoTrace) ->
     fun() ->
             process_flag(trap_exit, true),    % needed?
             S0 = #multi{do_trace = DoTrace},
+%更新所有已知节点
             S1 = update_locker_known({add, get_known()}, S0),
             loop_the_locker(S1),
             erlang:error(locker_exited)
@@ -1538,6 +1539,7 @@ init_the_locker_fun(DoTrace) ->
 loop_the_locker(S) ->
     ?trace({loop_the_locker,S}),
     receive 
+%收到了消息，如果不是nodeup的消息，处理消息
         Message when element(1, Message) =/= nodeup ->
             the_locker_message(Message, S)
     after 0 ->
@@ -1551,24 +1553,30 @@ loop_the_locker(S) ->
                         %% in the partition sets the lock once this node
                         %% has failed after setting the lock is very slim.
                         if
+                          %如果已经完成同步，没必要等待消息
                             S#multi.just_synced ->
                                 0; % no reason to wait after success
+                          %如果节点刚刚启动，等待200ms
                             S#multi.known =:= [] ->
                                 200; % just to get started 
                             true ->
+                          %最大等待不超过3000ms
                                 erlang:min(1000 + 100*length(S#multi.known),
                                            3000)
                         end
                 end,
             S1 = S#multi{just_synced = false},
             receive 
+            %接着处理消息
                 Message when element(1, Message) =/= nodeup ->
                     the_locker_message(Message, S1)
             after Timeout ->
+              %全局锁已经上锁了，那么别的节点在做处理
                     case is_global_lock_set() of
                         true -> 
                             loop_the_locker(S1);
                         false -> 
+                        %全局锁没上锁
                             select_node(S1)
                     end
             end
@@ -1664,8 +1672,13 @@ the_locker_message(Other, S) ->
 %% Requests from nodes on the local host are chosen before requests
 %% from other nodes. This should be a safe optimization.
 select_node(S) ->
+%本地节点为空，使用远程节点
     UseRemote = S#multi.local =:= [],
-    Others1 = if UseRemote -> S#multi.remote; true -> S#multi.local end,
+    Others1 = if 
+      UseRemote -> S#multi.remote; 
+      true -> S#multi.local 
+    end,
+    %找出不在known中的节点
     Others2 = exclude_known(Others1, S#multi.known),
     S1 = if 
              UseRemote -> S#multi{remote = Others2}; 

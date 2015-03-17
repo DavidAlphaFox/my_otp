@@ -909,7 +909,8 @@ struct process {
     Eterm ftrace;		/* Latest exception stack trace dump */
 
     Process *next;		/* Pointer to next process in run queue */
-
+//Erlang进程监控节点的相关数据结构
+//默认为空
     struct ErtsNodesMonitor_ *nodes_monitors;
 
     ErtsSuspendMonitor *suspend_monitors; /* Processes suspended by

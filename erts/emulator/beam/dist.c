@@ -2627,13 +2627,13 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
      */
 
     if (!is_node_name_atom(BIF_ARG_1) ||
-	is_not_internal_port(BIF_ARG_2) ||
-	(erts_this_node->sysname == am_Noname)) {
-	goto badarg;
+		is_not_internal_port(BIF_ARG_2) ||
+		(erts_this_node->sysname == am_Noname)) {
+		 goto badarg;
     }
 
     if (!is_tuple(BIF_ARG_3))
-	goto badarg;
+		 goto badarg;
     tp = tuple_val(BIF_ARG_3);
     if (*tp++ != make_arityval(4))
 	goto badarg;
@@ -3120,6 +3120,7 @@ BIF_RETTYPE net_kernel_dflag_unicode_io_1(BIF_ALIST_1)
   (ERTS_NODES_MON_OPT_TYPE_VISIBLE|ERTS_NODES_MON_OPT_TYPE_HIDDEN)
 
 typedef struct ErtsNodesMonitor_ ErtsNodesMonitor;
+//监控节点的链表
 struct ErtsNodesMonitor_ {
     ErtsNodesMonitor *prev;
     ErtsNodesMonitor *next;
@@ -3351,76 +3352,81 @@ insert_nodes_monitor(Process *c_p, Uint32 opts)
 
     xnmp = c_p->nodes_monitors;
     if (xnmp) {
-	ASSERT(!xnmp->prev || xnmp->prev->proc != c_p);
+		 ASSERT(!xnmp->prev || xnmp->prev->proc != c_p);
 
-	while (1) {
-	    ASSERT(xnmp->proc == c_p);
-	    if (xnmp->opts == opts)
-		break;
-	    if (!xnmp->next || xnmp->next->proc != c_p)
-		break;
-	    xnmp = xnmp->next;
-	}
-	ASSERT(xnmp);
-	ASSERT(xnmp->proc == c_p);
-	ASSERT(xnmp->opts == opts
-	       || !xnmp->next
-	       || xnmp->next->proc != c_p);
-
-	if (xnmp->opts != opts)
-	    goto alloc_new;
-	else {
-	    res = am_true;
-	    no = xnmp->no++;
-	    if (!xnmp->no) {
-		/*
-		 * 'no' wrapped; transfer all prevous monitors to new
-		 * element (which will be the next element in the list)
-		 * and set this to one...
-		 */
-		xnmp->no = 1;
-		goto alloc_new;
-	    }
-	}
+		 while (1) {
+			  ASSERT(xnmp->proc == c_p);
+			  if (xnmp->opts == opts)
+				   break;
+			  if (!xnmp->next || xnmp->next->proc != c_p)
+				   break;
+			  xnmp = xnmp->next;
+		 }
+		 ASSERT(xnmp);
+		 ASSERT(xnmp->proc == c_p);
+		 ASSERT(xnmp->opts == opts
+				|| !xnmp->next
+				|| xnmp->next->proc != c_p);
+		 
+		 if (xnmp->opts != opts)
+			  goto alloc_new;
+		 else {
+			  res = am_true;
+			  no = xnmp->no++;
+			  if (!xnmp->no) {
+				   /*
+					* 'no' wrapped; transfer all prevous monitors to new
+					* element (which will be the next element in the list)
+					* and set this to one...
+					*/
+				   Xnmp->no = 1;
+				   goto alloc_new;
+			  }
+		 }
     }
     else {
     alloc_new:
-	nmp = erts_alloc(ERTS_ALC_T_NODES_MON, sizeof(ErtsNodesMonitor));
-	nmp->proc = c_p;
-	nmp->opts = opts;
-	nmp->no = no;
-
-	if (xnmp) {
-	    ASSERT(nodes_monitors);
-	    ASSERT(c_p->nodes_monitors);
-	    nmp->next = xnmp->next;
-	    nmp->prev = xnmp;
-	    xnmp->next = nmp;
-	    if (nmp->next) {
-		ASSERT(nodes_monitors_end != xnmp);
-		ASSERT(nmp->next->prev == xnmp);
-		nmp->next->prev = nmp;
-	    }
-	    else {
-		ASSERT(nodes_monitors_end == xnmp);
-		nodes_monitors_end = nmp;
-	    }
-	}
-	else {
-	    ASSERT(!c_p->nodes_monitors);
-	    c_p->nodes_monitors = nmp;
-	    nmp->next = NULL;
-	    nmp->prev = nodes_monitors_end;
-	    if (nodes_monitors_end) {
-		ASSERT(nodes_monitors);
-		nodes_monitors_end->next = nmp;
-	    }
-	    else {
-		ASSERT(!nodes_monitors);
-		nodes_monitors = nmp;
-	    }
-	    nodes_monitors_end = nmp;
-	}
+//从NODES_MON分配器上分配内存
+		 nmp = erts_alloc(ERTS_ALC_T_NODES_MON, sizeof(ErtsNodesMonitor));
+//设置内容
+		 nmp->proc = c_p;
+		 nmp->opts = opts;
+		 nmp->no = no;
+//如果我们已经监控了一种类型的节点
+		 if (xnmp) {
+			  ASSERT(nodes_monitors);
+			  ASSERT(c_p->nodes_monitors);
+//将新的监控类型放到前一个监控类型的后面
+			  nmp->next = xnmp->next;
+			  nmp->prev = xnmp;
+			  xnmp->next = nmp;
+//更新下尾节点或者下跳节点的prev
+			  if (nmp->next) {
+				   ASSERT(nodes_monitors_end != xnmp);
+				   ASSERT(nmp->next->prev == xnmp);
+				   nmp->next->prev = nmp;
+			  }
+			  else {
+				   ASSERT(nodes_monitors_end == xnmp);
+				   nodes_monitors_end = nmp;
+			  }
+		 }
+		 else {
+			  ASSERT(!c_p->nodes_monitors);
+			  c_p->nodes_monitors = nmp;
+			  nmp->next = NULL;
+//将自己放到监控链表的尾部
+			  nmp->prev = nodes_monitors_end;
+			  if (nodes_monitors_end) {
+				   ASSERT(nodes_monitors);
+				   nodes_monitors_end->next = nmp;
+			  }
+			  else {
+				   ASSERT(!nodes_monitors);
+				   nodes_monitors = nmp;
+			  }
+			  nodes_monitors_end = nmp;
+		 }
     }
     return res;
 }
@@ -3504,65 +3510,65 @@ erts_monitor_nodes(Process *c_p, Eterm on, Eterm olist)
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
 
     if (on != am_true && on != am_false)
-	return THE_NON_VALUE;
-
+		 return THE_NON_VALUE;
+//选项列表不为空
     if (is_not_nil(opts_list)) {
-	int all = 0, visible = 0, hidden = 0;
+		 int all = 0, visible = 0, hidden = 0;
 
-	while (is_list(opts_list)) {
-	    Eterm *cp = list_val(opts_list);
-	    Eterm opt = CAR(cp);
-	    opts_list = CDR(cp);
-	    if (opt == am_nodedown_reason)
-		opts |= ERTS_NODES_MON_OPT_DOWN_REASON;
-	    else if (is_tuple(opt)) {
-		Eterm* tp = tuple_val(opt);
-		if (arityval(tp[0]) != 2)
-		    return THE_NON_VALUE;
-		switch (tp[1]) {
-		case am_node_type:
-		    switch (tp[2]) {
-		    case am_visible:
-			if (hidden || all)
-			    return THE_NON_VALUE;
-			opts |= ERTS_NODES_MON_OPT_TYPE_VISIBLE;
-			visible = 1;
-			break;
-		    case am_hidden:
-			if (visible || all)
-			    return THE_NON_VALUE;
-			opts |= ERTS_NODES_MON_OPT_TYPE_HIDDEN;
-			hidden = 1;
-			break;
-		    case am_all:
-			if (visible || hidden)
-			    return THE_NON_VALUE;
-			opts |= ERTS_NODES_MON_OPT_TYPES;
-			all = 1;
-			break;
-		    default:
-			return THE_NON_VALUE;
-		    }
-		    break;
-		default:
-		    return THE_NON_VALUE;
-		}
-	    }
-	    else {
-		return THE_NON_VALUE;
-	    }
-	}
+		 while (is_list(opts_list)) {
+			  Eterm *cp = list_val(opts_list);
+			  Eterm opt = CAR(cp);
+			  opts_list = CDR(cp);
+			  if (opt == am_nodedown_reason)
+				   opts |= ERTS_NODES_MON_OPT_DOWN_REASON;
+			  else if (is_tuple(opt)) {
+				   Eterm* tp = tuple_val(opt);
+				   if (arityval(tp[0]) != 2)
+						return THE_NON_VALUE;
+				   switch (tp[1]) {
+				   case am_node_type:
+						switch (tp[2]) {
+						case am_visible:
+							 if (hidden || all)
+								  return THE_NON_VALUE;
+							 opts |= ERTS_NODES_MON_OPT_TYPE_VISIBLE;
+							 visible = 1;
+							 break;
+						case am_hidden:
+							 if (visible || all)
+								  return THE_NON_VALUE;
+							 opts |= ERTS_NODES_MON_OPT_TYPE_HIDDEN;
+							 hidden = 1;
+							 break;
+						case am_all:
+							 if (visible || hidden)
+								  return THE_NON_VALUE;
+							 opts |= ERTS_NODES_MON_OPT_TYPES;
+							 all = 1;
+							 break;
+						default:
+							 return THE_NON_VALUE;
+						}
+						break;
+				   default:
+						return THE_NON_VALUE;
+				   }
+			  }
+			  else {
+				   return THE_NON_VALUE;
+			  }
+		 }
 
-	if (is_not_nil(opts_list))
-	    return THE_NON_VALUE;
+		 if (is_not_nil(opts_list))
+			  return THE_NON_VALUE;
     }
 
     erts_smp_mtx_lock(&nodes_monitors_mtx);
-
+//添加当前进程到节点监测的数据结构中
     if (on == am_true)
-	res = insert_nodes_monitor(c_p, opts);
+		 res = insert_nodes_monitor(c_p, opts);
     else
-	res = remove_nodes_monitors(c_p, opts, 0);
+		 res = remove_nodes_monitors(c_p, opts, 0);
 
     erts_smp_mtx_unlock(&nodes_monitors_mtx);
 

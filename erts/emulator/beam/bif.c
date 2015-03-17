@@ -1536,29 +1536,29 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 {
    Eterm old_value;
    if (BIF_ARG_1 == am_error_handler) {
-      if (is_not_atom(BIF_ARG_2)) {
-	 goto error;
-      }
-      old_value = erts_proc_set_error_handler(BIF_P,
-					      ERTS_PROC_LOCK_MAIN,
-					      BIF_ARG_2);
-      BIF_RET(old_value);
+		if (is_not_atom(BIF_ARG_2)) {
+			 goto error;
+		}
+		old_value = erts_proc_set_error_handler(BIF_P,
+												ERTS_PROC_LOCK_MAIN,
+												BIF_ARG_2);
+		BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_priority) {
-       old_value = erts_set_process_priority(BIF_P, BIF_ARG_2);
-       if (old_value == THE_NON_VALUE)
-	   goto error;
-       BIF_RET(old_value);
+		old_value = erts_set_process_priority(BIF_P, BIF_ARG_2);
+		if (old_value == THE_NON_VALUE)
+			 goto error;
+		BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_trap_exit) {
        erts_aint32_t state;
        Uint trap_exit;
        if (BIF_ARG_2 == am_true) {
-	   trap_exit = 1;
+			trap_exit = 1;
        } else if (BIF_ARG_2 == am_false) {
-	   trap_exit = 0;
+			trap_exit = 0;
        } else {
-	   goto error;
+			goto error;
        }
        /*
 	* NOTE: It is important that we check for pending exit signals
@@ -1567,44 +1567,45 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	*       erts_send_exit_signal().
 	*/
        if (trap_exit)
-	   state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
-						 ERTS_PSFLG_TRAP_EXIT);
+			state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
+												  ERTS_PSFLG_TRAP_EXIT);
        else
-	   state = erts_smp_atomic32_read_band_mb(&BIF_P->state,
-						  ~ERTS_PSFLG_TRAP_EXIT);
+			state = erts_smp_atomic32_read_band_mb(&BIF_P->state,
+												   ~ERTS_PSFLG_TRAP_EXIT);
 #ifdef ERTS_SMP
        if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
-	   erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-	   ERTS_BIF_EXITED(BIF_P);
+			erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+			ERTS_BIF_EXITED(BIF_P);
        }
 #endif
 
        old_value = (state & ERTS_PSFLG_TRAP_EXIT) ? am_true : am_false;
        BIF_RET(old_value);
    }
+//绑定Erlang进程到scheduler上
    else if (BIF_ARG_1 == am_scheduler) {
        ErtsRunQueue *old, *new, *curr;
        Sint sched;
        erts_aint32_t state;
 
        if (!is_small(BIF_ARG_2))
-	   goto error;
+			goto error;
        sched = signed_val(BIF_ARG_2);
        if (sched < 0 || erts_no_schedulers < sched)
-	   goto error;
+			goto error;
 
        if (sched == 0) {
-	   new = NULL;
-	   state = erts_smp_atomic32_read_band_mb(&BIF_P->state,
-						  ~ERTS_PSFLG_BOUND);
+			new = NULL;
+			state = erts_smp_atomic32_read_band_mb(&BIF_P->state,
+												   ~ERTS_PSFLG_BOUND);
        }
        else {
-	   new = erts_schedid2runq(sched);
+			new = erts_schedid2runq(sched);
 #ifdef ERTS_SMP
-	   erts_atomic_set_nob(&BIF_P->run_queue, (erts_aint_t) new);
+			erts_atomic_set_nob(&BIF_P->run_queue, (erts_aint_t) new);
 #endif
-	   state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
-						 ERTS_PSFLG_BOUND);
+			state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
+												  ERTS_PSFLG_BOUND);
        }
 
        curr = ERTS_GET_SCHEDULER_DATA_FROM_PROC(BIF_P)->run_queue;
@@ -1614,73 +1615,74 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 
        old_value = old ? make_small(old->ix+1) : make_small(0);
        if (new && new != curr)
-	   ERTS_BIF_YIELD_RETURN_X(BIF_P, old_value, am_scheduler);
+			ERTS_BIF_YIELD_RETURN_X(BIF_P, old_value, am_scheduler);
        else
-	   BIF_RET(old_value);
+			BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_min_heap_size) {
        Sint i;
        if (!is_small(BIF_ARG_2)) {
-	   goto error;
+			goto error;
        }
        i = signed_val(BIF_ARG_2);
        if (i < 0) {
-	   goto error;
+			goto error;
        }
        old_value = make_small(BIF_P->min_heap_size);
        if (i < H_MIN_SIZE) {
-	   BIF_P->min_heap_size = H_MIN_SIZE;
+			BIF_P->min_heap_size = H_MIN_SIZE;
        } else {
-	   BIF_P->min_heap_size = erts_next_heap_size(i, 0);
+			BIF_P->min_heap_size = erts_next_heap_size(i, 0);
        }
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_min_bin_vheap_size) {
        Sint i;
        if (!is_small(BIF_ARG_2)) {
-	   goto error;
+			goto error;
        }
        i = signed_val(BIF_ARG_2);
        if (i < 0) {
-	   goto error;
+			goto error;
        }
        old_value = make_small(BIF_P->min_vheap_size);
        if (i < BIN_VH_MIN_SIZE) {
-	   BIF_P->min_vheap_size = BIN_VH_MIN_SIZE;
+			BIF_P->min_vheap_size = BIN_VH_MIN_SIZE;
        } else {
-	   BIF_P->min_vheap_size = erts_next_heap_size(i, 0);
+			BIF_P->min_vheap_size = erts_next_heap_size(i, 0);
        }
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_sensitive) {
        Uint is_sensitive;
        if (BIF_ARG_2 == am_true) {
-	   is_sensitive = 1;
+			is_sensitive = 1;
        } else if (BIF_ARG_2 == am_false) {
-	   is_sensitive = 0;
+			is_sensitive = 0;
        } else {
-	   goto error;
+			goto error;
        }
        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
        old_value = (ERTS_TRACE_FLAGS(BIF_P) & F_SENSITIVE
-		    ? am_true
-		    : am_false);
+					? am_true
+					: am_false);
        if (is_sensitive) {
-	   ERTS_TRACE_FLAGS(BIF_P) |= F_SENSITIVE;
+			ERTS_TRACE_FLAGS(BIF_P) |= F_SENSITIVE;
        } else {
-	   ERTS_TRACE_FLAGS(BIF_P) &= ~F_SENSITIVE;
+			ERTS_TRACE_FLAGS(BIF_P) &= ~F_SENSITIVE;
        }
        erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
        BIF_RET(old_value);
    }
+//监控所有的节点，这个选项没有公开的文档
    else if (BIF_ARG_1 == am_monitor_nodes) {
        /*
-	* This argument is intentionally *not* documented. It is intended
-	* to be used by net_kernel:monitor_nodes/1.
-	*/
+		* This argument is intentionally *not* documented. It is intended
+		* to be used by net_kernel:monitor_nodes/1.
+		*/
        old_value = erts_monitor_nodes(BIF_P, BIF_ARG_2, NIL);
        if (old_value == THE_NON_VALUE)
-	   goto error;
+			goto error;
        BIF_RET(old_value);
    }
    else if (is_tuple(BIF_ARG_1)) {
@@ -1690,12 +1692,12 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	*/
        Eterm *tp = tuple_val(BIF_ARG_1);
        if (arityval(tp[0]) == 2) {
-	   if (tp[1] == am_monitor_nodes) {
-	       old_value = erts_monitor_nodes(BIF_P, BIF_ARG_2, tp[2]);
-	       if (old_value == THE_NON_VALUE)
-		   goto error;
-	       BIF_RET(old_value);
-	   }
+			if (tp[1] == am_monitor_nodes) {
+				 old_value = erts_monitor_nodes(BIF_P, BIF_ARG_2, tp[2]);
+				 if (old_value == THE_NON_VALUE)
+					  goto error;
+				 BIF_RET(old_value);
+			}
        }
        /* Fall through and try process_flag_aux() ... */
    }
