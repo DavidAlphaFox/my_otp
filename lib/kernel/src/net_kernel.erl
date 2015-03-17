@@ -1140,7 +1140,7 @@ spawn_func(_,{From,Tag},M,F,A,Gleader) ->
 %% -----------------------------------------------------------
 %% Set up connection to a new node.
 %% -----------------------------------------------------------
-
+%连接新的节点
 setup(Node,Type,From,State) ->
     Allowed = State#state.allowed,
     case lists:member(Node, Allowed) of
@@ -1150,6 +1150,7 @@ setup(Node,Type,From,State) ->
 	    {error, bad_node};
 	_ ->
 	    case select_mod(Node, State#state.listen) of
+%获得连接远程节点的Module
 		{ok, L} ->
 		    Mod = L#listen.module,
 		    LAddr = L#listen.address,
@@ -1199,10 +1200,11 @@ get_proto_mod(_Family, _Protocol, []) ->
     error.
 
 %% -------- Initialisation functions ------------------------
-
+%初始化当前节点
 init_node(Name, LongOrShortNames) ->
     {NameWithoutHost,_Host} = lists:splitwith(fun($@)->false;(_)->true end,
 				  atom_to_list(Name)),
+%创建当前节点的名字
     case create_name(Name, LongOrShortNames, 1) of
 	{ok,Node} ->
 	    case start_protos(list_to_atom(NameWithoutHost),Node) of

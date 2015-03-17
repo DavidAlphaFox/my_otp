@@ -253,75 +253,77 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),
     [Name, Address] = splitnode(Node, LongOrShortNames),
     case inet:getaddr(Address, inet) of
-	{ok, Ip} ->
-	    Timer = dist_util:start_timer(SetupTime),
-	    case erl_epmd:port_please(Name, Ip) of
-		{port, TcpPort, Version} ->
-		    ?trace("port_please(~p) -> version ~p~n", 
-			   [Node,Version]),
-		    dist_util:reset_timer(Timer),
-		    case inet_tcp:connect(Ip, TcpPort, 
-					  [{active, false}, 
-					   {packet,2}]) of
-			{ok, Socket} ->
-			    HSData = #hs_data{
-			      kernel_pid = Kernel,
-			      other_node = Node,
-			      this_node = MyNode,
-			      socket = Socket,
-			      timer = Timer,
-			      this_flags = 0,
-			      other_version = Version,
-			      f_send = fun inet_tcp:send/2,
-			      f_recv = fun inet_tcp:recv/3,
-			      f_setopts_pre_nodeup = 
-			      fun(S) ->
-				      inet:setopts
-					(S, 
-					 [{active, false},
-					  {packet, 4},
-					  nodelay()])
-			      end,
-			      f_setopts_post_nodeup = 
-			      fun(S) ->
-				      inet:setopts
-					(S, 
-					 [{active, true},
-					  {deliver, port},
-					  {packet, 4},
-					  nodelay()])
-			      end,
-			      f_getll = fun inet:getll/1,
-			      f_address = 
-			      fun(_,_) ->
-				      #net_address{
-				   address = {Ip,TcpPort},
-				   host = Address,
-				   protocol = tcp,
-				   family = inet}
-			      end,
-			      mf_tick = fun ?MODULE:tick/1,
-			      mf_getstat = fun ?MODULE:getstat/1,
-			      request_type = Type
-			     },
-			    dist_util:handshake_we_started(HSData);
-			_ ->
-			    %% Other Node may have closed since 
-			    %% port_please !
-			    ?trace("other node (~p) "
-				   "closed since port_please.~n", 
-				   [Node]),
-			    ?shutdown(Node)
-		    end;
-		_ ->
-		    ?trace("port_please (~p) "
-			   "failed.~n", [Node]),
-		    ?shutdown(Node)
-	    end;
-	_Other ->
-	    ?trace("inet_getaddr(~p) "
-		   "failed (~p).~n", [Node,_Other]),
-	    ?shutdown(Node)
+		{ok, Ip} ->
+			Timer = dist_util:start_timer(SetupTime),
+%用epmd获得远程节点的Port
+			case erl_epmd:port_please(Name, Ip) of
+				{port, TcpPort, Version} ->
+					?trace("port_please(~p) -> version ~p~n", 
+						   [Node,Version]),
+					dist_util:reset_timer(Timer),
+%连接远程节点
+					case inet_tcp:connect(Ip, TcpPort, 
+										  [{active, false}, 
+										   {packet,2}]) of
+						{ok, Socket} ->
+							HSData = #hs_data{
+										kernel_pid = Kernel,
+										other_node = Node,
+										this_node = MyNode,
+										socket = Socket,
+										timer = Timer,
+										this_flags = 0,
+										other_version = Version,
+										f_send = fun inet_tcp:send/2,
+										f_recv = fun inet_tcp:recv/3,
+										f_setopts_pre_nodeup = 
+											fun(S) ->
+													inet:setopts
+													  (S, 
+													   [{active, false},
+														{packet, 4},
+														nodelay()])
+											end,
+										f_setopts_post_nodeup = 
+											fun(S) ->
+													inet:setopts
+													  (S, 
+													   [{active, true},
+														{deliver, port},
+														{packet, 4},
+														nodelay()])
+											end,
+										f_getll = fun inet:getll/1,
+										f_address = 
+											fun(_,_) ->
+													#net_address{
+													   address = {Ip,TcpPort},
+													   host = Address,
+													   protocol = tcp,
+													   family = inet}
+											end,
+										mf_tick = fun ?MODULE:tick/1,
+										mf_getstat = fun ?MODULE:getstat/1,
+										request_type = Type
+									   },
+							dist_util:handshake_we_started(HSData);
+						_ ->
+							%% Other Node may have closed since 
+							%% port_please !
+							?trace("other node (~p) "
+								   "closed since port_please.~n", 
+								   [Node]),
+							?shutdown(Node)
+					end;
+				_ ->
+					?trace("port_please (~p) "
+						   "failed.~n", [Node]),
+					?shutdown(Node)
+			end;
+		_Other ->
+			?trace("inet_getaddr(~p) "
+				   "failed (~p).~n", [Node,_Other]),
+			?shutdown(Node)
     end.
 
 %%
