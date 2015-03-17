@@ -2636,29 +2636,29 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
 		 goto badarg;
     tp = tuple_val(BIF_ARG_3);
     if (*tp++ != make_arityval(4))
-	goto badarg;
+		 goto badarg;
     if (!is_small(*tp))
-	goto badarg;
+		 goto badarg;
     flags = unsigned_val(*tp++);
     if (!is_small(*tp) || (version = unsigned_val(*tp)) == 0)
-	goto badarg;
+		 goto badarg;
     ic = *(++tp);
     oc = *(++tp);
     if (!is_atom(ic) || !is_atom(oc))
-	goto badarg;
+		 goto badarg;
 
     /* DFLAG_EXTENDED_REFERENCES is compulsory from R9 and forward */
     if (!(DFLAG_EXTENDED_REFERENCES & flags)) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "%T", BIF_P->common.id);
-	if (BIF_P->common.u.alive.reg)
-	    erts_dsprintf(dsbufp, " (%T)", BIF_P->common.u.alive.reg->name);
-	erts_dsprintf(dsbufp,
-		      " attempted to enable connection to node %T "
-		      "which is not able to handle extended references.\n",
-		      BIF_ARG_1);
-	erts_send_error_to_logger(BIF_P->group_leader, dsbufp);
-	goto badarg;
+		 erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+		 erts_dsprintf(dsbufp, "%T", BIF_P->common.id);
+		 if (BIF_P->common.u.alive.reg)
+			  erts_dsprintf(dsbufp, " (%T)", BIF_P->common.u.alive.reg->name);
+		 erts_dsprintf(dsbufp,
+					   " attempted to enable connection to node %T "
+					   "which is not able to handle extended references.\n",
+					   BIF_ARG_1);
+		 erts_send_error_to_logger(BIF_P->group_leader, dsbufp);
+		 goto badarg;
     }
 
     /*
@@ -3245,7 +3245,7 @@ send_nodes_mon_msg(Process *rp,
 #endif
 		       );
 }
-
+//发送node_monitor消息
 static void
 send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reason)
 {
@@ -3276,66 +3276,76 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 		       || (erts_proc_lc_my_proc_locks(c_p)
 			   == ERTS_PROC_LOCK_MAIN));
     erts_smp_mtx_lock(&nodes_monitors_mtx);
-
+//遍历nodes_monitors链表
     for (nmp = nodes_monitors; nmp; nmp = nmp->next) {
-	int i;
-	Uint16 no;
-	Uint sz;
+		 int i;
+		 Uint16 no;
+		 Uint sz;
+		 
+		 ASSERT(nmp->proc != NULL);
+//opts为空
+		 if (!nmp->opts) {
+//如果不是可见节点，直接忽略掉
+			  if (type != am_visible){
+				   continue;
+			  }
+		 }
+		 else {
+			  switch (type) {
+			  case am_hidden:
+				   //不处理隐藏节点（hidden）
+				   if (!(nmp->opts & ERTS_NODES_MON_OPT_TYPE_HIDDEN)){
+						continue;
+				   }
+				   break;
+			  case am_visible:
+				   //不处理可见节点（normal）
+				   if ((nmp->opts & ERTS_NODES_MON_OPT_TYPES)
+					   && !(nmp->opts & ERTS_NODES_MON_OPT_TYPE_VISIBLE)){
+						continue;
+				   }
+				   break;
+			  default:
+				   erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
+			  }
+		 }
+		 
+		 if (rp != nmp->proc) {
+			  if (rp) {
+				   if (rp == c_p){
+						rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+				   }
+				   erts_smp_proc_unlock(rp, rp_locks);
+			  }
+			  //rp 设为设置监控的进程
+			  rp = nmp->proc;
+			  rp_locks = 0;
+			  if (rp == c_p){
+				   rp_locks |= ERTS_PROC_LOCK_MAIN;
+			  }
+		 }
+		 
+		 ASSERT(rp);
+		 //计算监控消息的大小
+		 sz = nodes_mon_msg_sz(nmp, what, reason);
 
-	ASSERT(nmp->proc != NULL);
-
-	if (!nmp->opts) {
-	    if (type != am_visible)
-		continue;
-	}
-	else {
-	    switch (type) {
-	    case am_hidden:
-		if (!(nmp->opts & ERTS_NODES_MON_OPT_TYPE_HIDDEN))
-		    continue;
-		break;
-	    case am_visible:
-		if ((nmp->opts & ERTS_NODES_MON_OPT_TYPES)
-		    && !(nmp->opts & ERTS_NODES_MON_OPT_TYPE_VISIBLE))
-		    continue;
-		break;
-	    default:
-		erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
-	    }
-	}
-
-	if (rp != nmp->proc) {
-	    if (rp) {
-		if (rp == c_p)
-		    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
-		erts_smp_proc_unlock(rp, rp_locks);
-	    }
-
-	    rp = nmp->proc;
-	    rp_locks = 0;
-	    if (rp == c_p)
-		rp_locks |= ERTS_PROC_LOCK_MAIN;
-	}
-
-	ASSERT(rp);
-
-	sz = nodes_mon_msg_sz(nmp, what, reason);
-
-	for (i = 0, no = nmp->no; i < no; i++)
-	    send_nodes_mon_msg(rp,
-			       &rp_locks,
-			       nmp,
-			       node,
-			       what,
-			       type,
-			       reason,
-			       sz);
+		 for (i = 0, no = nmp->no; i < no; i++)
+			  //向监控的进程发送消息
+			  send_nodes_mon_msg(rp,
+								 &rp_locks,
+								 nmp,
+								 node,
+								 what,
+								 type,
+								 reason,
+								 sz);
     }
-
+	
     if (rp) {
-	if (rp == c_p)
-	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
-	erts_smp_proc_unlock(rp, rp_locks);
+		 if (rp == c_p){
+			  rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+		 }
+		 erts_smp_proc_unlock(rp, rp_locks);
     }
 
     erts_smp_mtx_unlock(&nodes_monitors_mtx);
@@ -3418,6 +3428,7 @@ insert_nodes_monitor(Process *c_p, Uint32 opts)
 			  nmp->next = NULL;
 //将自己放到监控链表的尾部
 			  nmp->prev = nodes_monitors_end;
+//看是否要设置nodes_monitors
 			  if (nodes_monitors_end) {
 				   ASSERT(nodes_monitors);
 				   nodes_monitors_end->next = nmp;

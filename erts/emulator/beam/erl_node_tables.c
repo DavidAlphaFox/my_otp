@@ -421,16 +421,16 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     ASSERT(is_internal_port(cid));
 
     if(dep->prev) {
-	ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
-	dep->prev->next = dep->next;
+		 ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
+		 dep->prev->next = dep->next;
     }
     else {
-	ASSERT(erts_not_connected_dist_entries == dep);
-	erts_not_connected_dist_entries = dep->next;
+		 ASSERT(erts_not_connected_dist_entries == dep);
+		 erts_not_connected_dist_entries = dep->next;
     }
 
     if(dep->next)
-	dep->next->prev = dep->prev;
+		 dep->next->prev = dep->prev;
 
     ASSERT(erts_no_of_not_connected_dist_entries > 0);
     erts_no_of_not_connected_dist_entries--;
@@ -443,22 +443,22 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     dep->prev = NULL;
 
     if(flags & DFLAG_PUBLISHED) {
-	dep->next = erts_visible_dist_entries;
-	if(erts_visible_dist_entries) {
-	    ASSERT(erts_visible_dist_entries->prev == NULL);
-	    erts_visible_dist_entries->prev = dep;
-	}
-	erts_visible_dist_entries = dep;
-	erts_no_of_visible_dist_entries++;
+		 dep->next = erts_visible_dist_entries;
+		 if(erts_visible_dist_entries) {
+			  ASSERT(erts_visible_dist_entries->prev == NULL);
+			  erts_visible_dist_entries->prev = dep;
+		 }
+		 erts_visible_dist_entries = dep;
+		 erts_no_of_visible_dist_entries++;
     }
     else {
-	dep->next = erts_hidden_dist_entries;
-	if(erts_hidden_dist_entries) {
-	    ASSERT(erts_hidden_dist_entries->prev == NULL);
-	    erts_hidden_dist_entries->prev = dep;
-	}
-	erts_hidden_dist_entries = dep;
-	erts_no_of_hidden_dist_entries++;
+		 dep->next = erts_hidden_dist_entries;
+		 if(erts_hidden_dist_entries) {
+			  ASSERT(erts_hidden_dist_entries->prev == NULL);
+			  erts_hidden_dist_entries->prev = dep;
+		 }
+		 erts_hidden_dist_entries = dep;
+		 erts_no_of_hidden_dist_entries++;
     }
     erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
 }
