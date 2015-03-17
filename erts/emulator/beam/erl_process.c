@@ -11954,34 +11954,34 @@ erts_continue_exit_process(Process *p)
 #endif
 
     if (p->flags & F_USING_DB) {
-	if (erts_db_process_exiting(p, ERTS_PROC_LOCK_MAIN))
-	    goto yield;
-	p->flags &= ~F_USING_DB;
+		 if (erts_db_process_exiting(p, ERTS_PROC_LOCK_MAIN))
+			  goto yield;
+		 p->flags &= ~F_USING_DB;
     }
 
     erts_set_gc_state(p, 1);
     state = erts_smp_atomic32_read_acqb(&p->state);
     if (state & ERTS_PSFLG_ACTIVE_SYS) {
-	if (cleanup_sys_tasks(p, state, CONTEXT_REDS) >= CONTEXT_REDS/2)
-	    goto yield;
+		 if (cleanup_sys_tasks(p, state, CONTEXT_REDS) >= CONTEXT_REDS/2)
+			  goto yield;
     }
 
     if (p->flags & F_USING_DDLL) {
-	erts_ddll_proc_dead(p, ERTS_PROC_LOCK_MAIN);
-	p->flags &= ~F_USING_DDLL;
+		 erts_ddll_proc_dead(p, ERTS_PROC_LOCK_MAIN);
+		 p->flags &= ~F_USING_DDLL;
     }
 
     if (p->nodes_monitors) {
-	erts_delete_nodes_monitors(p, ERTS_PROC_LOCK_MAIN);
-	p->nodes_monitors = NULL;
+		 erts_delete_nodes_monitors(p, ERTS_PROC_LOCK_MAIN);
+		 p->nodes_monitors = NULL;
     }
 	
 
     if (p->suspend_monitors) {
-	erts_sweep_suspend_monitors(p->suspend_monitors,
-				    resume_suspend_monitor,
-				    p);
-	p->suspend_monitors = NULL;
+		 erts_sweep_suspend_monitors(p->suspend_monitors,
+									 resume_suspend_monitor,
+									 p);
+		 p->suspend_monitors = NULL;
     }
 
     /*
@@ -11989,8 +11989,8 @@ erts_continue_exit_process(Process *p)
      * cleanup.
      */
     if (p->common.u.alive.reg) {
-	(void) erts_unregister_name(p, ERTS_PROC_LOCK_MAIN, NULL, THE_NON_VALUE);
-	ASSERT(!p->common.u.alive.reg);
+		 (void) erts_unregister_name(p, ERTS_PROC_LOCK_MAIN, NULL, THE_NON_VALUE);
+		 ASSERT(!p->common.u.alive.reg);
     }
 
     erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -12081,9 +12081,10 @@ erts_continue_exit_process(Process *p)
 #endif
 
     if (dep) {
-	erts_do_net_exits(dep, reason);
-	if(dep)
-	    erts_deref_dist_entry(dep);
+		 erts_do_net_exits(dep, reason);
+		 if(dep){
+			  erts_deref_dist_entry(dep);
+		 }
     }
 
     /*

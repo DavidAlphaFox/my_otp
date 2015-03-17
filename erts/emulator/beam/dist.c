@@ -2559,7 +2559,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     net_kernel = erts_whereis_process(BIF_P, ERTS_PROC_LOCK_MAIN,
 				      am_net_kernel, ERTS_PROC_LOCK_MAIN, 0);
     if (!net_kernel)
-	goto error;
+		 goto error;
 
     /* By setting dist_entry==erts_this_dist_entry and DISTRIBUTION on
        net_kernel do_net_exist will be called when net_kernel
