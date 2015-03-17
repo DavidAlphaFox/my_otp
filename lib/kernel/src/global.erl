@@ -1617,6 +1617,7 @@ the_locker_message({cancel, _Node, undefined, no_fun}, S) ->
     loop_the_locker(S);
 the_locker_message({cancel, Node, Tag, no_fun}, S) ->
     ?trace({the_locker, cancel, {multi,S}, {tag,Tag},{node,Node}}),
+%此时只为了清理消息队列中的nodeup消息,否则the_locker的消息队列会被撑爆掉
     receive
         {nodeup, Node, Tag} ->
             ?trace({cancelnodeup2, {node,Node},{tag,Tag}}),
@@ -1624,6 +1625,7 @@ the_locker_message({cancel, Node, Tag, no_fun}, S) ->
     after 0 ->
             ok
     end,
+%从当前节已知的列表中拿掉这个节点
     loop_the_locker(remove_node(Node, S));
 the_locker_message({lock_set, _Pid, false, _}, S) ->
     ?trace({the_locker, spurious, {node,node(_Pid)}}),
@@ -1781,7 +1783,7 @@ locker_trace(#multi{do_trace = true}, not_ok, Ns) ->
     global_name_server ! {trace_message, {locker_failed, node()}, Ns};
 locker_trace(#multi{do_trace = true}, rejected, Ns) ->
     global_name_server ! {trace_message, {lock_rejected, node()}, Ns}.
-
+%更新locker的known
 update_locker_known(S) ->
     receive
         {add_to_known, Nodes} ->
@@ -1923,7 +1925,7 @@ split_node([], _, Ack)        -> [lists:reverse(Ack)].
 
 cancel_locker(Node, S, Tag) ->
     cancel_locker(Node, S, Tag, no_fun).
-
+%给自己的locker发送一条cancel消息
 cancel_locker(Node, S, Tag, ToBeRunOnLockerF) ->
     S#state.the_locker ! {cancel, Node, Tag, ToBeRunOnLockerF},
     Resolvers = S#state.resolvers,
@@ -1938,7 +1940,7 @@ cancel_locker(Node, S, Tag, ToBeRunOnLockerF) ->
 	_ ->
 	    S
     end.
-
+%清理远程的某个Node在本进程字典中的状态
 reset_node_state(Node) ->
     ?trace({{node,Node}, reset_node_state, get()}),
     erase({wait_lock, Node}),
