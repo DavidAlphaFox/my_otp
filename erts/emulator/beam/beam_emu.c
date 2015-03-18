@@ -2826,49 +2826,55 @@ get_map_elements_fail:
      */
  OpCase(call_bif_e):
     {
-	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
-	Eterm result;
-	BeamInstr *next;
+		 Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
+		 Eterm result;
+		 BeamInstr *next;
 
-	PRE_BIF_SWAPOUT(c_p);
-	c_p->fcalls = FCALLS - 1;
-	if (FCALLS <= 0) {
-	   save_calls(c_p, (Export *) Arg(0));
-	}
-	PreFetch(1, next);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	reg[0] = r(0);
-	result = (*bf)(c_p, reg, I);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_HOLE_CHECK(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
-	    Uint arity = ((Export *)Arg(0))->code[2];
-	    result = erts_gc_after_bif_call(c_p, result, reg, arity);
-	    E = c_p->stop;
-	}
-	HTOP = HEAP_TOP(c_p);
-	FCALLS = c_p->fcalls;
-	if (is_value(result)) {
-	    r(0) = result;
-	    CHECK_TERM(r(0));
-	    NextPF(1, next);
-	} else if (c_p->freason == TRAP) {
-	    SET_CP(c_p, I+2);
-	    SET_I(c_p->i);
-	    SWAPIN;
-	    r(0) = reg[0];
-	    Dispatch();
-	}
+		 PRE_BIF_SWAPOUT(c_p);
+		 c_p->fcalls = FCALLS - 1;
+		 if (FCALLS <= 0) {
+			  save_calls(c_p, (Export *) Arg(0));
+		 }
+		 PreFetch(1, next);
+		 ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+		 reg[0] = r(0);
+		 result = (*bf)(c_p, reg, I);
+		 ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+		 ERTS_HOLE_CHECK(c_p);
+		 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+		 PROCESS_MAIN_CHK_LOCKS(c_p);
+		 //如果mbuf不空，且overhead已经超过了二进制堆的大小，那么需要进行一次垃圾回收
+		 if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
+			  Uint arity = ((Export *)Arg(0))->code[2];
+			  result = erts_gc_after_bif_call(c_p, result, reg, arity);
+			  E = c_p->stop;
+		 }
+		 HTOP = HEAP_TOP(c_p);
+		 FCALLS = c_p->fcalls;
+//看是否直接难道了结果
+		 if (is_value(result)) {
+			  r(0) = result;
+			  CHECK_TERM(r(0));
+			  NextPF(1, next);
+//没有结果，返回了NONE_VALUE
+		 } else if (c_p->freason == TRAP) {
+//设置进程的接续点
+			  SET_CP(c_p, I+2);
+//设置改变scheduler正在执行的指令
+			  SET_I(c_p->i);
+//重新进场，更新快存
+			  SWAPIN;
+			  r(0) = reg[0];
+			  Dispatch();
+		 }
 
 	/*
 	 * Error handling.  SWAPOUT is not needed because it was done above.
 	 */
-	ASSERT(c_p->stop == E);
-	I = handle_error(c_p, I, reg, bf);
-	goto post_error_handling;
+		 ASSERT(c_p->stop == E);
+		 I = handle_error(c_p, I, reg, bf);
+		 goto post_error_handling;
     }
 
  /*

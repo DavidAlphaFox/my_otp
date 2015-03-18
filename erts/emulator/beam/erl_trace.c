@@ -2148,14 +2148,14 @@ void save_calls(Process *p, Export *e)
 {
     struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
     if (scb) {
-	Export **ct = &scb->ct[0];
-	int len = scb->len;
+		 Export **ct = &scb->ct[0];
+		 int len = scb->len;
 
-	ct[scb->cur] = e;
-	if (++scb->cur >= len)
-	    scb->cur = 0;
-	if (scb->n < len)
-	    scb->n++;
+		 ct[scb->cur] = e;
+		 if (++scb->cur >= len)
+			  scb->cur = 0;
+		 if (scb->n < len)
+			  scb->n++;
     }
 }
 
