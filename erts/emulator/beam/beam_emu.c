@@ -2852,7 +2852,7 @@ get_map_elements_fail:
 		 }
 		 HTOP = HEAP_TOP(c_p);
 		 FCALLS = c_p->fcalls;
-//看是否直接难道了结果
+//看是否直接得道了结果
 		 if (is_value(result)) {
 			  r(0) = result;
 			  CHECK_TERM(r(0));
