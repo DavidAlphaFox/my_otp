@@ -118,6 +118,9 @@ accept(Listen) ->
 accept_loop(Kernel, Listen) ->
     case inet_tcp:accept(Listen) of
 	{ok, Socket} ->
+%给net_kernel 发送一个消息
+%让inet_tcp_dist创建一个新的Erlang进程
+%接着进入controller流程
 	    Kernel ! {accept,self(),Socket,inet,tcp},
 	    _ = controller(Kernel, Socket),
 	    accept_loop(Kernel, Listen);
@@ -127,10 +130,14 @@ accept_loop(Kernel, Listen) ->
 
 controller(Kernel, Socket) ->
     receive
+%得到do_accept的进程
 	{Kernel, controller, Pid} ->
 	    flush_controller(Pid, Socket),
+%将Socket的控制权交给do_accept进程
 	    inet_tcp:controlling_process(Socket, Pid),
+%接着进行转发
 	    flush_controller(Pid, Socket),
+%把accept_loop进程告诉do_accept进程
 	    Pid ! {self(), controller};
 	{Kernel, unsupported_protocol} ->
 	    exit(unsupported_protocol)
@@ -138,6 +145,7 @@ controller(Kernel, Socket) ->
 
 flush_controller(Pid, Socket) ->
     receive
+%接收数据，并将这些数据转发给do_accept进程
 	{tcp, Socket, Data} ->
 	    Pid ! {tcp, Socket, Data},
 	    flush_controller(Pid, Socket);
@@ -157,50 +165,49 @@ accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, do_accept,
 	      [self(), AcceptPid, Socket, MyNode, Allowed, SetupTime],
 	      [link, {priority, max}]).
-
+%创建一个新的进程，来处理handshake
 do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     receive
 	{AcceptPid, controller} ->
 	    Timer = dist_util:start_timer(SetupTime),
 	    case check_ip(Socket) of
-		true ->
-		    HSData = #hs_data{
-		      kernel_pid = Kernel,
-		      this_node = MyNode,
-		      socket = Socket,
-		      timer = Timer,
-		      this_flags = 0,
-		      allowed = Allowed,
-		      f_send = fun(S,D) -> inet_tcp:send(S,D) end,
-		      f_recv = fun(S,N,T) -> inet_tcp:recv(S,N,T) 
-			       end,
-		      f_setopts_pre_nodeup = 
-		      fun(S) ->
-			      inet:setopts(S, 
-					   [{active, false},
-					    {packet, 4},
-					    nodelay()])
-		      end,
-		      f_setopts_post_nodeup = 
-		      fun(S) ->
-			      inet:setopts(S, 
-					   [{active, true},
-					    {deliver, port},
-					    {packet, 4},
-					    nodelay()])
-		      end,
-		      f_getll = fun(S) ->
-					inet:getll(S)
-				end,
-		      f_address = fun get_remote_id/2,
-		      mf_tick = fun ?MODULE:tick/1,
-		      mf_getstat = fun ?MODULE:getstat/1
-		     },
-		    dist_util:handshake_other_started(HSData);
-		{false,IP} ->
-		    error_msg("** Connection attempt from "
-			      "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown(no_node)
+			true ->
+				HSData = #hs_data{
+							kernel_pid = Kernel,
+							this_node = MyNode,
+							socket = Socket,
+							timer = Timer,
+							this_flags = 0,
+							allowed = Allowed,
+							f_send = fun(S,D) -> inet_tcp:send(S,D) end,
+							f_recv = fun(S,N,T) -> inet_tcp:recv(S,N,T) end,
+							f_setopts_pre_nodeup = 
+								fun(S) ->
+										inet:setopts(S, 
+													 [{active, false},
+													  {packet, 4},
+													  nodelay()])
+								end,
+							f_setopts_post_nodeup = 
+								fun(S) ->
+										inet:setopts(S, 
+													 [{active, true},
+													  {deliver, port},
+													  {packet, 4},
+													  nodelay()])
+								end,
+							f_getll = fun(S) ->
+											  inet:getll(S)
+									  end,
+							f_address = fun get_remote_id/2,
+							mf_tick = fun ?MODULE:tick/1,
+							mf_getstat = fun ?MODULE:getstat/1
+						   },
+				dist_util:handshake_other_started(HSData);
+			{false,IP} ->
+				error_msg("** Connection attempt from "
+						  "disallowed IP ~w ** ~n", [IP]),
+				?shutdown(no_node)
 	    end
     end.
 

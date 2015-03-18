@@ -122,13 +122,12 @@ make_this_flags(RequestType, OtherNode) ->
 handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
     {PreOtherFlags,Node,Version} = recv_name(HSData0),
     PreThisFlags = make_this_flags(ReqType, Node),
-    {ThisFlags, OtherFlags} = adjust_flags(PreThisFlags,
-					   PreOtherFlags),
+    {ThisFlags, OtherFlags} = adjust_flags(PreThisFlags,PreOtherFlags),
     HSData = HSData0#hs_data{this_flags=ThisFlags,
-			     other_flags=OtherFlags,
-			     other_version=Version,
-			     other_node=Node,
-			     other_started=true},
+							 other_flags=OtherFlags,
+							 other_version=Version,
+							 other_node=Node,
+							 other_started=true},
     check_dflag_xnc(HSData),
     is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
@@ -342,26 +341,26 @@ connection(#hs_data{other_node = Node,
     cancel_timer(HSData#hs_data.timer),
     PType = publish_type(HSData#hs_data.other_flags), 
     case FPreNodeup(Socket) of
-	ok -> 
-	    do_setnode(HSData), % Succeeds or exits the process.
-	    Address = FAddress(Socket,Node),
-	    mark_nodeup(HSData,Address),
-	    case FPostNodeup(Socket) of
-		ok ->
-		    con_loop(HSData#hs_data.kernel_pid, 
-			     Node, 
-			     Socket, 
-			     Address,
-			     HSData#hs_data.this_node, 
-			     PType,
-			     #tick{},
-			     HSData#hs_data.mf_tick,
-			     HSData#hs_data.mf_getstat);
+		ok -> 
+			do_setnode(HSData), % Succeeds or exits the process.
+			Address = FAddress(Socket,Node),
+			mark_nodeup(HSData,Address),
+			case FPostNodeup(Socket) of
+				ok ->
+					con_loop(HSData#hs_data.kernel_pid, 
+							 Node, 
+							 Socket, 
+							 Address,
+							 HSData#hs_data.this_node, 
+							 PType,
+							 #tick{},
+							 HSData#hs_data.mf_tick,
+							 HSData#hs_data.mf_getstat);
+				_ ->
+					?shutdown2(Node, connection_setup_failed)
+			end;
 		_ ->
-		    ?shutdown2(Node, connection_setup_failed)
-	    end;
-	_ ->
-	    ?shutdown(Node)
+			?shutdown(Node)
     end.
 
 %% Generate a message digest from Challenge number and Cookie	
@@ -469,28 +468,28 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 	{Kernel, tick} ->
 	    case send_tick(Socket, Tick, Type, 
 			   MFTick, MFGetstat) of
-		{ok, NewTick} ->
-		    con_loop(Kernel, Node, Socket, TcpAddress,
-			     MyNode, Type, NewTick, MFTick,  
-			     MFGetstat);
-		{error, not_responding} ->
- 		    error_msg("** Node ~p not responding **~n"
- 			      "** Removing (timedout) connection **~n",
- 			      [Node]),
- 		    ?shutdown2(Node, net_tick_timeout);
-		_Other ->
-		    ?shutdown2(Node, send_net_tick_failed)
+			{ok, NewTick} ->
+				con_loop(Kernel, Node, Socket, TcpAddress,
+						 MyNode, Type, NewTick, MFTick,  
+						 MFGetstat);
+			{error, not_responding} ->
+				error_msg("** Node ~p not responding **~n"
+						  "** Removing (timedout) connection **~n",
+						  [Node]),
+				?shutdown2(Node, net_tick_timeout);
+			_Other ->
+				?shutdown2(Node, send_net_tick_failed)
 	    end;
 	{From, get_status} ->
 	    case MFGetstat(Socket) of
-		{ok, Read, Write, _} ->
-		    From ! {self(), get_status, {ok, Read, Write}},
-		    con_loop(Kernel, Node, Socket, TcpAddress, 
-			     MyNode, 
-			     Type, Tick, 
-			     MFTick, MFGetstat);
-		_ ->
-		    ?shutdown2(Node, get_status_failed)
+			{ok, Read, Write, _} ->
+				From ! {self(), get_status, {ok, Read, Write}},
+				con_loop(Kernel, Node, Socket, TcpAddress, 
+						 MyNode, 
+						 Type, Tick, 
+						 MFTick, MFGetstat);
+			_ ->
+				?shutdown2(Node, get_status_failed)
 	    end
     end.
 
