@@ -10470,7 +10470,7 @@ typedef struct {
     erts_aint32_t state;
     ErtsRunQueue *run_queue;
 } ErtsEarlyProcInit;
-
+//初始化Erlang进程的基本结构
 static void early_init_process_struct(void *varg, Eterm data)
 {
     ErtsEarlyProcInit *arg = (ErtsEarlyProcInit *) varg;
@@ -10495,23 +10495,23 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
 {
     ErtsEarlyProcInit init_arg;
     Process *p;
-
+//拿到内存空间
     p = erts_alloc_fnf(ERTS_ALC_T_PROC, sizeof(Process));
     if (!p)
-	return NULL;
+		 return NULL;
 
     init_arg.proc = (Process *) p;
     init_arg.run_queue = rq;
     init_arg.state = state;
 
     ASSERT(((char *) p) == ((char *) &p->common));
-
+//在进程表中添加一项
     if (!erts_ptab_new_element(&erts_proc,
 			       &p->common,
 			       (void *) &init_arg,
 			       early_init_process_struct)) {
-	erts_free(ERTS_ALC_T_PROC, p);
-	return NULL;
+		 erts_free(ERTS_ALC_T_PROC, p);
+		 return NULL;
     }
 
     ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_PID_SERIAL);
@@ -10527,7 +10527,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
 
     return p;
 }
-
+//Erlang用来创建进程的函数主体
 Eterm
 erl_create_process(Process* parent, /* Parent of process (default group leader). */
 		   Eterm mod,	/* Tagged atom for module. */
@@ -10557,30 +10557,30 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 		 so->error_code = BADARG;
 		 goto error;
     }
-
+//绑定调度器
     if (so->flags & SPO_USE_ARGS) {
-	if (so->scheduler) {
-	    int ix = so->scheduler-1;
-	    ASSERT(0 <= ix && ix < erts_no_run_queues);
-	    rq = ERTS_RUNQ_IX(ix);
-	    state |= ERTS_PSFLG_BOUND;
-	}
-	prio = (erts_aint32_t) so->priority;
+		 if (so->scheduler) {
+			  int ix = so->scheduler-1;
+			  ASSERT(0 <= ix && ix < erts_no_run_queues);
+			  rq = ERTS_RUNQ_IX(ix);
+			  state |= ERTS_PSFLG_BOUND;
+		 }
+		 prio = (erts_aint32_t) so->priority;
     }
 
     state |= (((prio & ERTS_PSFLGS_PRIO_MASK) << ERTS_PSFLGS_ACT_PRIO_OFFSET)
 	      | ((prio & ERTS_PSFLGS_PRIO_MASK) << ERTS_PSFLGS_USR_PRIO_OFFSET));
 
     if (!rq)
-	rq = erts_get_runq_proc(parent);
-
+		 rq = erts_get_runq_proc(parent);
+//得到一个Erlang进程的数据描述结构体
     p = alloc_process(rq, state); /* All proc locks are locked by this thread
 				     on success */
     if (!p) {
-	erts_send_error_to_logger_str(parent->group_leader,
+		 erts_send_error_to_logger_str(parent->group_leader,
 				      "Too many processes\n");
-	so->error_code = SYSTEM_LIMIT;
-	goto error;
+		 so->error_code = SYSTEM_LIMIT;
+		 goto error;
     }
 
 #ifdef BM_COUNTERS

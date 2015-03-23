@@ -95,13 +95,14 @@ index_put_entry(IndexTable* t, void* tmpl)
     t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK] = p;
     return p;
 }
-
+//通过实用hash，保证了atom的内容在所有节点上，占有的位置是相同的
+//这样外部PID的节点号是在所有的远程节点中是相同的
 int index_get(IndexTable* t, void* tmpl)
 {
     IndexSlot* p = (IndexSlot*) hash_get(&t->htable, tmpl);
 
     if (p != NULL) {
-	return p->index;
+		 return p->index;
     }
     return -1;
 }

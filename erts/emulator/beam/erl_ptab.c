@@ -574,7 +574,7 @@ erts_ptab_initialized(ErtsPTab *ptab)
 {
     return ptab->r.o.tab != NULL;
 }
-
+//在Erlang进程表或者Port表中添加一项
 int
 erts_ptab_new_element(ErtsPTab *ptab,
 		      ErtsPTabElementCommon *ptab_el,
@@ -589,83 +589,83 @@ erts_ptab_new_element(ErtsPTab *ptab,
 
     count = erts_smp_atomic32_inc_read_acqb(&ptab->vola.tile.count);
     if (count > ptab->r.o.max) {
-	while (1) {
-	    erts_aint32_t act_count;
+		 while (1) {
+			  erts_aint32_t act_count;
 
-	    act_count = erts_smp_atomic32_cmpxchg_relb(&ptab->vola.tile.count,
-						       count-1,
-						       count);
-	    if (act_count == count) {
-		erts_ptab_runlock(ptab);
-		return 0;
-	    }
-	    count = act_count;
-	    if (count <= ptab->r.o.max)
-		break;
-	}
+			  act_count = erts_smp_atomic32_cmpxchg_relb(&ptab->vola.tile.count,
+														 count-1,
+														 count);
+			  if (act_count == count) {
+				   erts_ptab_runlock(ptab);
+				   return 0;
+			  }
+			  count = act_count;
+			  if (count <= ptab->r.o.max)
+				   break;
+		 }
     }
 
     ptab_el->u.alive.started_interval
 	= erts_smp_current_interval_nob(erts_ptab_interval(ptab));
 
     if (ptab->r.o.free_id_data) {
-	do {
-	    ix = (Uint32) erts_smp_atomic32_inc_read_acqb(&ptab->vola.tile.aid_ix);
-	    ix = ix_to_free_id_data_ix(ptab, ix);
-
-	    data = erts_smp_atomic32_xchg_nob(&ptab->r.o.free_id_data[ix],
-					      (erts_aint32_t)ptab->r.o.invalid_data);
-	}while ((Eterm)data == ptab->r.o.invalid_data);
-
-	init_ptab_el(init_arg, (Eterm) data);
-
+		 do {
+			  ix = (Uint32) erts_smp_atomic32_inc_read_acqb(&ptab->vola.tile.aid_ix);
+			  ix = ix_to_free_id_data_ix(ptab, ix);
+			  
+			  data = erts_smp_atomic32_xchg_nob(&ptab->r.o.free_id_data[ix],
+												(erts_aint32_t)ptab->r.o.invalid_data);
+		 }while ((Eterm)data == ptab->r.o.invalid_data);
+		 
+		 init_ptab_el(init_arg, (Eterm) data);
+		 
 #ifdef ERTS_SMP
-	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
+		 erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
 #endif
 
-	pix = erts_ptab_data2pix(ptab, (Eterm) data);
+		 pix = erts_ptab_data2pix(ptab, (Eterm) data);
 
 #ifdef DEBUG
-	ASSERT(ERTS_AINT_NULL == erts_smp_atomic_xchg_relb(&ptab->r.o.tab[pix],
+		 ASSERT(ERTS_AINT_NULL == erts_smp_atomic_xchg_relb(&ptab->r.o.tab[pix],
 							   (erts_aint_t) ptab_el));
 #else
-	erts_smp_atomic_set_relb(&ptab->r.o.tab[pix], (erts_aint_t) ptab_el);
+		 erts_smp_atomic_set_relb(&ptab->r.o.tab[pix], (erts_aint_t) ptab_el);
 #endif
 
-	erts_ptab_runlock(ptab);
-
+		 erts_ptab_runlock(ptab);
+	
     }
     else {
-	int rlocked = ERTS_PTAB_NEW_MAX_RESERVE_FAIL;
-	Uint64 ld, exp_ld;
+		 int rlocked = ERTS_PTAB_NEW_MAX_RESERVE_FAIL;
+		 Uint64 ld, exp_ld;
 	/* Deprecated legacy algorithm... */
 
     restart:
 
-	ptab_el->u.alive.started_interval
-	    = erts_smp_current_interval_nob(erts_ptab_interval(ptab));
+		 ptab_el->u.alive.started_interval
+			  = erts_smp_current_interval_nob(erts_ptab_interval(ptab));
 
-	ld = last_data_read_acqb(ptab);
+		 ld = last_data_read_acqb(ptab);
 
 	/* Reserve slot */
 	while (1) {
-	    ld++;
-	    pix = erts_ptab_data2pix(ptab, ERTS_PTAB_LastData2EtermData(ld));
-	    if (erts_smp_atomic_read_nob(&ptab->r.o.tab[pix])
-		== ERTS_AINT_NULL) {
-		erts_aint_t val;
-		val = erts_smp_atomic_cmpxchg_relb(&ptab->r.o.tab[pix],
-						   invalid,	
-						   ERTS_AINT_NULL);
+		 ld++;
+		 pix = erts_ptab_data2pix(ptab, ERTS_PTAB_LastData2EtermData(ld));
+		 if (erts_smp_atomic_read_nob(&ptab->r.o.tab[pix])
+			 == ERTS_AINT_NULL) {
+			  erts_aint_t val;
+			  val = erts_smp_atomic_cmpxchg_relb(&ptab->r.o.tab[pix],
+												 invalid,	
+												 ERTS_AINT_NULL);
 
-		if (ERTS_AINT_NULL == val)
-		    break;
-	    }
-	    if (rlocked && --rlocked == 0) {
-		erts_ptab_runlock(ptab);
-		erts_ptab_rwlock(ptab);
-		goto restart;
-	    }
+			  if (ERTS_AINT_NULL == val)
+				   break;
+		 }
+		 if (rlocked && --rlocked == 0) {
+			  erts_ptab_runlock(ptab);
+			  erts_ptab_rwlock(ptab);
+			  goto restart;
+		 }
 	}
 
 	data = ERTS_PTAB_LastData2EtermData(ld);

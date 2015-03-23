@@ -2533,9 +2533,9 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 
     /* valid creation ? */
     if(!term_to_Uint(BIF_ARG_2, &creation))
-	goto error;
+		 goto error;
     if(creation > 3)
-	goto error;
+		 goto error;
 
     /* valid node name ? */
     if (!is_node_name_atom(BIF_ARG_1))

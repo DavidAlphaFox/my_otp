@@ -2504,7 +2504,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 			 ep = big_to_bytes(obj, ep);
 	    }
 	    break;
-
+//专门来处理PID，这样才能保证我们让远程节点知道这个PID是我们的
 	case PID_DEF:
 	case EXTERNAL_PID_DEF:
 	    ep = enc_pid(acmp, obj, ep, dflags);

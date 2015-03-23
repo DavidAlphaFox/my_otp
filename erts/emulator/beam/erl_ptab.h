@@ -285,7 +285,7 @@ ERTS_GLB_INLINE Uint erts_ptab_data2pixdata(ErtsPTab *ptab, Eterm data)
 }
 
 #if ERTS_SIZEOF_TERM == 8
-
+//根据给定的数据建一个进程的ID
 ERTS_GLB_INLINE Eterm
 erts_ptab_make_id(ErtsPTab *ptab, Eterm data, Eterm tag)
 {

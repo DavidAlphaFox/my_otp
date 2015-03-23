@@ -249,10 +249,10 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 #endif
 
     if (tlen < 0) {
-	if (trunc)
-	    tlen = 0;
-	else
-	    return THE_NON_VALUE;
+		 if (trunc)
+			  tlen = 0;
+		 else
+			  return THE_NON_VALUE;
     }
 
     switch (enc) {
