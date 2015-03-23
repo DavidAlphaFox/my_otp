@@ -901,12 +901,12 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     UseTmpHeapNoproc(6);
     if (SEQ_TRACE_TOKEN(sender) != NIL
 #ifdef USE_VM_PROBES
-	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+		&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
 #endif
 	) {
-	seq_trace_update_send(sender);
-	token = SEQ_TRACE_TOKEN(sender);
-	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
+		 seq_trace_update_send(sender);
+		 token = SEQ_TRACE_TOKEN(sender);
+		 seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
     }
 #ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
@@ -927,8 +927,8 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 #endif
 
     if (token != NIL)
-	ctl = TUPLE5(&ctl_heap[0], make_small(DOP_REG_SEND_TT),
-		     sender->common.id, am_Cookie, remote_name, token);
+		 ctl = TUPLE5(&ctl_heap[0], make_small(DOP_REG_SEND_TT),
+					  sender->common.id, am_Cookie, remote_name, token);
     else
 	ctl = TUPLE4(&ctl_heap[0], make_small(DOP_REG_SEND),
 		     sender->common.id, am_Cookie, remote_name);
@@ -1692,7 +1692,7 @@ int erts_net_message(Port *prt,
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return -1;
 }
-
+//像远程发送指令的只要函数体
 static int
 dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 {
@@ -1708,40 +1708,40 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     Process *c_p = dsdp->proc;
 
     if (!c_p || dsdp->no_suspend)
-	force_busy = 1;
+		 force_busy = 1;
 
     ERTS_SMP_LC_ASSERT(!c_p
 		       || (ERTS_PROC_LOCK_MAIN
 			   == erts_proc_lc_my_proc_locks(c_p)));
 
     if (!erts_is_alive)
-	return ERTS_DSIG_SEND_OK;
+		 return ERTS_DSIG_SEND_OK;
 
     if (flags & DFLAG_DIST_HDR_ATOM_CACHE) {
-	acmp = erts_get_atom_cache_map(c_p);
-	pass_through_size = 0;
+		 acmp = erts_get_atom_cache_map(c_p);
+		 pass_through_size = 0;
     }
     else {
-	acmp = NULL;
-	pass_through_size = 1;
+		 acmp = NULL;
+		 pass_through_size = 1;
     }
 
 #ifdef ERTS_DIST_MSG_DBG
     erts_fprintf(stderr, ">>%s CTL: %T\n", pass_through_size ? "P" : " ", ctl);
     if (is_value(msg))
-	erts_fprintf(stderr, "    MSG: %T\n", msg);
+		 erts_fprintf(stderr, "    MSG: %T\n", msg);
 #endif
-
+//计算出要发送数据的大小
     data_size = pass_through_size;
     erts_reset_atom_cache_map(acmp);
     data_size += erts_encode_dist_ext_size(ctl, flags, acmp);
     if (is_value(msg))
-	data_size += erts_encode_dist_ext_size(msg, flags, acmp);
+		 data_size += erts_encode_dist_ext_size(msg, flags, acmp);
     erts_finalize_atom_cache_map(acmp, flags);
 
     dhdr_ext_size = erts_encode_ext_dist_header_size(acmp);
     data_size += dhdr_ext_size;
-
+//分配空间，并进行编码
     obuf = alloc_dist_obuf(data_size);
     obuf->ext_endp = &obuf->data[0] + pass_through_size + dhdr_ext_size;
 
@@ -1751,7 +1751,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     erts_encode_dist_ext(ctl, &obuf->ext_endp, flags, acmp);
     if (is_value(msg)) {
 	/* Encode message */
-	erts_encode_dist_ext(msg, &obuf->ext_endp, flags, acmp);
+		 erts_encode_dist_ext(msg, &obuf->ext_endp, flags, acmp);
     }
 
     ASSERT(obuf->extp < obuf->ext_endp);
@@ -1771,73 +1771,73 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	|| dep->connection_id != dsdp->connection_id
 	|| dep->status & ERTS_DE_SFLG_EXITING) {
 	/* Not the same connection as when we started; drop message... */
-	erts_smp_de_runlock(dep);
-	free_dist_obuf(obuf);
+		 erts_smp_de_runlock(dep);
+		 free_dist_obuf(obuf);
     }
     else {
-	ErtsProcList *plp = NULL;
-	erts_smp_mtx_lock(&dep->qlock);
-	dep->qsize += size_obuf(obuf);
-	if (dep->qsize >= erts_dist_buf_busy_limit)
-	    dep->qflgs |= ERTS_DE_QFLG_BUSY;
-	if (!force_busy && (dep->qflgs & ERTS_DE_QFLG_BUSY)) {
-	    erts_smp_mtx_unlock(&dep->qlock);
+		 ErtsProcList *plp = NULL;
+		 erts_smp_mtx_lock(&dep->qlock);
+		 dep->qsize += size_obuf(obuf);
+		 if (dep->qsize >= erts_dist_buf_busy_limit)
+			  dep->qflgs |= ERTS_DE_QFLG_BUSY;
+		 if (!force_busy && (dep->qflgs & ERTS_DE_QFLG_BUSY)) {
+			  erts_smp_mtx_unlock(&dep->qlock);
+			  
+			  plp = erts_proclist_create(c_p);
+			  erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+			  suspended = 1;
+			  erts_smp_mtx_lock(&dep->qlock);
+		 }
 
-	    plp = erts_proclist_create(c_p);
-	    erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
-	    suspended = 1;
-	    erts_smp_mtx_lock(&dep->qlock);
-	}
+		 /* Enqueue obuf on dist entry */
+		 if (dep->out_queue.last)
+			  dep->out_queue.last->next = obuf;
+		 else
+			  dep->out_queue.first = obuf;
+		 dep->out_queue.last = obuf;
 
-	/* Enqueue obuf on dist entry */
-	if (dep->out_queue.last)
-	    dep->out_queue.last->next = obuf;
-	else
-	    dep->out_queue.first = obuf;
-	dep->out_queue.last = obuf;
-
-	if (!force_busy) {
-	    if (!(dep->qflgs & ERTS_DE_QFLG_BUSY)) {
-		if (suspended)
-		    resume = 1; /* was busy when we started, but isn't now */
+		 if (!force_busy) {
+			  if (!(dep->qflgs & ERTS_DE_QFLG_BUSY)) {
+				   if (suspended)
+						resume = 1; /* was busy when we started, but isn't now */
 #ifdef USE_VM_PROBES
-                if (resume && DTRACE_ENABLED(dist_port_not_busy)) {
-                    DTRACE_CHARBUF(port_str, 64);
-                    DTRACE_CHARBUF(remote_str, 64);
+				   if (resume && DTRACE_ENABLED(dist_port_not_busy)) {
+						DTRACE_CHARBUF(port_str, 64);
+						DTRACE_CHARBUF(remote_str, 64);
 
-                    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
-                                  "%T", cid);
-                    erts_snprintf(remote_str, sizeof(DTRACE_CHARBUF_NAME(remote_str)),
-                                  "%T", dep->sysname);
-                    DTRACE3(dist_port_not_busy, erts_this_node_sysname,
-                            port_str, remote_str);
-                }
+						erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+									  "%T", cid);
+						erts_snprintf(remote_str, sizeof(DTRACE_CHARBUF_NAME(remote_str)),
+									  "%T", dep->sysname);
+						DTRACE3(dist_port_not_busy, erts_this_node_sysname,
+								port_str, remote_str);
+				   }
 #endif
-	    }
-	    else {
-		/* Enqueue suspended process on dist entry */
-		ASSERT(plp);
-		erts_proclist_store_last(&dep->suspended, plp);
-	    }
-	}
+			  }
+			  else {
+				   /* Enqueue suspended process on dist entry */
+				   ASSERT(plp);
+				   erts_proclist_store_last(&dep->suspended, plp);
+			  }
+		 }
 
-	erts_smp_mtx_unlock(&dep->qlock);
-	erts_schedule_dist_command(NULL, dep);
-	erts_smp_de_runlock(dep);
-	
-	if (resume) {
-	    erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
-	    erts_proclist_destroy(plp);
+		 erts_smp_mtx_unlock(&dep->qlock);
+		 erts_schedule_dist_command(NULL, dep);
+		 erts_smp_de_runlock(dep);
+		 
+		 if (resume) {
+			  erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
+			  erts_proclist_destroy(plp);
 	    /*
 	     * Note that the calling process still have to yield as if it
 	     * suspended. If not, the calling process could later be
 	     * erroneously scheduled when it shouldn't be.
 	     */
-	}
+		 }
     }
 
     if (c_p) {
-	int reds;
+		 int reds;
 	/* 
 	 * Bump reductions on calling process.
 	 *
@@ -1845,16 +1845,16 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	 * plus 16 reductions per kilobyte generated external data.
 	 */
 
-	data_size >>= (10-4);
+		 data_size >>= (10-4);
 #if defined(ARCH_64) && !HALFWORD_HEAP
-	data_size &= 0x003fffffffffffff;
+		 data_size &= 0x003fffffffffffff;
 #elif defined(ARCH_32) || HALFWORD_HEAP
-	data_size &= 0x003fffff;
+		 data_size &= 0x003fffff;
 #else
 #       error "Ohh come on ... !?!"
 #endif
-	reds = 8 + ((int) data_size > 1000000 ? 1000000 : (int) data_size);
-	BUMP_REDS(c_p, reds);
+		 reds = 8 + ((int) data_size > 1000000 ? 1000000 : (int) data_size);
+		 BUMP_REDS(c_p, reds);
     }
 
     if (suspended) {
@@ -1873,9 +1873,9 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
                     port_str, remote_str, pid_str);
         }
 #endif
-	if (!resume && erts_system_monitor_flags.busy_dist_port)
-	    monitor_generic(c_p, am_busy_dist_port, cid);
-	return ERTS_DSIG_SEND_YIELD;
+		if (!resume && erts_system_monitor_flags.busy_dist_port)
+			 monitor_generic(c_p, am_busy_dist_port, cid);
+		return ERTS_DSIG_SEND_YIELD;
     }
     return ERTS_DSIG_SEND_OK;
 }

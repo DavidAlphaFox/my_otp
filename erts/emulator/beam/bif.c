@@ -513,18 +513,18 @@ BIF_RETTYPE demonitor_2(BIF_ALIST_2)
     Eterm list = BIF_ARG_2;
 
     while (is_list(list)) {
-	Eterm* consp = list_val(list);
-	switch (CAR(consp)) {
-	case am_flush:
-	    flush = 1;
-	    break;
-	case am_info:
-	    info = 1;
-	    break;
-	default:
-	    goto badarg;
-	}
-	list = CDR(consp);	
+		 Eterm* consp = list_val(list);
+		 switch (CAR(consp)) {
+		 case am_flush:
+			  flush = 1;
+			  break;
+		 case am_info:
+			  info = 1;
+			  break;
+		 default:
+			  goto badarg;
+		 }
+		 list = CDR(consp);	
     }
 
     if (is_not_nil(list))
@@ -683,54 +683,54 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
     case ERTS_DSIG_PREP_NOT_ALIVE:
 	/* Let the dmonitor_p trap handle it */
     case ERTS_DSIG_PREP_NOT_CONNECTED:
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	ERTS_BIF_PREP_TRAP2(ret, dmonitor_p_trap, p, bifarg1, bifarg2);
-	break;
+		 erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
+		 ERTS_BIF_PREP_TRAP2(ret, dmonitor_p_trap, p, bifarg1, bifarg2);
+		 break;
     case ERTS_DSIG_PREP_CONNECTED:
-	if (!(dep->flags & DFLAG_DIST_MONITOR)
-	    || (byname && !(dep->flags & DFLAG_DIST_MONITOR_NAME))) {
-	    erts_smp_de_runlock(dep);
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	    ERTS_BIF_PREP_ERROR(ret, p, BADARG);
-	}
-	else {
-	    Eterm p_trgt, p_name, d_name, mon_ref;
+		 if (!(dep->flags & DFLAG_DIST_MONITOR)
+			 || (byname && !(dep->flags & DFLAG_DIST_MONITOR_NAME))) {
+			  erts_smp_de_runlock(dep);
+			  erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
+			  ERTS_BIF_PREP_ERROR(ret, p, BADARG);
+		 }
+		 else {
+			  Eterm p_trgt, p_name, d_name, mon_ref;
 
-	    mon_ref = erts_make_ref(p);
+			  mon_ref = erts_make_ref(p);
+			  
+			  if (byname) {
+				   p_trgt = dep->sysname;
+				   p_name = target;
+				   d_name = target;
+			  }
+			  else {
+				   p_trgt = target;
+				   p_name = NIL;
+				   d_name = NIL;
+			  }
 
-	    if (byname) {
-		p_trgt = dep->sysname;
-		p_name = target;
-		d_name = target;
-	    }
-	    else {
-		p_trgt = target;
-		p_name = NIL;
-		d_name = NIL;
-	    }
+			  erts_smp_de_links_lock(dep);
 
-	    erts_smp_de_links_lock(dep);
+			  erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, p_trgt,
+							   p_name);
+			  erts_add_monitor(&(dep->monitors), MON_TARGET, mon_ref, p->common.id,
+							   d_name);
 
-	    erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, p_trgt,
-			     p_name);
-	    erts_add_monitor(&(dep->monitors), MON_TARGET, mon_ref, p->common.id,
-			     d_name);
+			  erts_smp_de_links_unlock(dep);
+			  erts_smp_de_runlock(dep);
+			  erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 
-	    erts_smp_de_links_unlock(dep);
-	    erts_smp_de_runlock(dep);
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-
-	    code = erts_dsig_send_monitor(&dsd, p->common.id, target, mon_ref);
-	    if (code == ERTS_DSIG_SEND_YIELD)
-		ERTS_BIF_PREP_YIELD_RETURN(ret, p, mon_ref);
-	    else
-		ERTS_BIF_PREP_RET(ret, mon_ref);
-	}
-	break;
+			  code = erts_dsig_send_monitor(&dsd, p->common.id, target, mon_ref);
+			  if (code == ERTS_DSIG_SEND_YIELD)
+				   ERTS_BIF_PREP_YIELD_RETURN(ret, p, mon_ref);
+			  else
+				   ERTS_BIF_PREP_RET(ret, mon_ref);
+		 }
+		 break;
     default:
-	ASSERT(! "Invalid dsig prepare result");
-	ERTS_BIF_PREP_ERROR(ret, p, EXC_INTERNAL_ERROR);
-	break;
+		 ASSERT(! "Invalid dsig prepare result");
+		 ERTS_BIF_PREP_ERROR(ret, p, EXC_INTERNAL_ERROR);
+		 break;
     }
 
     return ret;
@@ -745,49 +745,50 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
 
     /* Only process monitors are implemented */
     if (BIF_ARG_1 != am_process) {
-	goto error;
+		 goto error;
     }
 
     if (is_internal_pid(target)) {
     local_pid:
-	ret = local_pid_monitor(BIF_P, target);
+		 ret = local_pid_monitor(BIF_P, target);
     } else if (is_external_pid(target)) {
-	dep = external_pid_dist_entry(target);
-	if (dep == erts_this_dist_entry)
-	    goto local_pid;
-	ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, target, 0);
+		 dep = external_pid_dist_entry(target);
+		 if (dep == erts_this_dist_entry)
+			  goto local_pid;
+//进行远程监控
+		 ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, target, 0);
     } else if (is_atom(target)) {
-	ret = local_name_monitor(BIF_P, target);
+		 ret = local_name_monitor(BIF_P, target);
     } else if (is_tuple(target)) {
-	Eterm *tp = tuple_val(target);
-	Eterm remote_node;
-	Eterm name;
-	if (arityval(*tp) != 2) 
-	    goto error;
-	remote_node = tp[2];
-	name = tp[1];
-	if (!is_atom(remote_node) || !is_atom(name)) {
-	    goto error;
-	}
-	if (!erts_is_alive && remote_node != am_Noname) {
-	    goto error; /* Remote monitor from (this) undistributed node */
-	}
-	dep = erts_sysname_to_connected_dist_entry(remote_node);
-	if (dep == erts_this_dist_entry) {
-	    deref_de = 1;
-	    ret = local_name_monitor(BIF_P, name);
-	} else {
-	    if (dep)
-		deref_de = 1;
-	    ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, name, 1);
-	}
+		 Eterm *tp = tuple_val(target);
+		 Eterm remote_node;
+		 Eterm name;
+		 if (arityval(*tp) != 2) 
+			  goto error;
+		 remote_node = tp[2];
+		 name = tp[1];
+		 if (!is_atom(remote_node) || !is_atom(name)) {
+			  goto error;
+		 }
+		 if (!erts_is_alive && remote_node != am_Noname) {
+			  goto error; /* Remote monitor from (this) undistributed node */
+		 }
+		 dep = erts_sysname_to_connected_dist_entry(remote_node);
+		 if (dep == erts_this_dist_entry) {
+			  deref_de = 1;
+			  ret = local_name_monitor(BIF_P, name);
+		 } else {
+			  if (dep)
+				   deref_de = 1;
+			  ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, name, 1);
+		 }
     } else {
     error:
-	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+		 ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
     }
     if (deref_de) {
-	deref_de = 0;
-	erts_deref_dist_entry(dep);
+		 deref_de = 0;
+		 erts_deref_dist_entry(dep);
     }
 
     return ret;
@@ -1822,8 +1823,10 @@ static Sint remote_send(Process *p, DistEntry *dep,
     case ERTS_DSIG_PREP_CONNECTED: {
 
 		 if (is_atom(to))
+//远程命名进程
 			  code = erts_dsig_send_reg_msg(&dsd, to, msg);
 		 else
+//远程pid
 			  code = erts_dsig_send_msg(&dsd, to, msg);
 		 /*
 		  * Note that reductions have been bumped on calling

@@ -526,18 +526,18 @@ Uint erts_encode_ext_size_ets(Eterm term)
     return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS);
 }
 
-
+//编码发送到远程的消息
 void erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp)
 {
     byte *ep = *ext;
 #ifndef ERTS_DEBUG_USE_DIST_SEP
     if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 #endif
-	*ep++ = VERSION_MAGIC;
+		 *ep++ = VERSION_MAGIC;
     ep = enc_term(acmp, term, ep, flags, NULL);
     if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s:%d:erts_encode_dist_ext(): Internal data structure error\n",
+		 erl_exit(ERTS_ABORT_EXIT,
+				  "%s:%d:erts_encode_dist_ext(): Internal data structure error\n",
 		 __FILE__, __LINE__);
     *ext = ep;
 }
@@ -2338,7 +2338,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
     (void) enc_term_int(NULL, acmp, obj, ep, dflags, off_heap, NULL, &res);
     return res;
 }
-
+//状态机
+//只用栈进行状态的不断的转换
 static int
 enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	     struct erl_off_heap_header** off_heap, Sint *reds, byte **res)
@@ -2357,14 +2358,14 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 
     if (ctx) {
-	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
-	r = *reds;
+		 WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
+		 r = *reds;
 
-	if (ctx->wstack.wstart) { /* restore saved stacks and byte pointer */
-	    WSTACK_RESTORE(s, &ctx->wstack);
-	    ep = ctx->ep;
-	    obj = ctx->obj;
-	}
+		 if (ctx->wstack.wstart) { /* restore saved stacks and byte pointer */
+			  WSTACK_RESTORE(s, &ctx->wstack);
+			  ep = ctx->ep;
+			  obj = ctx->obj;
+		 }
     }
 
     goto L_jump_start;
@@ -2372,56 +2373,56 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
  outer_loop:
     while (!WSTACK_ISEMPTY(s)) {
 #if HALFWORD_HEAP
-	obj = (Eterm) (wobj = WSTACK_POP(s));
+		 obj = (Eterm) (wobj = WSTACK_POP(s));
 #else
-	obj = WSTACK_POP(s);
+		 obj = WSTACK_POP(s);
 #endif
-	switch (val = WSTACK_POP(s)) {
-	case ENC_TERM:
-	    break;
-	case ENC_ONE_CONS:
-	encode_one_cons:
-	    {
-		Eterm* cons = list_val(obj);
-		Eterm tl;
+		 switch (val = WSTACK_POP(s)) {
+		 case ENC_TERM:
+			  break;
+		 case ENC_ONE_CONS:
+		 encode_one_cons:
+		 {
+			  Eterm* cons = list_val(obj);
+			  Eterm tl;
 
-		obj = CAR(cons);
-		tl = CDR(cons);
-		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		WSTACK_PUSH(s, tl);
-	    }
-	    break;
+			  obj = CAR(cons);
+			  tl = CDR(cons);
+			  WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
+			  WSTACK_PUSH(s, tl);
+		 }
+		 break;
 	case ENC_PATCH_FUN_SIZE:
 	    {
 #if HALFWORD_HEAP
-		byte* size_p = (byte *) wobj;
+			 byte* size_p = (byte *) wobj;
 #else
-		byte* size_p = (byte *) obj;
+			 byte* size_p = (byte *) obj;
 #endif
-		put_int32(ep - size_p, size_p);
+			 put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
 #if HALFWORD_HEAP
-		Eterm* ptr = (Eterm *) wobj;
+			 Eterm* ptr = (Eterm *) wobj;
 #else
-		Eterm* ptr = (Eterm *) obj;
+			 Eterm* ptr = (Eterm *) obj;
 #endif
-		obj = *ptr;
+			 obj = *ptr;
 	    }
 	    break;
 	default:		/* ENC_LAST_ARRAY_ELEMENT+1 and upwards */
 	    {
 #if HALFWORD_HEAP
-		Eterm* ptr = (Eterm *) wobj;
+			 Eterm* ptr = (Eterm *) wobj;
 #else
-		Eterm* ptr = (Eterm *) obj;
+			 Eterm* ptr = (Eterm *) obj;
 #endif
-		WSTACK_PUSH(s, val-1);
-		obj = *ptr++;
-		WSTACK_PUSH(s, (UWord)ptr);
+			 WSTACK_PUSH(s, val-1);
+			 obj = *ptr++;
+			 WSTACK_PUSH(s, (UWord)ptr);
 	    }
 	    break;
 	}
@@ -2448,59 +2449,59 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    {
 		/* From R14B we no longer restrict INTEGER_EXT to 28 bits,
 		 * as done earlier for backward compatibility reasons. */
-		Sint val = signed_val(obj);
+			 Sint val = signed_val(obj);
 
-		if ((Uint)val < 256) {
-		    *ep++ = SMALL_INTEGER_EXT;
-		    put_int8(val, ep);
-		    ep++;
-		} else if (sizeof(Sint) == 4 || IS_SSMALL32(val)) {
-		    *ep++ = INTEGER_EXT;
-		    put_int32(val, ep);
-		    ep += 4;
-		} else {
-		    DeclareTmpHeapNoproc(tmp_big,2);
-		    Eterm big;
-		    UseTmpHeapNoproc(2);
-		    big = small_to_big(val, tmp_big);
-		    *ep++ = SMALL_BIG_EXT;
-		    n = big_bytes(big);
-		    ASSERT(n < 256);
-		    put_int8(n, ep);
-		    ep += 1;
-		    *ep++ = big_sign(big);
-		    ep = big_to_bytes(big, ep);
-		    UnUseTmpHeapNoproc(2);
-		}
+			 if ((Uint)val < 256) {
+				  *ep++ = SMALL_INTEGER_EXT;
+				  put_int8(val, ep);
+				  ep++;
+			 } else if (sizeof(Sint) == 4 || IS_SSMALL32(val)) {
+				  *ep++ = INTEGER_EXT;
+				  put_int32(val, ep);
+				  ep += 4;
+			 } else {
+				  DeclareTmpHeapNoproc(tmp_big,2);
+				  Eterm big;
+				  UseTmpHeapNoproc(2);
+				  big = small_to_big(val, tmp_big);
+				  *ep++ = SMALL_BIG_EXT;
+				  n = big_bytes(big);
+				  ASSERT(n < 256);
+				  put_int8(n, ep);
+				  ep += 1;
+				  *ep++ = big_sign(big);
+				  ep = big_to_bytes(big, ep);
+				  UnUseTmpHeapNoproc(2);
+			 }
 	    }
 	    break;
 
 	case BIG_DEF:
 	    {
-		int sign = big_sign(obj);
-		n = big_bytes(obj);
-		if (sizeof(Sint)==4 && n<=4) {
-		    Uint dig = big_digit(obj,0);		   
-		    Sint val = sign ? -dig : dig;
-		    if ((val<0) == sign) {
-			*ep++ = INTEGER_EXT;
-			put_int32(val, ep);
-			ep += 4;
-			break;
-		    }
-		}
-		if (n < 256) {
-		    *ep++ = SMALL_BIG_EXT;
-		    put_int8(n, ep);
-		    ep += 1;
-		}
-		else {
-		    *ep++ = LARGE_BIG_EXT;
-		    put_int32(n, ep);
-		    ep += 4;
-		}
-		*ep++ = sign;
-		ep = big_to_bytes(obj, ep);
+			 int sign = big_sign(obj);
+			 n = big_bytes(obj);
+			 if (sizeof(Sint)==4 && n<=4) {
+				  Uint dig = big_digit(obj,0);		   
+				  Sint val = sign ? -dig : dig;
+				  if ((val<0) == sign) {
+					   *ep++ = INTEGER_EXT;
+					   put_int32(val, ep);
+					   ep += 4;
+					   break;
+				  }
+			 }
+			 if (n < 256) {
+				  *ep++ = SMALL_BIG_EXT;
+				  put_int8(n, ep);
+				  ep += 1;
+			 }
+			 else {
+				  *ep++ = LARGE_BIG_EXT;
+				  put_int32(n, ep);
+				  ep += 4;
+			 }
+			 *ep++ = sign;
+			 ep = big_to_bytes(obj, ep);
 	    }
 	    break;
 
