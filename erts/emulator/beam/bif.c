@@ -686,6 +686,7 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
 		 erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 		 ERTS_BIF_PREP_TRAP2(ret, dmonitor_p_trap, p, bifarg1, bifarg2);
 		 break;
+//远程节点已经连接了
     case ERTS_DSIG_PREP_CONNECTED:
 		 if (!(dep->flags & DFLAG_DIST_MONITOR)
 			 || (byname && !(dep->flags & DFLAG_DIST_MONITOR_NAME))) {
@@ -1824,9 +1825,11 @@ static Sint remote_send(Process *p, DistEntry *dep,
 
 		 if (is_atom(to))
 //远程命名进程
+//这个操作是不经过OTP的,是直接通过Erts进行查询
 			  code = erts_dsig_send_reg_msg(&dsd, to, msg);
 		 else
 //远程pid
+//这个操作是不经过OTP的,是直接通过Erts进行查询
 			  code = erts_dsig_send_msg(&dsd, to, msg);
 		 /*
 		  * Note that reductions have been bumped on calling

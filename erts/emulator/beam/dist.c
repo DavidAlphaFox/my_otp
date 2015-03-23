@@ -780,6 +780,7 @@ erts_dsig_send_m_exit(ErtsDSigData *dsdp, Eterm watcher, Eterm watched,
 /* We want to monitor a process (named or unnamed) on another node, we send:
    {DOP_MONITOR_P, Local pid, Remote pid or name, Ref}, which is exactly what's
    needed on the other side... */
+//将远程的监控转化成一个消息，发送到远程节点
 int
 erts_dsig_send_monitor(ErtsDSigData *dsdp, Eterm watcher, Eterm watched,
 		       Eterm ref)
@@ -1083,7 +1084,9 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 **
 **   assert  hlen == 0 !!!
 */
-//发送网络消息，其中包含关闭分布式连接用的Port的代码
+//接收从远程端口来的消息，并进行处理
+//这里面处理一些只能由Erts处理而OTP不能处理的
+//其中包含关闭分布式连接用的Port的代码
 int erts_net_message(Port *prt,
 		     DistEntry *dep,
 		     byte *hbuf,
@@ -1127,14 +1130,14 @@ int erts_net_message(Port *prt,
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (!erts_is_alive) {
-	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-	return 0;
+		 UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
+		 return 0;
     }
     if (hlen != 0)
-	goto data_error;
+		 goto data_error;
     if (len == 0) {  /* HANDLE TICK !!! */
-	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-	return 0;
+		 UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
+		 return 0;
     }
 
 #ifdef ERTS_RAW_DIST_MSG_DBG
@@ -1143,52 +1146,52 @@ int erts_net_message(Port *prt,
 #endif
 
     if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
-	t = buf;
+		 t = buf;
     else {
-	/* Skip PASS_THROUGH */
-	t = buf+1;
-	len--;
+		 /* Skip PASS_THROUGH */
+		 t = buf+1;
+		 len--;
     }
 
     if (len == 0) {
-	PURIFY_MSG("data error");
-	goto data_error;
+		 PURIFY_MSG("data error");
+		 goto data_error;
     }
 
     res = erts_prepare_dist_ext(&ede, t, len, dep, dep->cache);
 
     if (res >= 0)
-	res = ctl_len = erts_decode_dist_ext_size(&ede);
+		 res = ctl_len = erts_decode_dist_ext_size(&ede);
     else {
 #ifdef ERTS_DIST_MSG_DBG
-	erts_fprintf(stderr, "DIST MSG DEBUG: erts_prepare_dist_ext() failed:\n");
-	bw(buf, orig_len);
+		 erts_fprintf(stderr, "DIST MSG DEBUG: erts_prepare_dist_ext() failed:\n");
+		 bw(buf, orig_len);
 #endif
-	ctl_len = 0;
+		 ctl_len = 0;
     }
 
     if (res < 0) {
 #ifdef ERTS_DIST_MSG_DBG
-	erts_fprintf(stderr, "DIST MSG DEBUG: erts_decode_dist_ext_size(CTL) failed:\n");
-	bw(buf, orig_len);
+		 erts_fprintf(stderr, "DIST MSG DEBUG: erts_decode_dist_ext_size(CTL) failed:\n");
+		 bw(buf, orig_len);
 #endif
-	PURIFY_MSG("data error");
-	goto data_error;
+		 PURIFY_MSG("data error");
+		 goto data_error;
     }
 
     if (ctl_len > DIST_CTL_DEFAULT_SIZE) {
-	ctl = erts_alloc(ERTS_ALC_T_DCTRL_BUF, ctl_len * sizeof(Eterm));
+		 ctl = erts_alloc(ERTS_ALC_T_DCTRL_BUF, ctl_len * sizeof(Eterm));
     }
     hp = ctl;
 
     arg = erts_decode_dist_ext(&hp, &off_heap, &ede);
     if (is_non_value(arg)) {
 #ifdef ERTS_DIST_MSG_DBG
-	erts_fprintf(stderr, "DIST MSG DEBUG: erts_dist_ext_size(CTL) failed:\n");
-	bw(buf, orig_len);
+		 erts_fprintf(stderr, "DIST MSG DEBUG: erts_dist_ext_size(CTL) failed:\n");
+		 bw(buf, orig_len);
 #endif
-	PURIFY_MSG("data error");
-	goto data_error;
+		 PURIFY_MSG("data error");
+		 goto data_error;
     }
     ctl_len = t - buf;
 
@@ -1197,191 +1200,191 @@ int erts_net_message(Port *prt,
 #endif
 
     if (is_not_tuple(arg) || 
-	(tuple = tuple_val(arg), (tuple_arity = arityval(*tuple)) < 1) ||
-	is_not_small(tuple[1])) {
- 	goto invalid_message;
+		(tuple = tuple_val(arg), (tuple_arity = arityval(*tuple)) < 1) ||
+		is_not_small(tuple[1])) {
+		 goto invalid_message;
     }
 
     token_size = 0;
-
+//处理控制信息
+//从当中可以看出，主要是Link,Monitor和Erts内部相关的一些数据结构
     switch (type = unsigned_val(tuple[1])) {
     case DOP_LINK:
-	if (tuple_arity != 3) {
-	    goto invalid_message;
-	}
-	from = tuple[2];
-	to   = tuple[3];  /* local proc to link to */
+		 if (tuple_arity != 3) {
+			  goto invalid_message;
+		 }
+		 from = tuple[2];
+		 to   = tuple[3];  /* local proc to link to */
 
-	if (is_not_pid(from) || is_not_pid(to)) {
-	    goto invalid_message;
-	}
+		 if (is_not_pid(from) || is_not_pid(to)) {
+			  goto invalid_message;
+		 }
 
-	rp = erts_pid2proc_opt(NULL, 0,
-			       to, ERTS_PROC_LOCK_LINK,
-			       ERTS_P2P_FLG_ALLOW_OTHER_X);
-	if (!rp) {
-	    /* This is tricky (we MUST force a distributed send) */
-	    ErtsDSigData dsd;
-	    int code;
-	    code = erts_dsig_prepare(&dsd, dep, NULL, ERTS_DSP_NO_LOCK, 0);
-	    if (code == ERTS_DSIG_PREP_CONNECTED) {
-		code = erts_dsig_send_exit(&dsd, to, from, am_noproc);
-		ASSERT(code == ERTS_DSIG_SEND_OK);
-	    }
-	    break;
-	}
+		 rp = erts_pid2proc_opt(NULL, 0,
+								to, ERTS_PROC_LOCK_LINK,
+								ERTS_P2P_FLG_ALLOW_OTHER_X);
+		 if (!rp) {
+			  /* This is tricky (we MUST force a distributed send) */
+			  ErtsDSigData dsd;
+			  int code;
+			  code = erts_dsig_prepare(&dsd, dep, NULL, ERTS_DSP_NO_LOCK, 0);
+			  if (code == ERTS_DSIG_PREP_CONNECTED) {
+				   code = erts_dsig_send_exit(&dsd, to, from, am_noproc);
+				   ASSERT(code == ERTS_DSIG_SEND_OK);
+			  }
+			  break;
+		 }
 
-	erts_smp_de_links_lock(dep);
-	res = erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, from);
+		 erts_smp_de_links_lock(dep);
+		 res = erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, from);
 
-	if (res < 0) {
-	    /* It was already there! Lets skip the rest... */
-	    erts_smp_de_links_unlock(dep);
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	    break;
-	}
-	lnk = erts_add_or_lookup_link(&(dep->nlinks), LINK_PID, rp->common.id);
-	erts_add_link(&(ERTS_LINK_ROOT(lnk)), LINK_PID, from);
-	erts_smp_de_links_unlock(dep);
+		 if (res < 0) {
+			  /* It was already there! Lets skip the rest... */
+			  erts_smp_de_links_unlock(dep);
+			  erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+			  break;
+		 }
+		 lnk = erts_add_or_lookup_link(&(dep->nlinks), LINK_PID, rp->common.id);
+		 erts_add_link(&(ERTS_LINK_ROOT(lnk)), LINK_PID, from);
+		 erts_smp_de_links_unlock(dep);
 
-	if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-	    trace_proc(NULL, rp, am_getting_linked, from);
+		 if (IS_TRACED_FL(rp, F_TRACE_PROCS))
+			  trace_proc(NULL, rp, am_getting_linked, from);
 
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	break;
+		 erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+		 break;
 
     case DOP_UNLINK: {
-	ErtsDistLinkData dld;
-	if (tuple_arity != 3) {
-	    goto invalid_message;
-	}
-	from = tuple[2];
-	to = tuple[3];
-	if (is_not_pid(from) || is_not_pid(to)) {
-	    goto invalid_message;
-	}
+		 ErtsDistLinkData dld;
+		 if (tuple_arity != 3) {
+			  goto invalid_message;
+		 }
+		 from = tuple[2];
+		 to = tuple[3];
+		 if (is_not_pid(from) || is_not_pid(to)) {
+			  goto invalid_message;
+		 }
 	
-	rp = erts_pid2proc_opt(NULL, 0,
-			       to, ERTS_PROC_LOCK_LINK,
-			       ERTS_P2P_FLG_ALLOW_OTHER_X);
-	if (!rp)
-	    break;
+		 rp = erts_pid2proc_opt(NULL, 0,
+								to, ERTS_PROC_LOCK_LINK,
+								ERTS_P2P_FLG_ALLOW_OTHER_X);
+		 if (!rp)
+			  break;
 
-	lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
+		 lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
+		 
+		 if (IS_TRACED_FL(rp, F_TRACE_PROCS) && lnk != NULL) {
+			  trace_proc(NULL, rp, am_getting_unlinked, from);
+		 }
 
-	if (IS_TRACED_FL(rp, F_TRACE_PROCS) && lnk != NULL) {
-	    trace_proc(NULL, rp, am_getting_unlinked, from);
-	}
+		 erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-
-	erts_remove_dist_link(&dld, to, from, dep);
-	erts_destroy_dist_link(&dld);
-	if (lnk)
-	    erts_destroy_link(lnk);
-	break;
+		 erts_remove_dist_link(&dld, to, from, dep);
+		 erts_destroy_dist_link(&dld);
+		 if (lnk)
+			  erts_destroy_link(lnk);
+		 break;
     }
-    
+//收到远程要求我们监控我们Node中的进程    
     case DOP_MONITOR_P: {
 	/* A remote process wants to monitor us, we get:
 	   {DOP_MONITOR_P, Remote pid, local pid or name, ref} */
-	Eterm name;
+		 Eterm name;
 	
-	if (tuple_arity != 4) {
-	    goto invalid_message;
-	}
+		 if (tuple_arity != 4) {
+			  goto invalid_message;
+		 }
 
-	watcher = tuple[2];
-	watched = tuple[3];  /* local proc to monitor */
-	ref     = tuple[4];
+		 watcher = tuple[2];
+		 watched = tuple[3];  /* local proc to monitor */
+		 ref     = tuple[4];
+		 
+		 if (is_not_ref(ref)) {
+			  goto invalid_message;
+		 }
 
-	if (is_not_ref(ref)) {
-	    goto invalid_message;
-	}
+		 if (is_atom(watched)) {
+			  name = watched;
+			  rp = erts_whereis_process(NULL, 0,
+										watched, ERTS_PROC_LOCK_LINK,
+										ERTS_P2P_FLG_ALLOW_OTHER_X);
+		 }
+		 else {
+			  name = NIL;
+			  rp = erts_pid2proc_opt(NULL, 0,
+									 watched, ERTS_PROC_LOCK_LINK,
+									 ERTS_P2P_FLG_ALLOW_OTHER_X);
+		 }
 
-	if (is_atom(watched)) {
-	    name = watched;
-	    rp = erts_whereis_process(NULL, 0,
-				      watched, ERTS_PROC_LOCK_LINK,
-				      ERTS_P2P_FLG_ALLOW_OTHER_X);
-	}
-	else {
-	    name = NIL;
-	    rp = erts_pid2proc_opt(NULL, 0,
-				   watched, ERTS_PROC_LOCK_LINK,
-				   ERTS_P2P_FLG_ALLOW_OTHER_X);
-	}
+		 if (!rp) {
+			  ErtsDSigData dsd;
+			  int code;
+			  code = erts_dsig_prepare(&dsd, dep, NULL, ERTS_DSP_NO_LOCK, 0);
+			  if (code == ERTS_DSIG_PREP_CONNECTED) {
+				   code = erts_dsig_send_m_exit(&dsd, watcher, watched, ref,
+												am_noproc);
+				   ASSERT(code == ERTS_DSIG_SEND_OK);
+			  }
+		 }
+		 else {
+			  if (is_atom(watched))
+				   watched = rp->common.id;
+			  erts_smp_de_links_lock(dep);
+			  erts_add_monitor(&(dep->monitors), MON_ORIGIN, ref, watched, name);
+			  erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, watcher, name);
+			  erts_smp_de_links_unlock(dep);
+			  erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+		 }
 
-	if (!rp) {
-	    ErtsDSigData dsd;
-	    int code;
-	    code = erts_dsig_prepare(&dsd, dep, NULL, ERTS_DSP_NO_LOCK, 0);
-	    if (code == ERTS_DSIG_PREP_CONNECTED) {
-		code = erts_dsig_send_m_exit(&dsd, watcher, watched, ref,
-					     am_noproc);
-		ASSERT(code == ERTS_DSIG_SEND_OK);
-	    }
-	}
-	else {
-	    if (is_atom(watched))
-		watched = rp->common.id;
-	    erts_smp_de_links_lock(dep);
-	    erts_add_monitor(&(dep->monitors), MON_ORIGIN, ref, watched, name);
-	    erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, watcher, name);
-	    erts_smp_de_links_unlock(dep);
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	}
-
-	break;
+		 break;
     }
-
     case DOP_DEMONITOR_P:
 	/* A remote node informs us that a local pid in no longer monitored
 	   We get {DOP_DEMONITOR_P, Remote pid, Local pid or name, ref},
 	   We need only the ref of course */
 
-	if (tuple_arity != 4) {
-	    goto invalid_message;
-	}
+		 if (tuple_arity != 4) {
+			  goto invalid_message;
+		 }
 	/* watcher = tuple[2]; */
 	/* watched = tuple[3]; May be an atom in case of monitor name */
-	ref = tuple[4];
+		 ref = tuple[4];
+		 
+		 if(is_not_ref(ref)) {
+			  goto invalid_message;
+		 }
 
-	if(is_not_ref(ref)) {
-	    goto invalid_message;
-	}
-
-	erts_smp_de_links_lock(dep);
-	mon = erts_remove_monitor(&(dep->monitors),ref);
-	erts_smp_de_links_unlock(dep);
+		 erts_smp_de_links_lock(dep);
+		 mon = erts_remove_monitor(&(dep->monitors),ref);
+		 erts_smp_de_links_unlock(dep);
 	/* ASSERT(mon != NULL); can happen in case of broken dist message */
-	if (mon == NULL) {
-	    break;
-	}
-	watched = mon->pid;
-	erts_destroy_monitor(mon);
-	rp = erts_pid2proc_opt(NULL, 0,
-			       watched, ERTS_PROC_LOCK_LINK,
-			       ERTS_P2P_FLG_ALLOW_OTHER_X);
-	if (!rp) {
-	    break;
-	}
-	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	ASSERT(mon != NULL);
-	if (mon == NULL) {
-	    break;
-	}
-	erts_destroy_monitor(mon);
-	break;
+		 if (mon == NULL) {
+			  break;
+		 }
+		 watched = mon->pid;
+		 erts_destroy_monitor(mon);
+		 rp = erts_pid2proc_opt(NULL, 0,
+								watched, ERTS_PROC_LOCK_LINK,
+								ERTS_P2P_FLG_ALLOW_OTHER_X);
+		 if (!rp) {
+			  break;
+		 }
+		 mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
+		 erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+		 ASSERT(mon != NULL);
+		 if (mon == NULL) {
+			  break;
+		 }
+		 erts_destroy_monitor(mon);
+		 break;
 
     case DOP_REG_SEND_TT:
-	if (tuple_arity != 5) {
-	    goto invalid_message;
-	}
+		 if (tuple_arity != 5) {
+			  goto invalid_message;
+		 }
 
-	token_size = size_object(tuple[5]);
-	/* Fall through ... */
+		 token_size = size_object(tuple[5]);
+		 /* Fall through ... */
     case DOP_REG_SEND:
 	/* {DOP_REG_SEND, From, Cookie, ToName} -- Message */
 	/* {DOP_REG_SEND_TT, From, Cookie, ToName, TraceToken} -- Message */
@@ -1390,309 +1393,309 @@ int erts_net_message(Port *prt,
 	 * There is intentionally no testing of the cookie (it is always '')
 	 * from R9B and onwards.
 	 */
-	if (type != DOP_REG_SEND_TT && tuple_arity != 4) {
-	    goto invalid_message;
-	}
+		 if (type != DOP_REG_SEND_TT && tuple_arity != 4) {
+			  goto invalid_message;
+		 }
 
 #ifdef ERTS_DIST_MSG_DBG
-	dist_msg_dbg(&ede, "MSG", buf, orig_len);
+		 dist_msg_dbg(&ede, "MSG", buf, orig_len);
 #endif
 
-	from = tuple[2];
-	to = tuple[4];
-	if (is_not_pid(from) || is_not_atom(to)){
-	    goto invalid_message;
-	}
-	rp = erts_whereis_process(NULL, 0, to, 0, 0);
-	if (rp) {
-	    Uint xsize = (type == DOP_REG_SEND
-			  ? 0
-			  : ERTS_HEAP_FRAG_SIZE(token_size));
-	    ErtsProcLocks locks = 0;
-	    ErtsDistExternal *ede_copy;
+		 from = tuple[2];
+		 to = tuple[4];
+		 if (is_not_pid(from) || is_not_atom(to)){
+			  goto invalid_message;
+		 }
+		 rp = erts_whereis_process(NULL, 0, to, 0, 0);
+		 if (rp) {
+			  Uint xsize = (type == DOP_REG_SEND
+							? 0
+							: ERTS_HEAP_FRAG_SIZE(token_size));
+			  ErtsProcLocks locks = 0;
+			  ErtsDistExternal *ede_copy;
 
-	    ede_copy = erts_make_dist_ext_copy(&ede, xsize);
-	    if (type == DOP_REG_SEND) {
-		token = NIL;
-	    } else {
-		ErlHeapFragment *heap_frag;
-		ErlOffHeap *ohp;
-		ASSERT(xsize);
-		heap_frag = erts_dist_ext_trailer(ede_copy);
-		ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
-		hp = heap_frag->mem;
-		ohp = &heap_frag->off_heap;
-		token = tuple[5];
-		token = copy_struct(token, token_size, &hp, ohp);
-	    }
-
-	    erts_queue_dist_message(rp, &locks, ede_copy, token);
-	    if (locks)
-		erts_smp_proc_unlock(rp, locks);
-	}
-	break;
+			  ede_copy = erts_make_dist_ext_copy(&ede, xsize);
+			  if (type == DOP_REG_SEND) {
+				   token = NIL;
+			  } else {
+				   ErlHeapFragment *heap_frag;
+				   ErlOffHeap *ohp;
+				   ASSERT(xsize);
+				   heap_frag = erts_dist_ext_trailer(ede_copy);
+				   ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
+				   hp = heap_frag->mem;
+				   ohp = &heap_frag->off_heap;
+				   token = tuple[5];
+				   token = copy_struct(token, token_size, &hp, ohp);
+			  }
+			  
+			  erts_queue_dist_message(rp, &locks, ede_copy, token);
+			  if (locks)
+				   erts_smp_proc_unlock(rp, locks);
+		 }
+		 break;
 
     case DOP_SEND_TT:
-	if (tuple_arity != 4) {
-	    goto invalid_message;
+		 if (tuple_arity != 4) {
+			  goto invalid_message;
 	}
 	
-	token_size = size_object(tuple[4]);
-	/* Fall through ... */
+		 token_size = size_object(tuple[4]);
+		 /* Fall through ... */
     case DOP_SEND:
 	/*
 	 * There is intentionally no testing of the cookie (it is always '')
 	 * from R9B and onwards.
 	 */
 #ifdef ERTS_DIST_MSG_DBG
-	dist_msg_dbg(&ede, "MSG", buf, orig_len);
+		 dist_msg_dbg(&ede, "MSG", buf, orig_len);
 #endif
-	if (type != DOP_SEND_TT && tuple_arity != 3) {
-	    goto invalid_message;
-	}
-	to = tuple[3];
-	if (is_not_pid(to)) {
-	    goto invalid_message;
-	}
-	rp = erts_proc_lookup(to);
-	if (rp) {
-	    Uint xsize = type == DOP_SEND ? 0 : ERTS_HEAP_FRAG_SIZE(token_size);
-	    ErtsProcLocks locks = 0;
-	    ErtsDistExternal *ede_copy;
+		 if (type != DOP_SEND_TT && tuple_arity != 3) {
+			  goto invalid_message;
+		 }
+		 to = tuple[3];
+		 if (is_not_pid(to)) {
+			  goto invalid_message;
+		 }
+		 rp = erts_proc_lookup(to);
+		 if (rp) {
+			  Uint xsize = type == DOP_SEND ? 0 : ERTS_HEAP_FRAG_SIZE(token_size);
+			  ErtsProcLocks locks = 0;
+			  ErtsDistExternal *ede_copy;
 
-	    ede_copy = erts_make_dist_ext_copy(&ede, xsize);
-	    if (type == DOP_SEND) {
-		token = NIL;
-	    } else {
-		ErlHeapFragment *heap_frag;
-		ErlOffHeap *ohp;
-		ASSERT(xsize);
-		heap_frag = erts_dist_ext_trailer(ede_copy);
-		ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
-		hp = heap_frag->mem;
-		ohp = &heap_frag->off_heap;
-		token = tuple[4];
-		token = copy_struct(token, token_size, &hp, ohp);
-	    }
+			  ede_copy = erts_make_dist_ext_copy(&ede, xsize);
+			  if (type == DOP_SEND) {
+				   token = NIL;
+			  } else {
+				   ErlHeapFragment *heap_frag;
+				   ErlOffHeap *ohp;
+				   ASSERT(xsize);
+				   heap_frag = erts_dist_ext_trailer(ede_copy);
+				   ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
+				   hp = heap_frag->mem;
+				   ohp = &heap_frag->off_heap;
+				   token = tuple[4];
+				   token = copy_struct(token, token_size, &hp, ohp);
+			  }
 
-	    erts_queue_dist_message(rp, &locks, ede_copy, token);
-	    if (locks)
-		erts_smp_proc_unlock(rp, locks);
-	}
-	break;
+			  erts_queue_dist_message(rp, &locks, ede_copy, token);
+			  if (locks)
+				   erts_smp_proc_unlock(rp, locks);
+		 }
+		 break;
 
     case DOP_MONITOR_P_EXIT: {
 	/* We are monitoring a process on the remote node which dies, we get
 	   {DOP_MONITOR_P_EXIT, Remote pid or name, Local pid, ref, reason} */
 	   
 
-	DeclareTmpHeapNoproc(lhp,3);
-	Eterm sysname;
-	ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_MSG_SEND|ERTS_PROC_LOCK_LINK;
+		 DeclareTmpHeapNoproc(lhp,3);
+		 Eterm sysname;
+		 ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_MSG_SEND|ERTS_PROC_LOCK_LINK;
 
-	if (tuple_arity != 5) {
-	    goto invalid_message;
-	}
+		 if (tuple_arity != 5) {
+			  goto invalid_message;
+		 }
 
 	/* watched = tuple[2]; */  /* remote proc which died */
 	/* watcher = tuple[3]; */
-	ref     = tuple[4];
-	reason  = tuple[5];
+		 ref     = tuple[4];
+		 reason  = tuple[5];
+		 
+		 if(is_not_ref(ref)) {
+			  goto invalid_message;
+		 }
 
-	if(is_not_ref(ref)) {
-	    goto invalid_message;
-	}
-
-	erts_smp_de_links_lock(dep);
-	sysname = dep->sysname;
-	mon = erts_remove_monitor(&(dep->monitors), ref);
+		 erts_smp_de_links_lock(dep);
+		 sysname = dep->sysname;
+		 mon = erts_remove_monitor(&(dep->monitors), ref);
 	/*
 	 * If demonitor was performed at the same time as the
 	 * monitored process exits, monitoring side will have
 	 * removed info about monitor. In this case, do nothing
 	 * and everything will be as it should.
 	 */
-	erts_smp_de_links_unlock(dep);
-	if (mon == NULL) {
-	    break;
-	}
-	rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
+		 erts_smp_de_links_unlock(dep);
+		 if (mon == NULL) {
+			  break;
+		 }
+		 rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
 
-	erts_destroy_monitor(mon);
-	if (rp == NULL) {
-	    break;
-	}
+		 erts_destroy_monitor(mon);
+		 if (rp == NULL) {
+			  break;
+		 }
 
-	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
+		 mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 
-	if (mon == NULL) {
-	    erts_smp_proc_unlock(rp, rp_locks);
-	    break;
-	}
-	UseTmpHeapNoproc(3);
+		 if (mon == NULL) {
+			  erts_smp_proc_unlock(rp, rp_locks);
+			  break;
+		 }
+		 UseTmpHeapNoproc(3);
 	
-	watched = (is_not_nil(mon->name)
-		   ? TUPLE2(&lhp[0], mon->name, sysname)
-		   : mon->pid);
+		 watched = (is_not_nil(mon->name)
+					? TUPLE2(&lhp[0], mon->name, sysname)
+					: mon->pid);
 	
-	erts_queue_monitor_message(rp, &rp_locks,
-				   ref, am_process, watched, reason);
-	erts_smp_proc_unlock(rp, rp_locks);
-	erts_destroy_monitor(mon);
-	UnUseTmpHeapNoproc(3);
-	break;
+		 erts_queue_monitor_message(rp, &rp_locks,
+									ref, am_process, watched, reason);
+		 erts_smp_proc_unlock(rp, rp_locks);
+		 erts_destroy_monitor(mon);
+		 UnUseTmpHeapNoproc(3);
+		 break;
     }
 
     case DOP_EXIT_TT:
     case DOP_EXIT: {
-	ErtsDistLinkData dld;
-	ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCKS_XSIG_SEND;
+		 ErtsDistLinkData dld;
+		 ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCKS_XSIG_SEND;
 	/* 'from', which 'to' is linked to, died */
-	if (type == DOP_EXIT) {
-	    if (tuple_arity != 4) {
-		goto invalid_message;
-	    }
+		 if (type == DOP_EXIT) {
+			  if (tuple_arity != 4) {
+				   goto invalid_message;
+			  }
 	    
-	    from = tuple[2];
-	    to = tuple[3];
-	    reason = tuple[4];
-	    token = NIL;
-	} else {
-	    if (tuple_arity != 5) {
-		goto invalid_message;
-	    }
-	    from = tuple[2];
-	    to = tuple[3];
-	    token = tuple[4];
-	    reason = tuple[5];
-	}
-	if (is_not_pid(from) || is_not_internal_pid(to)) {
-	    goto invalid_message;
-	}
+			  from = tuple[2];
+			  to = tuple[3];
+			  reason = tuple[4];
+			  token = NIL;
+		 } else {
+			  if (tuple_arity != 5) {
+				   goto invalid_message;
+			  }
+			  from = tuple[2];
+			  to = tuple[3];
+			  token = tuple[4];
+			  reason = tuple[5];
+		 }
+		 if (is_not_pid(from) || is_not_internal_pid(to)) {
+			  goto invalid_message;
+		 }
 
-	rp = erts_pid2proc(NULL, 0, to, rp_locks);
-	if (!rp)
-	    lnk = NULL;
-	else {
-	    lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
+		 rp = erts_pid2proc(NULL, 0, to, rp_locks);
+		 if (!rp)
+			  lnk = NULL;
+		 else {
+			  lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
 
-	    /* If lnk == NULL, we have unlinked on this side, i.e.
-	     * ignore exit.
-	     */
-	    if (lnk) {
-		int xres;
+			  /* If lnk == NULL, we have unlinked on this side, i.e.
+			   * ignore exit.
+			   */
+			  if (lnk) {
+				   int xres;
 #if 0
 		/* Arndt: Maybe it should never be 'kill', but it can be,
 		   namely when a linked process does exit(kill). Until we know
 		   whether that is incorrect and what should happen instead,
 		   we leave the assertion out. */
-		ASSERT(reason != am_kill); /* should never be kill (killed) */
+				   ASSERT(reason != am_kill); /* should never be kill (killed) */
 #endif
-		xres = erts_send_exit_signal(NULL,
-					     from,
-					     rp,
-					     &rp_locks, 
-					     reason,
-					     token,
-					     NULL,
-					     ERTS_XSIG_FLG_IGN_KILL);
-		if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
-		    /* We didn't exit the process and it is traced */
-		    trace_proc(NULL, rp, am_getting_unlinked, from);
-		}
-	    }
-	    erts_smp_proc_unlock(rp, rp_locks);
-	}
-	erts_remove_dist_link(&dld, to, from, dep);
-	if (lnk)
-	    erts_destroy_link(lnk);
-	erts_destroy_dist_link(&dld);
-	break;
+				   xres = erts_send_exit_signal(NULL,
+												from,
+												rp,
+												&rp_locks, 
+												reason,
+												token,
+												NULL,
+												ERTS_XSIG_FLG_IGN_KILL);
+				   if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
+						/* We didn't exit the process and it is traced */
+						trace_proc(NULL, rp, am_getting_unlinked, from);
+				   }
+			  }
+			  erts_smp_proc_unlock(rp, rp_locks);
+		 }
+		 erts_remove_dist_link(&dld, to, from, dep);
+		 if (lnk)
+			  erts_destroy_link(lnk);
+		 erts_destroy_dist_link(&dld);
+		 break;
     }
     case DOP_EXIT2_TT:
     case DOP_EXIT2: {
-	ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
+		 ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 	/* 'from' is send an exit signal to 'to' */
-	if (type == DOP_EXIT2) {
-	    if (tuple_arity != 4) {
-		goto invalid_message;
-	    }
-	    from = tuple[2];
-	    to = tuple[3];
-	    reason = tuple[4];
-	    token = NIL;
-	} else {
-	    if (tuple_arity != 5) {
-		goto invalid_message;
-	    }
-	    from = tuple[2];
-	    to = tuple[3];
-	    token = tuple[4];
-	    reason = tuple[5];
-	}
-	if (is_not_pid(from) || is_not_internal_pid(to)) {
-	    goto invalid_message;
-	}
-	rp = erts_pid2proc(NULL, 0, to, rp_locks);
-	if (rp) {
-	    (void) erts_send_exit_signal(NULL,
-					 from,
-					 rp,
-					 &rp_locks,
-					 reason,
-					 token,
-					 NULL,
-					 0);
-	    erts_smp_proc_unlock(rp, rp_locks);
-	}
-	break;
+		 if (type == DOP_EXIT2) {
+			  if (tuple_arity != 4) {
+				   goto invalid_message;
+			  }
+			  from = tuple[2];
+			  to = tuple[3];
+			  reason = tuple[4];
+			  token = NIL;
+		 } else {
+			  if (tuple_arity != 5) {
+				   goto invalid_message;
+			  }
+			  from = tuple[2];
+			  to = tuple[3];
+			  token = tuple[4];
+			  reason = tuple[5];
+		 }
+		 if (is_not_pid(from) || is_not_internal_pid(to)) {
+			  goto invalid_message;
+		 }
+		 rp = erts_pid2proc(NULL, 0, to, rp_locks);
+		 if (rp) {
+			  (void) erts_send_exit_signal(NULL,
+										   from,
+										   rp,
+										   &rp_locks,
+										   reason,
+										   token,
+										   NULL,
+										   0);
+			  erts_smp_proc_unlock(rp, rp_locks);
+		 }
+		 break;
     }
     case DOP_GROUP_LEADER:
-	if (tuple_arity != 3) {
-	    goto invalid_message;
-	}
-	from = tuple[2];   /* Group leader  */
-	to = tuple[3];     /* new member */
-	if (is_not_pid(from) || is_not_pid(to)) {
-	    goto invalid_message;
-	}
-
-	rp = erts_pid2proc(NULL, 0, to, ERTS_PROC_LOCK_MAIN);
-	if (!rp)
-	    break;
-	rp->group_leader = STORE_NC_IN_PROC(rp, from);
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
-	break;
+		 if (tuple_arity != 3) {
+			  goto invalid_message;
+		 }
+		 from = tuple[2];   /* Group leader  */
+		 to = tuple[3];     /* new member */
+		 if (is_not_pid(from) || is_not_pid(to)) {
+			  goto invalid_message;
+		 }
+		 
+		 rp = erts_pid2proc(NULL, 0, to, ERTS_PROC_LOCK_MAIN);
+		 if (!rp)
+			  break;
+		 rp->group_leader = STORE_NC_IN_PROC(rp, from);
+		 erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+		 break;
 
     default: 
-	goto invalid_message;
+		 goto invalid_message;
     }
 
     erts_cleanup_offheap(&off_heap);
     if (ctl != ctl_default) {
-	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
+		 erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return 0;
  invalid_message:
     {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
-	erts_send_error_to_logger_nogl(dsbufp);
+		 erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+		 erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
+		 erts_send_error_to_logger_nogl(dsbufp);
     }
  data_error:
     PURIFY_MSG("data error");
     erts_cleanup_offheap(&off_heap);
     if (ctl != ctl_default) {
-	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
+		 erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return -1;
 }
-//像远程发送指令的只要函数体
+//向远程发送指令的主要函数体
 static int
 dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 {
@@ -1768,8 +1771,8 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     erts_smp_de_rlock(dep);
     cid = dep->cid;
     if (cid != dsdp->cid
-	|| dep->connection_id != dsdp->connection_id
-	|| dep->status & ERTS_DE_SFLG_EXITING) {
+		|| dep->connection_id != dsdp->connection_id
+		|| dep->status & ERTS_DE_SFLG_EXITING) {
 	/* Not the same connection as when we started; drop message... */
 		 erts_smp_de_runlock(dep);
 		 free_dist_obuf(obuf);
