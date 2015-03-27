@@ -11407,6 +11407,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		 Uint32 flags		/* flags */
     )		
 {
+//得到目标进程的进程标志位
     erts_aint32_t state = erts_smp_atomic32_read_nob(&rp->state);
     Eterm rsn = reason == am_kill ? am_killed : reason;
 
@@ -11428,92 +11429,102 @@ send_exit_signal(Process *c_p,		/* current process if and only
         DTRACE3(process_exit_signal, sender_str, receiver_str, reason_buf);
     }
 #endif
-
+//目标进程trap_exit了
+//且reason不是kill
     if ((state & ERTS_PSFLG_TRAP_EXIT)
-	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
-	if (is_not_nil(token) 
+		&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
+		 if (is_not_nil(token) 
 #ifdef USE_VM_PROBES
-	    && token != am_have_dt_utag
+			 && token != am_have_dt_utag
 #endif
-	    && token_update)
-	    seq_trace_update_send(token_update);
-	if (is_value(exit_tuple))
-	    send_exit_message(rp, rp_locks, exit_tuple, exit_tuple_sz, token);
-	else
-	    erts_deliver_exit_message(from, rp, rp_locks, rsn, token);
-	return 1; /* Receiver will get a message */
+			 && token_update)
+			  seq_trace_update_send(token_update);
+		
+		 if (is_value(exit_tuple))
+			  send_exit_message(rp, rp_locks, exit_tuple, exit_tuple_sz, token);
+		 else
+			  erts_deliver_exit_message(from, rp, rp_locks, rsn, token);
+		 return 1; /* Receiver will get a message */
     }
+//不是正常退出
+//或是目标进程trap_exit但是消息是kill
     else if (reason != am_normal || (flags & ERTS_XSIG_FLG_NO_IGN_NORMAL)) {
 #ifdef ERTS_SMP
-	if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))) {
-	    ASSERT(!rp->pending_exit.bp);
+		 //目标进程不是在退出
+		 if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))) {
+			  ASSERT(!rp->pending_exit.bp);
 
-	    if (rp == c_p && (*rp_locks & ERTS_PROC_LOCK_MAIN)) {
-		/* Ensure that all locks on c_p are locked before
-		   proceeding... */
-		if (*rp_locks != ERTS_PROC_LOCKS_ALL) {
-		    ErtsProcLocks need_locks = (~(*rp_locks)
-						& ERTS_PROC_LOCKS_ALL);
-		    if (erts_smp_proc_trylock(c_p, need_locks) == EBUSY) {
-			erts_smp_proc_unlock(c_p,
-					     *rp_locks & ~ERTS_PROC_LOCK_MAIN);
-			erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		    }
-		    *rp_locks = ERTS_PROC_LOCKS_ALL;
-		}
-		set_proc_exiting(c_p, state, rsn, NULL);
-	    }
-	    else if (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))) {
-		/* Process not running ... */
-		ErtsProcLocks need_locks = ~(*rp_locks) & ERTS_PROC_LOCKS_ALL;
-		if (need_locks
-		    && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
-		    /* ... but we havn't got all locks on it ... */
-		    save_pending_exiter(rp);
-		    /*
-		     * The pending exit will be discovered when next
-		     * process is scheduled in
-		     */
-		    goto set_pending_exit;
-		}
-		else {
-		    /* ...and we have all locks on it... */
-		    *rp_locks = ERTS_PROC_LOCKS_ALL;
-		    set_proc_exiting(rp,
-				     state,
-				     (is_immed(rsn)
-				      ? rsn
-				      : copy_object(rsn, rp)),
-				     NULL);
-		}
-	    }
-	    else { /* Process running... */
+			  if (rp == c_p && (*rp_locks & ERTS_PROC_LOCK_MAIN)) {
+				   /* Ensure that all locks on c_p are locked before
+					  proceeding... */
+				   if (*rp_locks != ERTS_PROC_LOCKS_ALL) {
+						ErtsProcLocks need_locks = (~(*rp_locks)
+													& ERTS_PROC_LOCKS_ALL);
+						if (erts_smp_proc_trylock(c_p, need_locks) == EBUSY) {
+							 erts_smp_proc_unlock(c_p,
+												  *rp_locks & ~ERTS_PROC_LOCK_MAIN);
+							 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+						}
+						*rp_locks = ERTS_PROC_LOCKS_ALL;
+				   }
+				   //让目标进程退出
+				   set_proc_exiting(c_p, state, rsn, NULL);
+			  }
+			  //目标进程没在执行
+			  else if (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))) {
+				   /* Process not running ... */
+				   ErtsProcLocks need_locks = ~(*rp_locks) & ERTS_PROC_LOCKS_ALL;
+				   //无法上锁，只能设置等待退出
+				   if (need_locks
+					   && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
+						/* ... but we havn't got all locks on it ... */
+						save_pending_exiter(rp);
+						/*
+						 * The pending exit will be discovered when next
+						 * process is scheduled in
+						 */
+						goto set_pending_exit;
+				   }
+				   else {
+						/* ...and we have all locks on it... */
+						//上锁成功，让目标进程退出
+						*rp_locks = ERTS_PROC_LOCKS_ALL;
+						set_proc_exiting(rp,
+										 state,
+										 (is_immed(rsn)
+										  ? rsn
+										  : copy_object(rsn, rp)),
+										 NULL);
+				   }
+			  }
+			  else { /* Process running... */
 
-		/*
-		 * The pending exit will be discovered when the process
-		 * is scheduled out if not discovered earlier.
-		 */
+				   /*
+					* The pending exit will be discovered when the process
+					* is scheduled out if not discovered earlier.
+					*/
+				   //进程正在执行，我们设置等待退出
+			  set_pending_exit:
+				   if (is_immed(rsn)) {
+						rp->pending_exit.reason = rsn;
+				   }
+				   else {
+						Eterm *hp;
+						Uint sz = size_object(rsn);
+						ErlHeapFragment *bp = new_message_buffer(sz);
 
-	    set_pending_exit:
-		if (is_immed(rsn)) {
-		    rp->pending_exit.reason = rsn;
-		}
-		else {
-		    Eterm *hp;
-		    Uint sz = size_object(rsn);
-		    ErlHeapFragment *bp = new_message_buffer(sz);
-
-		    hp = &bp->mem[0];
-		    rp->pending_exit.reason = copy_struct(rsn,
-							  sz,
-							  &hp,
-							  &bp->off_heap);
-		    rp->pending_exit.bp = bp;
-		}
-		erts_smp_atomic32_read_bor_relb(&rp->state,
-						ERTS_PSFLG_PENDING_EXIT);
-	    }
-	}
+						hp = &bp->mem[0];
+						rp->pending_exit.reason = copy_struct(rsn,
+															  sz,
+															  &hp,
+															  &bp->off_heap);
+						rp->pending_exit.bp = bp;
+				   }
+				   erts_smp_atomic32_read_bor_relb(&rp->state,
+												   ERTS_PSFLG_PENDING_EXIT);
+			  }
+		 }
+		 //目标进程已经在退出的状态，我们可以忽略这个信号了
 	/* else:
 	 *
 	 *    The receiver already has a pending exit (or is exiting)
@@ -11536,7 +11547,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 #endif
 	return -1; /* Receiver will exit */
     }
-
+//当reason是am_normal时候，目标进程不受任何影响
     return 0; /* Receiver unaffected */
 }
 
@@ -11753,32 +11764,34 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_XSIG_SEND);
 	    rp = erts_pid2proc(NULL, 0, item, rp_locks);
+		//解除link的关系
 	    if (rp) {
-		rlnk = erts_remove_link(&ERTS_P_LINKS(rp), p->common.id);
+			 rlnk = erts_remove_link(&ERTS_P_LINKS(rp), p->common.id);
 		/* If rlnk == NULL, we got unlinked while exiting,
 		   i.e., do nothing... */
-		if (rlnk) {
-		    int xres;
-		    erts_destroy_link(rlnk);
-		    xres = send_exit_signal(NULL,
-					    p->common.id,
-					    rp,
-					    &rp_locks, 
-					    reason,
-					    exit_tuple,
-					    exit_tuple_sz,
-					    SEQ_TRACE_TOKEN(p),
-					    p,
-					    ERTS_XSIG_FLG_IGN_KILL);
-		    if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
-			/* We didn't exit the process and it is traced */
-			if (IS_TRACED_FL(rp, F_TRACE_PROCS)) {
-			    trace_proc(p, rp, am_getting_unlinked, p->common.id);
-			}
-		    }
-		}
-		ASSERT(rp != p);
-		erts_smp_proc_unlock(rp, rp_locks);
+			 if (rlnk) {
+				  int xres;
+				  erts_destroy_link(rlnk);
+				  //像进程发出退出信号
+				  xres = send_exit_signal(NULL,
+										  p->common.id,
+										  rp,
+										  &rp_locks, 
+										  reason,
+										  exit_tuple,
+										  exit_tuple_sz,
+										  SEQ_TRACE_TOKEN(p),
+										  p,
+										  ERTS_XSIG_FLG_IGN_KILL);
+				  if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
+					   /* We didn't exit the process and it is traced */
+					   if (IS_TRACED_FL(rp, F_TRACE_PROCS)) {
+							trace_proc(p, rp, am_getting_unlinked, p->common.id);
+					   }
+				  }
+			 }
+			 ASSERT(rp != p);
+			 erts_smp_proc_unlock(rp, rp_locks);
 	    }
 	}
 	else if (is_external_pid(item)) {
@@ -11838,6 +11851,7 @@ resume_suspend_monitor(ErtsSuspendMonitor *smon, void *vc_p)
 
 /* this function fishishes a process and propagates exit messages - called
    by process_main when a process dies */
+//进程执行退出流程
 void 
 erts_do_exit_process(Process* p, Eterm reason)
 {
@@ -11869,11 +11883,11 @@ erts_do_exit_process(Process* p, Eterm reason)
 #else
     if (ERTS_PSFLG_PENDING_EXIT & set_proc_self_exiting(p)) {
 	/* Process exited before pending exit was received... */
-	p->pending_exit.reason = THE_NON_VALUE;
-	if (p->pending_exit.bp) {
-	    free_message_buffer(p->pending_exit.bp);
-	    p->pending_exit.bp = NULL;
-	}
+		 p->pending_exit.reason = THE_NON_VALUE;
+		 if (p->pending_exit.bp) {
+			  free_message_buffer(p->pending_exit.bp);
+			  p->pending_exit.bp = NULL;
+		 }
     }
 
     cancel_suspend_of_suspendee(p, ERTS_PROC_LOCKS_ALL); 
@@ -11882,11 +11896,11 @@ erts_do_exit_process(Process* p, Eterm reason)
 #endif
 
     if (IS_TRACED(p)) {
-	if (IS_TRACED_FL(p, F_TRACE_CALLS))
-	    erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_EXITING);
+		 if (IS_TRACED_FL(p, F_TRACE_CALLS))
+			  erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_EXITING);
 
-	if (IS_TRACED_FL(p,F_TRACE_PROCS))
-	    trace_proc(p, p, am_exit, reason);
+		 if (IS_TRACED_FL(p,F_TRACE_PROCS))
+			  trace_proc(p, p, am_exit, reason);
     }
 
     erts_trace_check_exiting(p->common.id);
@@ -11897,7 +11911,7 @@ erts_do_exit_process(Process* p, Eterm reason)
     cancel_timer(p);		/* Always cancel timer just in case */
 
     if (p->u.bif_timers)
-	erts_cancel_bif_timers(p, ERTS_PROC_LOCKS_ALL);
+		 erts_cancel_bif_timers(p, ERTS_PROC_LOCKS_ALL);
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 
@@ -11934,22 +11948,22 @@ erts_continue_exit_process(Process *p)
 
 #ifdef ERTS_SMP
     if (p->flags & F_HAVE_BLCKD_MSCHED) {
-	ErtsSchedSuspendResult ssr;
-	ssr = erts_block_multi_scheduling(p, ERTS_PROC_LOCK_MAIN, 0, 1);
-	switch (ssr) {
-	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
-	    goto yield;
-	case ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED:
-	case ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED:
-	case ERTS_SCHDLR_SSPND_DONE:
-	case ERTS_SCHDLR_SSPND_YIELD_DONE:
-	    p->flags &= ~F_HAVE_BLCKD_MSCHED;
-	    break;
-	case ERTS_SCHDLR_SSPND_EINVAL:
-	default:
-	    erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
-		     __FILE__, __LINE__, (int) ssr);
-	}
+		 ErtsSchedSuspendResult ssr;
+		 ssr = erts_block_multi_scheduling(p, ERTS_PROC_LOCK_MAIN, 0, 1);
+		 switch (ssr) {
+		 case ERTS_SCHDLR_SSPND_YIELD_RESTART:
+			  goto yield;
+		 case ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED:
+		 case ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED:
+		 case ERTS_SCHDLR_SSPND_DONE:
+		 case ERTS_SCHDLR_SSPND_YIELD_DONE:
+			  p->flags &= ~F_HAVE_BLCKD_MSCHED;
+			  break;
+		 case ERTS_SCHDLR_SSPND_EINVAL:
+		 default:
+			  erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
+					   __FILE__, __LINE__, (int) ssr);
+		 }
     }
 #endif
 
@@ -11958,7 +11972,7 @@ erts_continue_exit_process(Process *p)
 			  goto yield;
 		 p->flags &= ~F_USING_DB;
     }
-
+//直接释放进程内存，不需要进行GC了
     erts_set_gc_state(p, 1);
     state = erts_smp_atomic32_read_acqb(&p->state);
     if (state & ERTS_PSFLG_ACTIVE_SYS) {
@@ -11976,7 +11990,7 @@ erts_continue_exit_process(Process *p)
 		 p->nodes_monitors = NULL;
     }
 	
-
+//唤醒monitor
     if (p->suspend_monitors) {
 		 erts_sweep_suspend_monitors(p->suspend_monitors,
 									 resume_suspend_monitor,
@@ -12053,8 +12067,8 @@ erts_continue_exit_process(Process *p)
 	    n &= ~ERTS_PSFLG_ACTIVE;
 #ifdef ERTS_SMP
 	    if ((n & ERTS_PSFLG_IN_RUNQ) && !refc_inced) {
-		erts_smp_proc_inc_refc(p);
-		refc_inced = 1;
+			 erts_smp_proc_inc_refc(p);
+			 refc_inced = 1;
 	    }
 #endif
 	    a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
@@ -12091,28 +12105,28 @@ erts_continue_exit_process(Process *p)
      * Pre-build the EXIT tuple if there are any links.
      */
     if (lnk) {
-	DeclareTmpHeap(tmp_heap,4,p);
-	Eterm exit_tuple;
-	Uint exit_tuple_sz;
-	Eterm* hp;
+		 DeclareTmpHeap(tmp_heap,4,p);
+		 Eterm exit_tuple;
+		 Uint exit_tuple_sz;
+		 Eterm* hp;
+		 
+		 UseTmpHeap(4,p);
+		 hp = &tmp_heap[0];
 
-	UseTmpHeap(4,p);
-	hp = &tmp_heap[0];
-
-	exit_tuple = TUPLE3(hp, am_EXIT, p->common.id, reason);
-
-	exit_tuple_sz = size_object(exit_tuple);
-
-	{
-	    ExitLinkContext context = {p, reason, exit_tuple, exit_tuple_sz};
-	    erts_sweep_links(lnk, &doit_exit_link, &context);
-	}
-	UnUseTmpHeap(4,p);
+		 exit_tuple = TUPLE3(hp, am_EXIT, p->common.id, reason);
+		 
+		 exit_tuple_sz = size_object(exit_tuple);
+		 //唤醒所有link进程
+		 {
+			  ExitLinkContext context = {p, reason, exit_tuple, exit_tuple_sz};
+			  erts_sweep_links(lnk, &doit_exit_link, &context);
+		 }
+		 UnUseTmpHeap(4,p);
     }
 
     {
-	ExitMonitorContext context = {reason, p};
-	erts_sweep_monitors(mon,&doit_exit_monitor,&context); /* Allocates TmpHeap, but we
+		 ExitMonitorContext context = {reason, p};
+		 erts_sweep_monitors(mon,&doit_exit_monitor,&context); /* Allocates TmpHeap, but we
 								 have none here */
     }
 

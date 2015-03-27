@@ -846,26 +846,26 @@ void erts_sweep_links(ErtsLink *root,
     dstack[0] = DIR_END;
 
     for (;;) {
-	if (root == NULL) {
-	    if ((dir = dstack[dpos-1]) == DIR_END) {
-		return;
-	    }
-	    if (dir == DIR_LEFT) {
-		/* Still has DIR_RIGHT to do */
-		dstack[dpos-1] = DIR_RIGHT;
-		root = (tstack[tpos-1])->right;
-	    } else {
-		/* stacktop is an object to be deleted */
-		(*doit)(tstack[--tpos],context); /* expeted to do the 
-						    deletion */
-		--dpos;
-		root = NULL;
-	    }
-	} else {
-	    dstack[dpos++] = DIR_LEFT;
-	    tstack[tpos++] = root;
-	    root = root->left;
-	}
+		 if (root == NULL) {
+			  if ((dir = dstack[dpos-1]) == DIR_END) {
+				   return;
+			  }
+			  if (dir == DIR_LEFT) {
+				   /* Still has DIR_RIGHT to do */
+				   dstack[dpos-1] = DIR_RIGHT;
+				   root = (tstack[tpos-1])->right;
+			  } else {
+				   /* stacktop is an object to be deleted */
+				   (*doit)(tstack[--tpos],context); /* expeted to do the 
+													   deletion */
+				   --dpos;
+				   root = NULL;
+			  }
+		 } else {
+			  dstack[dpos++] = DIR_LEFT;
+			  tstack[tpos++] = root;
+			  root = root->left;
+		 }
     }
 }
 
