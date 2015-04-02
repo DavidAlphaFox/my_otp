@@ -3393,7 +3393,7 @@ insert_nodes_monitor(Process *c_p, Uint32 opts)
 					* element (which will be the next element in the list)
 					* and set this to one...
 					*/
-				   Xnmp->no = 1;
+				   xnmp->no = 1;
 				   goto alloc_new;
 			  }
 		 }

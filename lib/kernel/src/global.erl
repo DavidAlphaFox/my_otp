@@ -1041,7 +1041,7 @@ set_lock_on_nodes(Id, Nodes) ->
 %% Probe lock on local node to see if one should go on trying other nodes.										   
 local_lock_check(_Id, [_] = _Nodes) ->
     true;
-local_lock_check(Id, Nodes) -
+local_lock_check(Id, Nodes) ->
 %先检查自身是否在Nodes中，如果在其中则检查是否能给本地上锁
     not lists:member(node(), Nodes) orelse (can_set_lock(Id) =/= false).
 %如果某个Node返回了false,则认为失败

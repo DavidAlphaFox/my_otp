@@ -1596,9 +1596,9 @@ big_to_double(Wterm x, double* resp)
 
     __ERTS_FP_CHECK_INIT(fpexnp);
     while (xl--) {
-	d = d * dbase + *--s;
+		 d = d * dbase + *--s;
 
-	__ERTS_FP_ERROR(fpexnp, d, __ERTS_RESTORE_FP_EXCEPTION(fpexnp); return -1);
+		 __ERTS_FP_ERROR(fpexnp, d, __ERTS_RESTORE_FP_EXCEPTION(fpexnp); return -1);
     }
 
     *resp = xsgn ? -d : d;

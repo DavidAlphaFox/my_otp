@@ -197,6 +197,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define  _boxed_precond(x)       (is_boxed(x))
 #endif
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
+//默认term的box方式
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))

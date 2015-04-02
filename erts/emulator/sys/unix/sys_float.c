@@ -761,7 +761,7 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
 }
 
 /* Float conversion */
-
+//系统字符转化为float
 int
 sys_chars_to_double(char* buf, double* fp)
 {

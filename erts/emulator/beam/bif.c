@@ -3360,18 +3360,18 @@ BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
 
     real_bin = binary_val(binary);
     if (*real_bin == HEADER_SUB_BIN) {
-	ErlSubBin* sb = (ErlSubBin *) real_bin;
-	if (sb->bitsize) {
-	    goto binary_to_float_1_error;
-	}
-	offs = sb->offs;
-	bit_offs = sb->bitoffs;
-	real_bin = binary_val(sb->orig);
+		 ErlSubBin* sb = (ErlSubBin *) real_bin;
+		 if (sb->bitsize) {
+			  goto binary_to_float_1_error;
+		 }
+		 offs = sb->offs;
+		 bit_offs = sb->bitoffs;
+		 real_bin = binary_val(sb->orig);
     } 
     if (*real_bin == HEADER_PROC_BIN) {
-	bytes = ((ProcBin *) real_bin)->bytes + offs;
+		 bytes = ((ProcBin *) real_bin)->bytes + offs;
     } else {
-	bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
+		 bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
     }
     if (bit_offs)
       erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, size*8);
@@ -3381,7 +3381,7 @@ BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
     buf[size] = '\0';
     
     if ((res = do_charbuf_to_float(BIF_P,(char*)buf)) == THE_NON_VALUE)
-	goto binary_to_float_1_error;
+		 goto binary_to_float_1_error;
 
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);

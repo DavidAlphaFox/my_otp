@@ -762,6 +762,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
 		    f2.fd = signed_val(arg2);
+			printf("f1:%g,f2:%g\r\n",f1.fd,f2.fd);
 		    goto do_float;
 		default:
 		    goto badarith;
@@ -773,7 +774,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
 		    if (big_to_double(arg2, &f2.fd) < 0) {
-			goto badarith;
+				 goto badarith;
 		    }
 		    goto do_float;
 		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
@@ -782,10 +783,12 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 
 		do_float:
 		    f1.fd = f1.fd * f2.fd;
+			printf("result f1:%g,f2:%g\r\n",f1.fd,f2.fd);
 		    ERTS_FP_ERROR(p, f1.fd, goto badarith);
 		    hp = HAlloc(p, FLOAT_SIZE_OBJECT);
 		    res = make_float(hp);
 		    PUT_DOUBLE(f1, hp);
+			printf("result hp:%g,f1:%g\r\n",(*(hp+1)),f1.fdw);
 		    return res;
 		default:
 		    goto badarith;
@@ -1594,48 +1597,48 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 	    goto badarith;
 	}
     case TAG_PRIMARY_BOXED:
-	hdr = *boxed_val(arg1);
-	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		    if (arg2 == SMALL_ZERO)
-			return(SMALL_ZERO);
-		    if (arg2 == SMALL_ONE)
-			return(arg1);
-		    arg2 = small_to_big(signed_val(arg2), tmp_big2);
-		    sz = 2 + big_size(arg1);
-		    goto do_big;
-		default:
-		    goto badarith;
-		}
-	    case TAG_PRIMARY_BOXED:
-		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		    sz1 = big_size(arg1);
-		    sz2 = big_size(arg2);
-		    sz = sz1 + sz2;
-
-		do_big:
-		    need_heap = BIG_NEED_SIZE(sz);
-		    if (ERTS_NEED_GC(p, need_heap)) {
-			erts_garbage_collect(p, need_heap, reg, live+2);
-			if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
-			    arg1 = reg[live];
-			}
-			if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
-			    arg2 = reg[live+1];
-			}
-		    }
-		    hp = p->htop;
-		    p->htop += need_heap;
-		    res = big_times(arg1, arg2, hp);
-		    trim_heap(p, hp, res);
+		 hdr = *boxed_val(arg1);
+		 switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+		 case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+		 case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+			  switch (arg2 & _TAG_PRIMARY_MASK) {
+			  case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+				   switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+						if (arg2 == SMALL_ZERO)
+							 return(SMALL_ZERO);
+						if (arg2 == SMALL_ONE)
+							 return(arg1);
+						arg2 = small_to_big(signed_val(arg2), tmp_big2);
+						sz = 2 + big_size(arg1);
+						goto do_big;
+				   default:
+						goto badarith;
+				   }
+			  case TAG_PRIMARY_BOXED:
+				   hdr = *boxed_val(arg2);
+				   switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+				   case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+						sz1 = big_size(arg1);
+						sz2 = big_size(arg2);
+						sz = sz1 + sz2;
+						
+				   do_big:
+						need_heap = BIG_NEED_SIZE(sz);
+						if (ERTS_NEED_GC(p, need_heap)) {
+							 erts_garbage_collect(p, need_heap, reg, live+2);
+							 if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
+								  arg1 = reg[live];
+							 }
+							 if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
+								  arg2 = reg[live+1];
+							 }
+						}
+						hp = p->htop;
+						p->htop += need_heap;
+						res = big_times(arg1, arg2, hp);
+						trim_heap(p, hp, res);
 
 		    /*
 		     * Note that the result must be big in this case, since
@@ -1643,66 +1646,66 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		     * the absolute value of the other is > 1.
 		     */
 
-		    if (is_nil(res)) {
-			p->freason = SYSTEM_LIMIT;
-			return THE_NON_VALUE;
-		    }
-		    return res;
-		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		    if (big_to_double(arg1, &f1.fd) < 0) {
-			goto badarith;
-		    }
-		    GET_DOUBLE(arg2, f2);
-		    goto do_float;
-		default:
-		    goto badarith;
-		}
-	    }
-	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
-		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		    GET_DOUBLE(arg1, f1);
-		    f2.fd = signed_val(arg2);
-		    goto do_float;
-		default:
-		    goto badarith;
-		}
-	    case TAG_PRIMARY_BOXED:
-		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		    GET_DOUBLE(arg1, f1);
-		    if (big_to_double(arg2, &f2.fd) < 0) {
-			goto badarith;
-		    }
-		    goto do_float;
-		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		    GET_DOUBLE(arg1, f1);
-		    GET_DOUBLE(arg2, f2);
-
-		do_float:
-		    f1.fd = f1.fd * f2.fd;
-		    ERTS_FP_ERROR(p, f1.fd, goto badarith);
-		    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
-			erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
-		    }
-		    hp = p->htop;
-		    p->htop += FLOAT_SIZE_OBJECT;
-		    res = make_float(hp);
-		    PUT_DOUBLE(f1, hp);
-		    return res;
-		default:
-		    goto badarith;
-		}
-	    default:
-		goto badarith;
-	    }
-	}
+						if (is_nil(res)) {
+							 p->freason = SYSTEM_LIMIT;
+							 return THE_NON_VALUE;
+						}
+						return res;
+				   case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+						if (big_to_double(arg1, &f1.fd) < 0) {
+							 goto badarith;
+						}
+						GET_DOUBLE(arg2, f2);
+						goto do_float;
+				   default:
+						goto badarith;
+				   }
+			  }
+		 case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+			  switch (arg2 & _TAG_PRIMARY_MASK) {
+			  case TAG_PRIMARY_IMMED1:
+				   switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+						GET_DOUBLE(arg1, f1);
+						f2.fd = signed_val(arg2);
+						goto do_float;
+				   default:
+						goto badarith;
+				   }
+			  case TAG_PRIMARY_BOXED:
+				   hdr = *boxed_val(arg2);
+				   switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+				   case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+						GET_DOUBLE(arg1, f1);
+						if (big_to_double(arg2, &f2.fd) < 0) {
+							 goto badarith;
+						}
+						goto do_float;
+				   case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+						GET_DOUBLE(arg1, f1);
+						GET_DOUBLE(arg2, f2);
+						
+				   do_float:
+						f1.fd = f1.fd * f2.fd;
+						ERTS_FP_ERROR(p, f1.fd, goto badarith);
+						if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
+							 erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
+						}
+						hp = p->htop;
+						p->htop += FLOAT_SIZE_OBJECT;
+						res = make_float(hp);
+						PUT_DOUBLE(f1, hp);
+						return res;
+				   default:
+						goto badarith;
+				   }
+			  default:
+				   goto badarith;
+			  }
+		 }
     default:
-	goto badarith;
+		 goto badarith;
     }
 }
 
@@ -1718,124 +1721,125 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
     arg1 = reg[live];
     arg2 = reg[live+1];
     ERTS_FP_CHECK_INIT(p);
+//先判断参数一是什么问题
     switch (arg1 & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_IMMED1:
-	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
-		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		    f1.fd = signed_val(arg1);
-		    f2.fd = signed_val(arg2);
-		    goto do_float;
-		default:
-		badarith:
-		    p->freason = BADARITH;
-		    return THE_NON_VALUE;
-		}
-	    case TAG_PRIMARY_BOXED:
-		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		    f1.fd = signed_val(arg1);
-		    if (big_to_double(arg2, &f2.fd) < 0) {
-			goto badarith;
-		    }
-		    goto do_float;
-		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		    f1.fd = signed_val(arg1);
-		    GET_DOUBLE(arg2, f2);
-		    goto do_float;
-		default:
-		    goto badarith;
-		}
-	    }
-	default:
-	    goto badarith;
-	}
+		 switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+		 case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+			  switch (arg2 & _TAG_PRIMARY_MASK) {
+			  case TAG_PRIMARY_IMMED1:
+				   switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+						f1.fd = signed_val(arg1);
+						f2.fd = signed_val(arg2);
+						goto do_float;
+				   default:
+				   badarith:
+						p->freason = BADARITH;
+						return THE_NON_VALUE;
+				   }
+			  case TAG_PRIMARY_BOXED:
+				   hdr = *boxed_val(arg2);
+				   switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+				   case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+						f1.fd = signed_val(arg1);
+						if (big_to_double(arg2, &f2.fd) < 0) {
+							 goto badarith;
+						}
+						goto do_float;
+				   case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+						f1.fd = signed_val(arg1);
+						GET_DOUBLE(arg2, f2);
+						goto do_float;
+				   default:
+						goto badarith;
+				   }
+			  }
+		 default:
+			  goto badarith;
+		 }
     case TAG_PRIMARY_BOXED:
-	hdr = *boxed_val(arg1);
-	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		    if (big_to_double(arg1, &f1.fd) < 0) {
-			goto badarith;
-		    }
-		    f2.fd = signed_val(arg2);
-		    goto do_float;
-		default:
-		    goto badarith;
-		}
-	    case TAG_PRIMARY_BOXED:
-		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		    if (big_to_double(arg1, &f1.fd) < 0 ||
-			big_to_double(arg2, &f2.fd) < 0) {
-			goto badarith;
-		    }
-		    goto do_float;
-		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		    if (big_to_double(arg1, &f1.fd) < 0) {
-			goto badarith;
-		    }
-		    GET_DOUBLE(arg2, f2);
-		    goto do_float;
-		default:
-		    goto badarith;
-		}
-	    }
-	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
-		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-		    GET_DOUBLE(arg1, f1);
-		    f2.fd = signed_val(arg2);
-		    goto do_float;
-		default:
-		    goto badarith;
-		}
-	    case TAG_PRIMARY_BOXED:
-		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		    GET_DOUBLE(arg1, f1);
-		    if (big_to_double(arg2, &f2.fd) < 0) {
-			goto badarith;
-		    }
-		    goto do_float;
-		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		    GET_DOUBLE(arg1, f1);
-		    GET_DOUBLE(arg2, f2);
-
-		do_float:
-		    f1.fd = f1.fd / f2.fd;
-		    ERTS_FP_ERROR(p, f1.fd, goto badarith);
-		    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
-			erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
-		    }
-		    hp = p->htop;
-		    p->htop += FLOAT_SIZE_OBJECT;
-		    PUT_DOUBLE(f1, hp);
-		    return make_float(hp);
-		default:
-		    goto badarith;
-		}
-	    default:
-		goto badarith;
-	    }
-	}
+		 hdr = *boxed_val(arg1);
+		 switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+		 case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+		 case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+			  switch (arg2 & _TAG_PRIMARY_MASK) {
+			  case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+				   switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+						if (big_to_double(arg1, &f1.fd) < 0) {
+							 goto badarith;
+						}
+						f2.fd = signed_val(arg2);
+						goto do_float;
+				   default:
+						goto badarith;
+				   }
+			  case TAG_PRIMARY_BOXED:
+				   hdr = *boxed_val(arg2);
+				   switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+				   case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+						if (big_to_double(arg1, &f1.fd) < 0 ||
+							big_to_double(arg2, &f2.fd) < 0) {
+							 goto badarith;
+						}
+						goto do_float;
+				   case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+						if (big_to_double(arg1, &f1.fd) < 0) {
+							 goto badarith;
+						}
+						GET_DOUBLE(arg2, f2);
+						goto do_float;
+				   default:
+						goto badarith;
+				   }
+			  }
+		 case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+			  switch (arg2 & _TAG_PRIMARY_MASK) {
+			  case TAG_PRIMARY_IMMED1:
+				   switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+						GET_DOUBLE(arg1, f1);
+						f2.fd = signed_val(arg2);
+						goto do_float;
+				   default:
+						goto badarith;
+				   }
+			  case TAG_PRIMARY_BOXED:
+				   hdr = *boxed_val(arg2);
+				   switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+				   case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+				   case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+						GET_DOUBLE(arg1, f1);
+						if (big_to_double(arg2, &f2.fd) < 0) {
+							 goto badarith;
+						}
+						goto do_float;
+				   case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+						GET_DOUBLE(arg1, f1);
+						GET_DOUBLE(arg2, f2);
+						
+				   do_float:
+						f1.fd = f1.fd / f2.fd;
+						ERTS_FP_ERROR(p, f1.fd, goto badarith);
+						if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
+							 erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
+						}
+						hp = p->htop;
+						p->htop += FLOAT_SIZE_OBJECT;
+						PUT_DOUBLE(f1, hp);
+						return make_float(hp);
+				   default:
+						goto badarith;
+				   }
+			  default:
+				   goto badarith;
+			  }
+		 }
     default:
-	goto badarith;
+		 goto badarith;
     }
 }
 
