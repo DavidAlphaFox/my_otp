@@ -364,7 +364,7 @@ static ERTS_INLINE void db_meta_unlock(DbTable* tb, db_lock_kind_t kind)
     ASSERT(tb == meta_pid_to_tab || tb == meta_pid_to_fixed_tab);
     ASSERT(kind != LCK_WRITE);
 }
-
+//通过两种方式获得ETS表，Tid或者名字
 static ERTS_INLINE
 DbTable* db_get_table_aux(Process *p,
 			  Eterm id,
@@ -380,62 +380,61 @@ DbTable* db_get_table_aux(Process *p,
      *            to access tables. Memory management
      *            depend on it.
      */
+//只有调度器线程才可以访问ets表
     ASSERT(erts_get_scheduler_data());
 
     if (is_small(id)) {
-	Uint slot = unsigned_val(id) & meta_main_tab_slot_mask;
-	if (!meta_already_locked) {
-	    mtl = get_meta_main_tab_lock(slot);
-	    erts_smp_rwmtx_rlock(mtl);
-	}
+		 Uint slot = unsigned_val(id) & meta_main_tab_slot_mask;
+		 if (!meta_already_locked) {
+			  mtl = get_meta_main_tab_lock(slot);
+			  erts_smp_rwmtx_rlock(mtl);
+		 }
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
-	else {
-	    erts_smp_rwmtx_t *test_mtl = get_meta_main_tab_lock(slot);
-	    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(test_mtl)
-			       || erts_lc_rwmtx_is_rwlocked(test_mtl));
-	}
+		 else {
+			  erts_smp_rwmtx_t *test_mtl = get_meta_main_tab_lock(slot);
+			  ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(test_mtl)
+				       || erts_lc_rwmtx_is_rwlocked(test_mtl));
+		 }
 #endif
-	if (slot < db_max_tabs && IS_SLOT_ALIVE(slot))
-	    tb = meta_main_tab[slot].u.tb;
-    }
-    else if (is_atom(id)) {
-	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
-	if (!meta_already_locked)
-	    erts_smp_rwmtx_rlock(mtl);
-	else{
-	    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(mtl)
-			       || erts_lc_rwmtx_is_rwlocked(mtl));
-	    mtl = NULL;
-	}
+		 if (slot < db_max_tabs && IS_SLOT_ALIVE(slot))
+			  tb = meta_main_tab[slot].u.tb;
+	} else if (is_atom(id)) {
+		 struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
+		 if (!meta_already_locked)
+			  erts_smp_rwmtx_rlock(mtl);
+		 else{
+			  ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(mtl)
+								 || erts_lc_rwmtx_is_rwlocked(mtl));
+			  mtl = NULL;
+		 }
 
-	if (bucket->pu.tb != NULL) {
-	    if (is_atom(bucket->u.name_atom)) { /* single */
-		if (bucket->u.name_atom == id)
-		    tb = bucket->pu.tb;
-	    }
-	    else { /* multi */
-		Uint cnt = unsigned_val(bucket->u.mcnt);
-		Uint i;
-		for (i=0; i<cnt; i++) {
-		    if (bucket->pu.mvec[i].u.name_atom == id) {
-			tb = bucket->pu.mvec[i].pu.tb;
-			break;
-		    }
-		}
-	    }
-	}
+		 if (bucket->pu.tb != NULL) {
+			  if (is_atom(bucket->u.name_atom)) { /* single */
+				   if (bucket->u.name_atom == id)
+						tb = bucket->pu.tb;
+			  } else { /* multi */
+				   Uint cnt = unsigned_val(bucket->u.mcnt);
+				   Uint i;
+				   for (i=0; i<cnt; i++) {
+						if (bucket->pu.mvec[i].u.name_atom == id) {
+							 tb = bucket->pu.mvec[i].pu.tb;
+							 break;
+						}
+				   }
+			  }
+		 }
     }
     if (tb) {
-	db_lock(tb, kind);
-	if (tb->common.id != id
-	    || ((tb->common.status & what) == 0
-		&& p->common.id != tb->common.owner)) {
-	    db_unlock(tb, kind);
-	    tb = NULL;
-	}
+		 db_lock(tb, kind);
+		 if (tb->common.id != id
+			 || ((tb->common.status & what) == 0
+				 && p->common.id != tb->common.owner)) {
+			  db_unlock(tb, kind);
+			  tb = NULL;
+		 }
     }
     if (mtl)
-	erts_smp_rwmtx_runlock(mtl);
+		 erts_smp_rwmtx_runlock(mtl);
     return tb;
 }
 
@@ -1269,9 +1268,10 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 ** The create table BIF     
 ** Args: (Name, Properties) 
 */
-
+//创建一个新的ets
 BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 {
+	//先声明一个DbTable的数据指针
     DbTable* tb = NULL;
     int slot;
     Eterm list;
@@ -1429,86 +1429,96 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	erts_smp_atomic_init_nob(&tb->common.memory_size,
 				 erts_smp_atomic_read_nob(&init_tb.common.memory_size));
     }
-
+//设置ETS使用的数据类型，是Hash还是Tree
+//当ETS使用ORDERED_SET时候才使用树
     tb->common.meth = meth;
+//ETS的表名字
     tb->common.the_name = BIF_ARG_1;
+//ETS的保护情况，public，protected或者private
     tb->common.status = status;    
 #ifdef ERTS_SMP
     tb->common.type = status & ERTS_ETS_TABLE_TYPES;
     /* Note, 'type' is *read only* from now on... */
 #endif
+    //设置引用计数为0
     erts_refc_init(&tb->common.ref, 0);
     db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ),
 		 "db_tab", "db_tab_fix");
+    //设置Key的位置
     tb->common.keypos = keypos;
+    //设置属主
     tb->common.owner = BIF_P->common.id;
+    //设置旁听进程PID，如果属主崩溃，heir会接管ETS表
     set_heir(BIF_P, tb, heir, heir_data);
 
     erts_smp_atomic_init_nob(&tb->common.nitems, 0);
 
     tb->common.fixations = NULL;
+    //是否使用压缩
     tb->common.compress = is_compressed;
 
 #ifdef DEBUG
     cret = 
 #endif
+    //让数据结构创建数据表
 	meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE);
-
+//开始锁住ets的元表
     erts_smp_spin_lock(&meta_main_tab_main_lock);
-
+//如果ETS超过限制，终止创建
     if (meta_main_tab_cnt >= db_max_tabs) {
-	erts_smp_spin_unlock(&meta_main_tab_main_lock);
-	erts_send_error_to_logger_str(BIF_P->group_leader,
+		erts_smp_spin_unlock(&meta_main_tab_main_lock);
+		erts_send_error_to_logger_str(BIF_P->group_leader,
 				      "** Too many db tables **\n");
-	free_heir_data(tb);
-	tb->common.meth->db_free_table(tb);
-	free_dbtable((void *) tb);
-	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+		free_heir_data(tb);
+		tb->common.meth->db_free_table(tb);
+		free_dbtable((void *) tb);
+		BIF_ERROR(BIF_P, SYSTEM_LIMIT);
     }
-
+//在元表中找出一个空槽
     slot = meta_main_tab_first_free;
     ASSERT(slot>=0 && slot<db_max_tabs);
     meta_main_tab_first_free = GET_NEXT_FREE_SLOT(slot);
     meta_main_tab_cnt++;
     if (slot >= meta_main_tab_top) {
-	ASSERT(slot == meta_main_tab_top);
-	meta_main_tab_top = slot + 1;
+		ASSERT(slot == meta_main_tab_top);
+		meta_main_tab_top = slot + 1;
     }
 
     if (is_named) {
-	ret = BIF_ARG_1;
+		ret = BIF_ARG_1;
     }
     else {
-	ret = make_small(slot | meta_main_tab_seq_cnt);
-	meta_main_tab_seq_cnt += meta_main_tab_seq_incr;
-	ASSERT((unsigned_val(ret) & meta_main_tab_slot_mask) == slot);
+		ret = make_small(slot | meta_main_tab_seq_cnt);
+		meta_main_tab_seq_cnt += meta_main_tab_seq_incr;
+		ASSERT((unsigned_val(ret) & meta_main_tab_slot_mask) == slot);
     }
     erts_smp_spin_unlock(&meta_main_tab_main_lock);
-
+//记录tid
     tb->common.id = ret;
     tb->common.slot = slot;           /* store slot for erase */
 
     mmtl = get_meta_main_tab_lock(slot);
     erts_smp_rwmtx_rwlock(mmtl);
+    //将表放入槽位中
     meta_main_tab[slot].u.tb = tb;
     ASSERT(IS_SLOT_ALIVE(slot));
     erts_smp_rwmtx_rwunlock(mmtl);
-
+//检查命名是否冲突
     if (is_named && !insert_named_tab(BIF_ARG_1, tb, 0)) {
-	mmtl = get_meta_main_tab_lock(slot);
-	erts_smp_rwmtx_rwlock(mmtl);
-	free_slot(slot);
-	erts_smp_rwmtx_rwunlock(mmtl);
+		mmtl = get_meta_main_tab_lock(slot);
+		erts_smp_rwmtx_rwlock(mmtl);
+		free_slot(slot);
+		erts_smp_rwmtx_rwunlock(mmtl);
 
-	db_lock(tb,LCK_WRITE);
-	free_heir_data(tb);
-	tb->common.meth->db_free_table(tb);
-	schedule_free_dbtable(tb);
-	db_unlock(tb,LCK_WRITE);
-	BIF_ERROR(BIF_P, BADARG);
+		db_lock(tb,LCK_WRITE);
+		free_heir_data(tb);
+		tb->common.meth->db_free_table(tb);
+		schedule_free_dbtable(tb);
+		db_unlock(tb,LCK_WRITE);
+		BIF_ERROR(BIF_P, BADARG);
     }
-    
+    //给当前进程添加一个标记，如果进程死掉了，要清理ETS
     BIF_P->flags |= F_USING_DB; /* So we can remove tb if p dies */
 
 #ifdef HARDDEBUG
@@ -1551,7 +1561,7 @@ BIF_RETTYPE ets_lookup_2(BIF_ALIST_2)
     CHECK_TABLES();
 
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_READ, LCK_READ)) == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+		BIF_ERROR(BIF_P, BADARG);
     }
 
     cret = tb->common.meth->db_get(BIF_P, tb, BIF_ARG_2, &ret);
@@ -1559,12 +1569,12 @@ BIF_RETTYPE ets_lookup_2(BIF_ALIST_2)
     db_unlock(tb, LCK_READ);
 
     switch (cret) {
-    case DB_ERROR_NONE:
-	BIF_RET(ret);
-    case DB_ERROR_SYSRES:
-	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-    default:
-	BIF_ERROR(BIF_P, BADARG);
+    	case DB_ERROR_NONE:
+			BIF_RET(ret);
+    	case DB_ERROR_SYSRES:
+			BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    	default:
+			BIF_ERROR(BIF_P, BADARG);
     }
 
 }

@@ -49,6 +49,7 @@ typedef struct {
  * So, the structure for a database table, NB this is only
  * interesting in db.c.
  */
+ //为什么是一个联合呢?
 union db_table {
     DbTableCommon common; /* Any type of db table */
     DbTableHash hash;     /* Linear hash array specific data */
