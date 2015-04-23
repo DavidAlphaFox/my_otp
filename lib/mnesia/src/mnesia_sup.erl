@@ -54,7 +54,7 @@ init([[]]) -> % Application
     init();
 init(BadArg) ->
     {error, {badarg, BadArg}}.
-    
+%初始化mneisa的supervisor树    
 init() ->
     Flags = {one_for_all, 0, 3600}, % Should be rest_for_one policy
 
@@ -62,13 +62,13 @@ init() ->
     Kernel = kernel_procs(),
 
     {ok, {Flags, Event ++ Kernel}}.
-
+%这文件包含了mnesia的event处理的代码
 event_procs() ->
     KillAfter = timer:seconds(30),
     KA = mnesia_kernel_sup:supervisor_timeout(KillAfter),
     E = mnesia_event,
     [{E, {?MODULE, start_event, []}, permanent, KA, worker, [E, gen_event]}].
-
+%mnesia的kernel监控树
 kernel_procs() ->
     K = mnesia_kernel_sup,
     KA = infinity,

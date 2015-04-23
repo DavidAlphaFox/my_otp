@@ -568,7 +568,7 @@ fallback_exists(Fname) ->
                 Bool -> Bool
             end
     end.
-
+%有这文件就代表Mnesia有需要回滚的事务
 fallback_name() -> "FALLBACK.BUP".
 fallback_bup() -> mnesia_lib:dir(fallback_name()).
 
@@ -697,7 +697,7 @@ throw_bad_res(_Expected, Actual) -> throw({error, Actual}).
 tm_fallback_start(IgnoreFallback) ->
     mnesia_schema:lock_schema(),
     Res = do_fallback_start(fallback_exists(), IgnoreFallback),
-    mnesia_schema: unlock_schema(),
+    mnesia_schema:unlock_schema(),
     case Res of
         ok -> ok;
         {error, Reason} -> exit(Reason)
@@ -709,9 +709,10 @@ do_fallback_start(true, true) ->
     verbose("Ignoring fallback at startup, but leaving it active...~n", []),
     mnesia_lib:set(active_fallback, true),
     ok;
+%执行回滚操作
 do_fallback_start(true, false) ->
     verbose("Starting from fallback...~n", []),
-
+%拿到备份文件
     BupFile = fallback_bup(),
     Mod = mnesia_backup,
     LocalTabs = ?ets_new_table(mnesia_local_tables, [set, public, {keypos, 2}]),

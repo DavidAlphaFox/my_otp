@@ -1241,7 +1241,8 @@ dets_sync_open(Tab, Ref, File) ->
 	    {repair, mnesia_monitor:get_env(auto_repair)},
 	    {type, disk_type(Tab)}],
     dets_sync_open(Ref, Args).
-
+%全局锁，锁定mnesia_table_lock
+%但是实际上，就是用global模块完成在本节点的上的锁定
 lock_table(Tab) ->
     global:set_lock({{mnesia_table_lock, Tab}, self()}, [node()], infinity).
 %    dbg_out("dets_sync_open: ~p ~p~n", [T, self()]),

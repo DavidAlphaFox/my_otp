@@ -32,7 +32,7 @@ start() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sub supervisor callback functions
-
+%mnesia的关键进程
 init([]) ->
     ProcLib = [mnesia_monitor, proc_lib],
     Flags = {one_for_all, 0, timer:hours(24)}, % Trust the top supervisor

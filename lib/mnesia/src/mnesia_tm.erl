@@ -70,10 +70,10 @@
 
 -record(participant, {tid, pid, commit, disc_nodes = [],
 		      ram_nodes = [], protocol = sym_trans}).
-
+%启动mneisa的事务管理器
 start() ->
     mnesia_monitor:start_proc(?MODULE, ?MODULE, init, [self()]).
-
+%自身跟踪exit的信号
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
@@ -224,6 +224,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    end;
 
 	{From, start_outer} -> %% Create and associate ets_tab with Tid
+		%创建一个ets表，作为mnesia事务的存储
 	    case catch ?ets_new_table(mnesia_trans_store, [bag, public]) of
 		{'EXIT', Reason} -> %% system limit
 		    Msg = "Cannot create an ets table for the "
@@ -752,7 +753,7 @@ non_transaction(OldState, Fun, Args, ActivityKind, Mod) ->
 	Throw ->
 	    throw(Throw)
     end.
-
+%执行事务
 transaction(OldTidTs, Fun, Args, Retries, Mod, Type) ->
     Factor = 1,
     case OldTidTs of
@@ -763,6 +764,7 @@ transaction(OldTidTs, Fun, Args, Retries, Mod, Type) ->
 	    put(mnesia_activity_state, OldTidTs),
 	    Res;
 	{OldMod, Tid, Ts} ->  % Nested
+		%事务嵌套
 	    execute_inner(Mod, Tid, OldMod, Ts, Fun, Args, Factor, Retries, Type);
 	_ -> % Bad nesting
 	    {aborted, nested_transaction}
@@ -773,6 +775,8 @@ execute_outer(Mod, Fun, Args, Factor, Retries, Type) ->
 	{error, Reason} ->
 	    {aborted, Reason};
 	{new_tid, Tid, Store} ->
+		%将ETS的Tid放入自己进程字典中
+		%但是ETS的属主不是调用进程而是mnesia_tm
 	    Ts = #tidstore{store = Store},
 	    NewTidTs = {Mod, Tid, Ts},
 	    put(mnesia_activity_state, NewTidTs),
@@ -808,12 +812,13 @@ insert_objs([H|T], Tab) ->
     insert_objs(T, Tab);
 insert_objs([], _Tab) ->
     ok.
-
+%拿到ETS后开始执行事务
 execute_transaction(Fun, Args, Factor, Retries, Type) ->
     case catch apply_fun(Fun, Args, Type) of
 	{'EXIT', Reason} ->
 	    check_exit(Fun, Args, Factor, Retries, Reason, Type);
 	{atomic, Value} ->
+	%事务成功了
 	    mnesia_lib:incr_counter(trans_commits),
 	    erase(mnesia_activity_state),
 	    %% no need to clear locks, already done by commit ...
@@ -935,7 +940,7 @@ get_restarted(Tid) ->
 decr(infinity) -> infinity;
 decr(X) when is_integer(X), X > 1 -> X - 1;
 decr(_X) -> 0.
-
+%事务回滚
 return_abort(Fun, Args, Reason)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
     dbg_out("Transaction ~p calling ~p with ~p failed: ~n ~p~n",
@@ -1354,7 +1359,7 @@ prepare_node(_Node, _Storage, Items, Rec, Kind)
     Rec#commit{schema_ops = Items};
 prepare_node(_Node, _Storage, [], Rec, _Kind) ->
     Rec.
-
+%协调所有参与事务的节点，进行提交
 %% multi_commit((Protocol, Tid, CommitRecords, Store)
 %% Local work is always performed in users process
 multi_commit(read_only, _Maj = [], Tid, CR, _Store) ->
@@ -1369,7 +1374,11 @@ multi_commit(read_only, _Maj = [], Tid, CR, _Store) ->
     mnesia_locker:release_tid(Tid),
     ?MODULE ! {delete_transaction, Tid},
     do_commit;
-
+%同步提交协议
+%使用简单的2PC进行，
+%1. 让所有参与的Node准备进行提交
+%2a.如果有一个Node回答No，让所有回答yes的Node回滚
+%2b.如果所有Node都回答yes，让所有Node提交
 multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %% This lightweight commit protocol is used when all
     %% the involved tables are replicated symetrically.

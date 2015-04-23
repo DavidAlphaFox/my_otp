@@ -130,7 +130,7 @@
 %%
 %% This means that we have a series of {schema, Name, Cs} tuples
 %% in a table called schema !!
-
+%初始化mnesia的schema
 init(IgnoreFallback) ->
     Res = read_schema(true, IgnoreFallback),
     {ok, Source, _CreateList} = exit_on_error(Res),

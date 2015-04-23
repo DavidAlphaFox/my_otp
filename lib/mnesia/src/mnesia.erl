@@ -210,7 +210,7 @@ start() ->
 	    verbose("Mnesia failed to start, ~p seconds: ~p~n",[ Secs, R]),
 	    {error, R}
     end.
-
+%确保mneisa这个应用被加载到系统中
 start(ExtraEnv) when is_list(ExtraEnv) ->
     case mnesia_lib:ensure_loaded(?APPLICATION) of
 	ok ->
@@ -339,7 +339,7 @@ sync_transaction(Fun, Args) ->
 sync_transaction(Fun, Args, Retries) ->
     transaction(get(mnesia_activity_state), Fun, Args, Retries, ?DEFAULT_ACCESS, sync).
 
-
+%使用mnesia_tm执行事务
 transaction(State, Fun, Args, Retries, Mod, Kind)
   when is_function(Fun), is_list(Args), Retries == infinity, is_atom(Mod) ->
     mnesia_tm:transaction(State, Fun, Args, Retries, Mod, Kind);
@@ -527,7 +527,7 @@ write(Tab, Val, LockKind) ->
 	_ ->
 	    abort(no_transaction)
     end.
-
+%写操作的时候，先将要写的数据放入临时的ETS中
 write(Tid, Ts, Tab, Val, LockKind)
   when is_atom(Tab), Tab /= schema, is_tuple(Val), tuple_size(Val) > 2 ->
     case element(1, Tid) of

@@ -671,7 +671,7 @@ handle_call({disconnect, Node}, _From, State) ->
     mnesia_monitor:disconnect(Node),
     mnesia_lib:del(recover_nodes, Node),
     {reply, ok, State};
-
+%连接其它节点
 handle_call({connect_nodes, Ns}, From, State) ->
     %% Determine which nodes we should try to connect
     AlreadyConnected = val(recover_nodes),
