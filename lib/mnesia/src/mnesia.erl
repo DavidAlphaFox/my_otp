@@ -517,7 +517,7 @@ write(Val) ->
 s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
     write(Tab, Val, sticky_write).
-
+%外部调用的函数
 write(Tab, Val, LockKind) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -535,10 +535,13 @@ write(Tid, Ts, Tab, Val, LockKind)
 	    ?ets_insert(Tab, Val),
 	    ok;
 	tid ->
+		%ETS表
 	    Store = Ts#tidstore.store,
+	    %表名＋要改的键
 	    Oid = {Tab, element(2, Val)},
 	    case LockKind of
 		write ->
+			%使用mnesia_locker上写锁
 		    mnesia_locker:wlock(Tid, Store, Oid);
 		sticky_write ->
 		    mnesia_locker:sticky_wlock(Tid, Store, Oid);

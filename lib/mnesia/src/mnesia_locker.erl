@@ -156,6 +156,7 @@ mnesia_down(Node, Pending) ->
 
 loop(State) ->
     receive
+    %申请写锁
 	{From, {write, Tid, Oid}} ->
 	    try_sticky_lock(Tid, write, From, Oid),
 	    loop(State);
@@ -266,7 +267,7 @@ set_lock(Tid, Oid, Op, undefined) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Acquire locks
-
+%对本节点进行加锁
 try_sticky_lock(Tid, Op, Pid, {Tab, _} = Oid) ->
     case ?ets_lookup(mnesia_sticky_locks, Tab) of
 	[] ->
@@ -342,7 +343,8 @@ grant_lock(Tid, write, Lock, Oid, Default) ->
 %%    because of 1) it will avoid the deadlocks.
 %% 3) TabLocks is the problem :-) They should not starve and not deadlock
 %%    handle tablocks in queue as they had locks on unlocked records.
-
+%检查加锁情况，看是否能进行加锁
+%基本上这段就是死锁检查和是否能让加锁请求进行排队
 can_lock(Tid, read, Oid = {Tab, Key}, AlreadyQ) when Key /= ?ALL ->
     ObjLocks = ?ets_lookup(mnesia_held_locks, Oid),
     TabLocks = ?ets_lookup(mnesia_held_locks, {Tab, ?ALL}),
@@ -708,6 +710,7 @@ rwlock(Tid, Store, Oid) ->
 %% in the local store under the key == nodes
 
 w_nodes(Tab) ->
+	%从当前表中，找出需要加锁的节点
     case ?catch_val({Tab, where_to_wlock}) of
 	{[_ | _], _} = Where -> Where;
 	_ ->  mnesia:abort({no_exists, Tab})
@@ -717,7 +720,7 @@ w_nodes(Tab) ->
 %% only take a write lock if we see a majority of the
 %% nodes.
 
-
+%检查majority标记
 check_majority(true, Tab, HaveNs) ->
     check_majority(Tab, HaveNs);
 check_majority(false, _, _) ->
@@ -726,6 +729,7 @@ check_majority(false, _, _) ->
 check_majority(Tab, HaveNs) ->
     case ?catch_val({Tab, majority}) of
 	true ->
+		%要求当前存活的节点数量，大于不存在的节点数量
 	    case mnesia_lib:have_majority(Tab, HaveNs) of
 		true ->
 		    ok;
@@ -842,6 +846,7 @@ wlock(Tid, Store, Oid) ->
 
 wlock(Tid, Store, Oid, CheckMajority) ->
     {Tab, Key} = Oid,
+    %检查是否要加锁
     case need_lock(Store, Tab, Key, write) of
 	yes ->
 	    {Ns, Majority} = w_nodes(Tab),
@@ -851,6 +856,7 @@ wlock(Tid, Store, Oid, CheckMajority) ->
 		    ignore
 	    end,
 	    Op = {self(), {write, Tid, Oid}},
+	    %在Tid的ETS中存放锁住的{Tab,Key}
 	    ?ets_insert(Store, {{locks, Tab, Key}, write}),
 	    get_wlocks_on_nodes(Ns, Ns, Store, Op, Oid);
 	no when Key /= ?ALL, Tab /= ?GLOBAL ->
@@ -875,7 +881,9 @@ wlock_no_exist(Tid, Store, Tab, Ns) ->
 need_lock(Store, Tab, Key, LockPattern) ->
     TabL = ?ets_match_object(Store, {{locks, Tab, ?ALL}, LockPattern}),
     if
+    	%没有锁全表
 	TabL == [] ->
+		%没有锁当前key，需要上锁
 	    KeyL = ?ets_match_object(Store, {{locks, Tab, Key}, LockPattern}),
 	    if
 		KeyL == [] ->
@@ -896,16 +904,22 @@ del_debug() ->
 %% We first send lock request to the local node if it is part of the lockers
 %% then the first sorted node then to the rest of the lockmanagers on all
 %% nodes holding a copy of the table
-
+%发出获取锁的请求
 get_wlocks_on_nodes([Node | Tail], Orig, Store, Request, Oid) ->
+	%先锁住本地节点
     {?MODULE, Node} ! Request,
+    %把当前节点放入Tid的Store中
     ?ets_insert(Store, {nodes, Node}),
     receive_wlocks([Node], undefined, Store, Oid),
     case node() of
 	Node -> %% Local done try one more
+		%成功锁住本地节点，接着调用这个函数
 	    get_wlocks_on_nodes(Tail, Orig, Store, Request, Oid);
 	_ ->    %% The first succeded cont with the rest
+		%成功锁住一个节点，但是这节点不是本地节点
+		%调用另一个函数
 	    get_wlocks_on_nodes(Tail, Store, Request),
+	    %等待所有的返回，如果有节点拿不到锁，直接退出
 	    receive_wlocks(Tail, Orig, Store, Oid)
     end;
 get_wlocks_on_nodes([], Orig, _Store, _Request, _Oid) ->
@@ -946,8 +960,10 @@ receive_wlocks(Nodes = [This|Ns], Res, Store, Oid) ->
 		Val2 ->
 		    receive_wlocks(lists:delete(Node,Nodes), Val2, Store, Oid)
 	    end;
+	%如果拿不到锁，需要回滚事务
 	{?MODULE, Node, {not_granted, Reason}} ->
 	    Reason1 = {aborted, Reason},
+	    %等待其它节点的回应，忽略已经收到的节点的消息
 	    flush_remaining(Nodes,Node,Reason1);
 	{?MODULE, Node, {switch, Sticky, _Req}} -> %% for rwlocks
 	    Tail = lists:delete(Node,Nodes),

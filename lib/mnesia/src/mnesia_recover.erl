@@ -640,7 +640,7 @@ create_transient_decision() ->
 %%          {noreply, State, Timeout}      |
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%----------------------------------------------------------------------
-
+%事务开始的时候，申请初始化
 handle_call(init, From, State) when State#state.initiated == false ->
     Args = [{keypos, 2}, set, public, named_table],
     case mnesia_monitor:use_dir() of

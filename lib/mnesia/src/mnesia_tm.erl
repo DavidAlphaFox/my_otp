@@ -198,7 +198,7 @@ block_tab(Tab) ->
 
 unblock_tab(Tab) ->
     req({unblock_tab, Tab}).
-
+%mneisa_tm的loop
 doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=Sup}=State) ->
     receive
 	{_From, {async_dirty, Tid, Commit, Tab}} ->
@@ -222,7 +222,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    State2 = State#state{dirty_queue = [Item | State#state.dirty_queue]},
 		    doit_loop(State2)
 	    end;
-
+	    %单层事务会先调用此处申请Tid
 	{From, start_outer} -> %% Create and associate ets_tab with Tid
 		%创建一个ets表，作为mnesia事务的存储
 	    case catch ?ets_new_table(mnesia_trans_store, [bag, public]) of
@@ -231,10 +231,16 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	                  "local transaction store",
 		    reply(From, {error, {system_limit, Msg, Reason}}, State);
 		Etab ->
+			%将申请Tid的进程和自己链接
+			%因为自己已经trap_exit了，所以可以监听到申请进程的异常退出
 		    tmlink(From),
+		    %增加事务的序列号
 		    C = mnesia_recover:incr_trans_tid_serial(),
+		    %将当前操作的节点，放入ETab
 		    ?ets_insert(Etab, {nodes, node()}),
+		    %将申请的Tid的进程和事务序列号关联起来，作为Tid
 		    Tid = #tid{pid = tmpid(From), counter = C},
+		    %将Tid作为key，ETS表的列表作为value放到协作者的树中
 		    A2 = gb_trees:insert(Tid,[Etab],Coordinators),
 		    S2 = State#state{coordinators = A2},
 		    reply(From, {new_tid, Tid, Etab}, S2)
@@ -756,6 +762,8 @@ non_transaction(OldState, Fun, Args, ActivityKind, Mod) ->
 %执行事务
 transaction(OldTidTs, Fun, Args, Retries, Mod, Type) ->
     Factor = 1,
+    %此处有一个判断，是否已经有已经在执行的事务
+    %如果有，则说明是嵌套事务
     case OldTidTs of
 	undefined -> % Outer
 	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);
@@ -769,7 +777,7 @@ transaction(OldTidTs, Fun, Args, Retries, Mod, Type) ->
 	_ -> % Bad nesting
 	    {aborted, nested_transaction}
     end.
-
+%Mod是mesia
 execute_outer(Mod, Fun, Args, Factor, Retries, Type) ->
     case req(start_outer) of
 	{error, Reason} ->
@@ -819,6 +827,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    check_exit(Fun, Args, Factor, Retries, Reason, Type);
 	{atomic, Value} ->
 	%事务成功了
+	%增加事务号
 	    mnesia_lib:incr_counter(trans_commits),
 	    erase(mnesia_activity_state),
 	    %% no need to clear locks, already done by commit ...
@@ -833,7 +842,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    Reason = {aborted, {throw, Value}},
 	    return_abort(Fun, Args, Reason)
     end.
-
+%执行事务中的函数体
 apply_fun(Fun, Args, Type) ->
     Result = apply(Fun, Args),
     case t_commit(Type) of
@@ -1100,10 +1109,14 @@ dirty(Protocol, Item) ->
 %% functions insert the names of the nodes where it aquires locks
 %% into the local shadow Store
 %% This function exacutes in the context of the user process
+%进行事务提交
+%先找出所有参加事务的节点
 t_commit(Type) ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
+    %先把ETS表拿出来
     Store = Ts#tidstore.store,
     if
+    	%单层事务
 	Ts#tidstore.level == 1 ->
 	    intercept_friends(Tid, Ts),
 	    %% N is number of updates
@@ -1137,7 +1150,7 @@ majority_attr(#prep{majority = M}) ->
 %% This function arranges for all objects we shall write in S to be
 %% in a list of {Node, CommitRecord}
 %% Important function for the performance of mnesia.
-
+%编排提交顺序
 arrange(Tid, Store, Type) ->
     %% The local node is always included
     Nodes = get_elements(nodes,Store),
