@@ -372,11 +372,14 @@ mk_str() ->
     lists:concat([node()] ++ Now ++ ".TMP").
 
 make_initial_backup(Ns, Opaque, Mod) ->
+    %获取最开始的元数据表
     Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
     Modded = proplists:delete(storage_properties, proplists:delete(majority, Orig)),
     Schema = [{schema, schema, Modded}],
     O2 = do_apply(Mod, open_write, [Opaque], Opaque),
+    %写入日志版本
     O3 = do_apply(Mod, write, [O2, [mnesia_log:backup_log_header()]], O2),
+    %写入元数据
     O4 = do_apply(Mod, write, [O3, Schema], O3),
     O5 = do_apply(Mod, commit_write, [O4], O4),
     {ok, O5}.
@@ -695,6 +698,7 @@ throw_bad_res(_Expected, Actual) -> throw({error, Actual}).
                     opened}).
 
 tm_fallback_start(IgnoreFallback) ->
+%锁定元数据表
     mnesia_schema:lock_schema(),
     Res = do_fallback_start(fallback_exists(), IgnoreFallback),
     mnesia_schema:unlock_schema(),
@@ -715,6 +719,7 @@ do_fallback_start(true, false) ->
 %拿到备份文件
     BupFile = fallback_bup(),
     Mod = mnesia_backup,
+%创建一个ets
     LocalTabs = ?ets_new_table(mnesia_local_tables, [set, public, {keypos, 2}]),
     case catch iterate(Mod, fun restore_tables/4, BupFile, {start, LocalTabs}) of
         {ok, _Res} ->
@@ -722,11 +727,12 @@ do_fallback_start(true, false) ->
             TmpSchema = mnesia_lib:tab2tmp(schema),
             DatSchema = mnesia_lib:tab2dat(schema),
 	    AllLT  = ?ets_match_object(LocalTabs, '_'),
+        %关闭ets
 	    ?ets_delete_table(LocalTabs),
             case file:rename(TmpSchema, DatSchema) of
                 ok ->
-		    [(LT#local_tab.swap)(LT#local_tab.name, LT) ||
-			LT <- AllLT, LT#local_tab.name =/= schema],
+		          [(LT#local_tab.swap)(LT#local_tab.name, LT) ||
+			         LT <- AllLT, LT#local_tab.name =/= schema],
                     file:delete(BupFile),
                     ok;
                 {error, Reason} ->

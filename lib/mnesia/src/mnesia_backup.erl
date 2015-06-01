@@ -79,6 +79,7 @@ open_write(OpaqueData) ->
     Tmp = lists:concat([File,".BUPTMP"]),
     file:delete(Tmp),
     file:delete(File),
+    %打开一个临时的日志文件
     case disk_log:open([{name, make_ref()},
 			{file, Tmp},
 			{repair, false},
@@ -94,6 +95,7 @@ open_write(OpaqueData) ->
 %% Returns {ok, OpaqueData} or {error, Reason}
 write(OpaqueData, BackupItems) ->
     B = OpaqueData,
+    %将数据当作日志写入文件
     case disk_log:log_terms(B#backup.file_desc, BackupItems) of
         ok ->
             {ok, B};
@@ -107,18 +109,21 @@ write(OpaqueData, BackupItems) ->
 %% Returns {ok, ReturnValueToUser} or {error, Reason}
 commit_write(OpaqueData) ->
     B = OpaqueData,
+    %同步日志
     case disk_log:sync(B#backup.file_desc) of
         ok ->
+            %关闭日志
             case disk_log:close(B#backup.file_desc) of
                 ok ->
-		    case file:rename(B#backup.tmp_file, B#backup.file) of
-		       ok ->
-			    {ok, B#backup.file};
-		       {error, Reason} ->
-			    {error, Reason}
-		    end;
+                    %重命名文件
+                    case file:rename(B#backup.tmp_file, B#backup.file) of
+		              ok ->
+			             {ok, B#backup.file};
+		              {error, Reason} ->
+			             {error, Reason}
+		            end;
                 {error, Reason} ->
-		    {error, Reason}
+		              {error, Reason}
             end;
         {error, Reason} ->
             {error, Reason}

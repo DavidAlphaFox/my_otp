@@ -623,8 +623,12 @@ sync_trans_tid_serial(Tid) ->
 init([Parent]) ->
     process_flag(trap_exit, true),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
+    %最后一次的事务决策
+    %使用ets来保存决策
     set(latest_transient_decision, create_transient_decision()),
+    %前一次的事务决策
     set(previous_transient_decisions, []),
+    %恢复节点
     set(recover_nodes, []),
     State = #state{supervisor = Parent},
     {ok, State}.

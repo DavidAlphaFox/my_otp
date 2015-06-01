@@ -80,6 +80,7 @@ init(Parent) ->
 
     %% Initialize the schema
     IgnoreFallback = mnesia_monitor:get_env(ignore_fallback_at_startup),
+    %进行事务失败回滚
     mnesia_bup:tm_fallback_start(IgnoreFallback),
     mnesia_schema:init(IgnoreFallback),
 
