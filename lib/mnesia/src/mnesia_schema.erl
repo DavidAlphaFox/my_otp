@@ -362,7 +362,7 @@ delete_schema2() ->
 	{error, Reason} ->
 	    {error, Reason}
     end.
-
+%尝试读取远程的schema
 ensure_no_schema([H|T]) when is_atom(H) ->
     case rpc:call(H, ?MODULE, remote_read_schema, []) of
         {badrpc, Reason} ->

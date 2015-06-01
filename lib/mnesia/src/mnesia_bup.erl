@@ -347,6 +347,7 @@ create_schema(Ns, ok) ->
                             file:delete(File),
                             case catch make_initial_backup(Ns, File, Mod) of
                                 {ok, _Res} ->
+                                    %创建成功后，安装备份
                                     case do_install_fallback(File, Mod) of
                                         ok ->
                                             file:delete(File),
@@ -370,7 +371,9 @@ create_schema(_Ns, Reason) ->
 mk_str() ->
     Now = [integer_to_list(I) || I <- tuple_to_list(now())],
     lists:concat([node()] ++ Now ++ ".TMP").
-
+%创建schema的临时文件
+%NS为所有的节点，Opadue是临时文件名
+%Mod是mnesia_backup
 make_initial_backup(Ns, Opaque, Mod) ->
     %获取最开始的元数据表
     Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
@@ -465,7 +468,7 @@ atom_list([H | T]) when is_atom(H) ->
     atom_list(T);
 atom_list([]) ->
     ok.
-
+%创建备份安装进程
 do_install_fallback(FA) ->
     Pid = spawn_link(?MODULE, install_fallback_master, [self(), FA]),
     Res =
@@ -494,7 +497,9 @@ install_fallback_master(ClientPid, FA) ->
 
 restore_recs(_, _, _, stop) ->
     throw({error, "restore_recs already stopped"});
-
+%第一个参数是余下的Records
+%第二个参数是Header，用来判断版本
+%第三个参数是schema
 restore_recs(Recs, Header, Schema, {start, FA}) ->
     %% No records in backup
     Schema2 = convert_schema(Header#log_header.log_version, Schema),
@@ -503,16 +508,20 @@ restore_recs(Recs, Header, Schema, {start, FA}) ->
         {'EXIT', Reason} ->
             throw({error, {"Bad schema in restore_recs", Reason}});
         Cs ->
+        %找到备份节点
             Ns = get_fallback_nodes(FA, Cs#cstruct.disc_copies),
             global:set_lock({{mnesia_table_lock, schema}, self()}, Ns, infinity),
             Args = [self(), FA],
+            %创建出一组fallback_receiver，有多少个NS就建立多少个
+            %每个节点上都有一个fallback_receiver进程
             Pids = [spawn_link(N, ?MODULE, fallback_receiver, Args) || N <- Ns],
+            %给所有进程发送start消息，并收集结果
             send_fallback(Pids, {start, Header, Schema2}),
             Res = restore_recs(Recs, Header, Schema2, Pids),
             global:del_lock({{mnesia_table_lock, schema}, self()}, Ns),
             Res
     end;
-
+%没有更多records了，进行swap
 restore_recs([], _Header, _Schema, Pids) ->
     send_fallback(Pids, swap),
     send_fallback(Pids, stop),
@@ -579,9 +588,10 @@ fallback_tmp_name() -> "FALLBACK.TMP".
 %% fallback_full_tmp_name() -> mnesia_lib:dir(fallback_tmp_name()).
 
 -spec fallback_receiver(pid(), fallback_args()) -> no_return().
+%Master,在此处表示，整个mnesia集群在create_schema的时候的发起者
 fallback_receiver(Master, FA) ->
     process_flag(trap_exit, true),
-
+%将自己注册到本地名字库，防止创建出另一个fallback_receiver进程
     case catch register(mnesia_fallback, self()) of
         {'EXIT', _} ->
             Reason = {already_exists, node()},
@@ -589,17 +599,21 @@ fallback_receiver(Master, FA) ->
         true ->
             FA2 = check_fallback_dir(Master, FA),
             Bup = FA2#fallback_args.fallback_bup,
+            %检查是否有backup
             case mnesia_lib:exists(Bup) of
                 true ->
+                    %如果有则报错
                     Reason2 = {already_exists, node()},
                     local_fallback_error(Master, Reason2);
                 false ->
+                    %如果没有，创建新的backup的临时文件
                     Mod = mnesia_backup,
                     Tmp = FA2#fallback_args.fallback_tmp,
                     R = #restore{mode = replace,
                                  bup_module = Mod,
                                  bup_data = Tmp},
                     file:delete(Tmp),
+                    %开始接收fallback信息
                     case catch fallback_receiver_loop(Master, R, FA2, schema) of
                         {error, Reason} ->
                             local_fallback_error(Master, Reason);
