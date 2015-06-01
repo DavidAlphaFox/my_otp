@@ -258,9 +258,13 @@ terminate_proc(Who, Reason, _State) ->
 %%          {stop, Reason}
 %%----------------------------------------------------------------------
 init([Parent]) ->
+%先将自己标记为追踪退出
     process_flag(trap_exit, true),
+%用来保存全局变量
     ?ets_new_table(mnesia_gvar, [set, public, named_table]),
+%用来保存状态
     ?ets_new_table(mnesia_stats, [set, public, named_table]),
+%用来保存订阅者
     set(subscribers, []),
     set(activity_subscribers, []),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
@@ -270,12 +274,17 @@ init([Parent]) ->
 
     case catch process_config_args(env()) of
 	ok ->
+		%向mnesia_gvar的ets表中添加一个表项
 	    mnesia_lib:set({'$$$_report', current_pos}, 0),
 	    Level = mnesia_lib:val(debug),
 	    mnesia_lib:verbose("Mnesia debug level set to ~p\n", [Level]),
+	    %保存状态到当前进程
 	    set(mnesia_status, starting), %%  set start status
+	    %保存现有节点到当前进程
 	    set({current, db_nodes}, [node()]),
+	    %保存用户
 	    set(use_dir, use_dir()),
+	    %向mnesia_stats表中添加统计项目
 	    mnesia_lib:create_counter(trans_aborts),
 	    mnesia_lib:create_counter(trans_commits),
 	    mnesia_lib:create_counter(trans_log_writes),
@@ -284,10 +293,11 @@ init([Parent]) ->
 	    mnesia_lib:create_counter(trans_log_writes_prev),
 	    mnesia_lib:create_counter(trans_restarts),
 	    mnesia_lib:create_counter(trans_failures),
+	    %设置检查点
 	    set(checkpoints, []),
 	    set(pending_checkpoints, []),
 	    set(pending_checkpoint_pids, []),
-
+	    %记住自己的Parent
 	    {ok, #state{supervisor = Parent}};
 	{'EXIT', Reason} ->
 	    mnesia_lib:report_fatal("Bad configuration: ~p~n", [Reason]),
@@ -730,7 +740,7 @@ check_type(Env, Val) ->
 	NewVal ->
 	    NewVal
     end.
-
+%应用的变量检查
 do_check_type(access_module, A) when is_atom(A) -> A;
 do_check_type(auto_repair, B) -> bool(B);
 do_check_type(backup_module, B) when is_atom(B) -> B;

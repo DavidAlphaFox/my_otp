@@ -21,7 +21,7 @@
 -module(mnesia_subscr).
 
 -behaviour(gen_server).
-
+%report_table_event，主要被mnesia_tm和mnesia_schema调用
 -export([start/0,
 	 set_debug_level/1,
 	 subscribe/2,
@@ -242,11 +242,16 @@ call(Msg) ->
 %%          {stop, Reason}
 %%----------------------------------------------------------------------
 init([Parent]) ->
+	%标记自己追踪退出
     process_flag(trap_exit, true),
+    %找到mnesia_event这进程
     ClientPid = whereis(mnesia_event),
+    %关联进程
     link(ClientPid),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
+    %建立私有表
     Tab = ?ets_new_table(mnesia_subscr, [duplicate_bag, private]),
+    %把mnesia_event进程作为系统信息订阅者
     ?ets_insert(Tab, {ClientPid, system}),
     {ok, #state{supervisor = Parent, pid_tab = Tab}}.
 

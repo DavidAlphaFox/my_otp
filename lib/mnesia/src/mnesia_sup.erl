@@ -91,6 +91,7 @@ start_event() ->
     end.
 
 add_event_handler() ->
+%默认的event_handler是mnesia_event
     Handler = mnesia_monitor:get_env(event_module),
     gen_event:add_handler(mnesia_event, Handler, []).
     

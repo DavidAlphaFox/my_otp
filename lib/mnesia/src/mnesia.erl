@@ -2562,7 +2562,7 @@ dump_log() ->
 
 sync_log() ->
     mnesia_monitor:sync_log(latest_log).
-
+%向mnesia_subscr订阅
 subscribe(What) ->
     mnesia_subscr:subscribe(self(), What).
 

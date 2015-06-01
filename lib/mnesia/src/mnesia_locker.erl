@@ -79,13 +79,14 @@
 
 start() ->
     mnesia_monitor:start_proc(?MODULE, ?MODULE, init, [self()]).
-
+%创建mneisa的锁进程
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
     ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_tid_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),
+    %mnesia的锁队列
     ?ets_new_table(mnesia_lock_queue, [bag, private, named_table, {keypos, 2}]),
 
     proc_lib:init_ack(Parent, {ok, self()}),
