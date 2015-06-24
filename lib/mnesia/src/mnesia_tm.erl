@@ -279,8 +279,10 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    ?eval_debug_fun({?MODULE,do_commit,pre},[{tid,Tid},{participant,P}]),
 		    case P#participant.pid of
 			nopid ->
+				%非异步的事务提交
 			    Commit = P#participant.commit,
 			    Member = lists:member(node(), P#participant.disc_nodes),
+			    %如果该节点是磁盘节点，开始写日志
 			    if Member == false ->
 				    ignore;
 			       P#participant.protocol == sym_trans ->
@@ -288,15 +290,24 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			       P#participant.protocol == sync_sym_trans ->
 				    mnesia_log:slog(Commit)
 			    end,
+			    %记录决议
 			    mnesia_recover:note_decision(Tid, committed),
+			    %执行真正的数据写入动作
+			    %因为写了日志和事务决议，所以即便更新数据出现当机
+			    %我们也可以从日志文件中恢复数据
 			    do_commit(Tid, Commit),
 			    if
+			    	%如果是集群同步的事务，那么需要在数据更新后通知协调者
+			    	%自己已经完成所有的数据更新
 				P#participant.protocol == sync_sym_trans ->
 				    Tid#tid.pid ! {?MODULE, node(), {committed, Tid}};
 				true ->
+					%否则直接向下进行
 				    ignore
 			    end,
+			    %释放Tid上所有的锁
 			    mnesia_locker:release_tid(Tid),
+			    %结束事务
 			    transaction_terminated(Tid),
 			    ?eval_debug_fun({?MODULE,do_commit,post},[{tid,Tid},{pid,nopid}]),
 			    doit_loop(State#state{participants=
@@ -373,7 +384,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    ?ets_match_delete(Store, '_'),
 	    ?ets_insert(Store, {nodes, node()}),
 	    reply(From, {restarted, Tid}, State#state{coordinators = A2});
-
+	%事务发起者，决定结束事务了
 	{delete_transaction, Tid} ->
 	    %% used to clear transactions which are committed
 	    %% in coordinator or participant processes
@@ -715,7 +726,9 @@ pid_search_delete(Pid, [Tr | Trs], Val, Ack) ->
 
 pid_search_delete(_Pid, [], Val, Ack) ->
     {Val, gb_trees:from_orddict(lists:reverse(Ack))}.
-
+%更新自己的事务序列号
+%这很重要的，这样整个集群就可以保持所有事务序列号一致
+%参见Lamport逻辑时钟相关的部分
 transaction_terminated(Tid)  ->
     mnesia_checkpoint:tm_exit_pending(Tid),
     Pid = Tid#tid.pid,
@@ -952,7 +965,7 @@ get_restarted(Tid) ->
 decr(infinity) -> infinity;
 decr(X) when is_integer(X), X > 1 -> X - 1;
 decr(_X) -> 0.
-%事务回滚
+%事务回滚,善后工作
 return_abort(Fun, Args, Reason)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
     dbg_out("Transaction ~p calling ~p with ~p failed: ~n ~p~n",
@@ -1162,6 +1175,7 @@ arrange(Tid, Store, Type) ->
     N = 0,
     Prep =
 	case Type of
+		%默认的事务是async
 	    async -> #prep{protocol = sym_trans, records = Recs};
 	    sync -> #prep{protocol = sync_sym_trans, records = Recs}
 	end,
@@ -1436,14 +1450,18 @@ multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %在ask_commit之后，对端节点死掉了，但是在下一次Erts心跳之前
     %对端节点又启动起来了,OK这就是个有意思的情况
     %不过稍微知道点Mnesia原理很容易解决这问题和避免这个问题
+    %所有节点都返回了同意Outcome为do_commit
     {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []),
     ?eval_debug_fun({?MODULE, multi_commit_sym},
 		    [{tid, Tid}, {outcome, Outcome}]),
+    %向所有磁盘节点广播提交
     rpc:abcast(DiscNs -- [node()], ?MODULE, {Tid, Outcome}),
+    %向所有内存节点广播提交
     rpc:abcast(RamNs -- [node()], ?MODULE, {Tid, Outcome}),
     case Outcome of
 	do_commit ->
 	    mnesia_recover:note_decision(Tid, committed),
+	    %这地方可能存在本地节点先于其它节点完成
 	    do_dirty(Tid, Local),
 	    mnesia_locker:release_tid(Tid),
 	    ?MODULE ! {delete_transaction, Tid};

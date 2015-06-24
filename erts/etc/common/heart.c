@@ -305,6 +305,7 @@ static void get_arguments(int argc, char** argv) {
 		    if (sscanf(argv[i+1],"%i",&h) ==1)
 			if ((h > 10) && (h <= 65535)) {
 			    heart_beat_timeout = h;
+			    //我们可以指定心跳的时间
 			    fprintf(stderr,"heart_beat_timeout = %d\n",h);
 			    i++;
 			}
@@ -441,6 +442,7 @@ message_loop(erlin_fd, erlout_fd)
      * the system clock is adjusted with more than 55 seconds, but we
      * regard this as en error and reboot anyway.
      */
+     //存在风险的操作
     timestamp(&now);
     if (now > last_received + heart_beat_timeout) {
 	print_error("heart-beat time-out, no activity for %lu seconds", 
