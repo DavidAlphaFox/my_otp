@@ -676,7 +676,7 @@ fallback_receiver_loop(Master, R, FA, State) ->
             R2 = safe_apply(R, write, [R#restore.bup_data, Recs]),
             Master ! {self(), ok},
             fallback_receiver_loop(Master, R2, FA, records);
-
+        %收到swap，进行commit，并将临时文件重命名为backup文件
         {Master, swap} when State =/= schema ->
             ?eval_debug_fun({?MODULE, fallback_receiver_loop, pre_swap}, []),
             safe_apply(R, commit_write, [R#restore.bup_data]),

@@ -937,11 +937,12 @@ handle_cast(unblock_controller, State) ->
 	    State3 = opt_start_worker(State2),
 	    noreply(State3)
     end;
-
+%从controller进程中干掉该节点
 handle_cast({mnesia_down, Node}, State) ->
     maybe_log_mnesia_down(Node),
     mnesia_lib:del({current, db_nodes}, Node),
     mnesia_lib:unset({node_up, Node}),
+    %告诉checkpoint某个几点当机了
     mnesia_checkpoint:tm_mnesia_down(Node),
     Alltabs = val({schema, tables}),
     reconfigure_tables(Node, Alltabs),

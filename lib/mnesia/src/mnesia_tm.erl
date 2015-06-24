@@ -182,6 +182,7 @@ mnesia_down(Node) ->
     %% mnesia_monitor takes care of the sync
     case whereis(?MODULE) of
 	undefined ->
+		%如果mnesia_tm进程没有存在，则直接交给mnesia_monitor进行处理
 	    mnesia_monitor:mnesia_down(?MODULE, Node);
 	Pid ->
 	    Pid ! {mnesia_down, Node},
@@ -406,6 +407,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			 gb_trees:to_list(Coordinators)}, State);
 
 	{mnesia_down, N} ->
+		%接收到了一个mneisa节点当机的消息
 	    verbose("Got mnesia_down from ~p, reconfiguring...~n", [N]),
 	    reconfigure_coordinators(N, gb_trees:to_list(Coordinators)),
 
@@ -1376,6 +1378,7 @@ prepare_node(_Node, _Storage, [], Rec, _Kind) ->
 %协调所有参与事务的节点，进行提交
 %% multi_commit((Protocol, Tid, CommitRecords, Store)
 %% Local work is always performed in users process
+%只读事务
 multi_commit(read_only, _Maj = [], Tid, CR, _Store) ->
     %% This featherweight commit protocol is used when no
     %% updates has been performed in the transaction.
@@ -1421,12 +1424,18 @@ multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %%    the outcome with all the others. If all are uncertain
     %%    about the outcome, the transaction is aborted. If
     %%    somebody knows the outcome the others will follow.
-
+    %划分所有的提交节点为内存或磁盘
     {DiscNs, RamNs} = commit_nodes(CR, [], []),
+    %进入事务提交的准备状态，这时候事务还没有真正的提交完成
     Pending = mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
     ?ets_insert(Store, Pending),
-
+    %循环的发出提交申请到各参与的节点上
     {WaitFor, Local} = ask_commit(sym_trans, Tid, CR, DiscNs, RamNs),
+    %此处是死等，但是实际上也不是会彻底死等
+    %什么情况会发生死等呢
+    %在ask_commit之后，对端节点死掉了，但是在下一次Erts心跳之前
+    %对端节点又启动起来了,OK这就是个有意思的情况
+    %不过稍微知道点Mnesia原理很容易解决这问题和避免这个问题
     {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []),
     ?eval_debug_fun({?MODULE, multi_commit_sym},
 		    [{tid, Tid}, {outcome, Outcome}]),
@@ -2249,15 +2258,17 @@ fetch(Key, Info) ->
 %%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%  reconfigure stuff comes here ......
 %%%%%%%%%%%%%%%%%%%%%
-
+%重新配置协调者
 reconfigure_coordinators(N, [{Tid, [Store | _]} | Coordinators]) ->
     case mnesia_recover:outcome(Tid, unknown) of
 	committed ->
+	%事物已经被提交，等待回复中，且该节点在等待回复的节点中
 	    WaitingNodes = ?ets_lookup(Store, waiting_for_commit_ack),
 	    case lists:keymember(N, 2, WaitingNodes) of
 		false ->
 		    ignore; % avoid spurious mnesia_down messages
 		true ->
+			%像所有参与的其它节点发送当机的消息
 		    send_mnesia_down(Tid, Store, N)
 	    end;
 	aborted ->
@@ -2281,7 +2292,7 @@ send_to_pids([_ | Pids], Msg) ->
     send_to_pids(Pids, Msg);
 send_to_pids([], _Msg) ->
     ok.
-
+%重新配置事物的参与者
 reconfigure_participants(N, [P | Tail]) ->
     case lists:member(N, P#participant.disc_nodes) or
 	 lists:member(N, P#participant.ram_nodes) of
@@ -2296,7 +2307,9 @@ reconfigure_participants(N, [P | Tail]) ->
 	    %% participant or a coordinator.
 	    Tid  = P#participant.tid,
 	    if
+	    	%确定不是协调者，也就是事务发起者当机了
 		node(Tid#tid.pid) /= N ->
+			%非协调者当机，我们无视好了
 		    %% Another participant node died. Ignore.
 		    reconfigure_participants(N, Tail);
 

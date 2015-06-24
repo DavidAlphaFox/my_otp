@@ -110,7 +110,7 @@ tm_prepare(Cp) when is_record(Cp, checkpoint_args) ->
 	true ->
 	    {error, {already_exists, Name, node()}}
     end.
-
+%获取所有checkpoint，并逐个广播节点当机
 tm_mnesia_down(Node) ->
     lists:foreach(fun(Name) -> cast(Name, {mnesia_down, Node}) end,
 		  checkpoints()).

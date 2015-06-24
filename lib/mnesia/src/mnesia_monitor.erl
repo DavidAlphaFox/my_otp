@@ -139,7 +139,7 @@ disconnect(Node) ->
 negotiate_protocol([]) -> [];
 negotiate_protocol(Nodes) ->
     call({negotiate_protocol, Nodes}).
-
+%协议协商
 negotiate_protocol_impl(Nodes, Requester) ->
     Version    = mnesia:system_info(version),
     Protocols  = acceptable_protocol_versions(),
@@ -468,8 +468,10 @@ handle_call(Msg, _From, State) ->
 accept_protocol(Mon, Version, Protocol, From, State) ->
     Reply = {node(), {accept, self(), Version, Protocol}},
     Node = node(Mon),
+    %会把刚上线的节点从Pending状态中移出去
     Pending0 = State#state.pending_negotiators,
     Pending = lists:keydelete(Node, 1, Pending0),
+    %但是如果这个节点在going_down的状态中，则再次加入pending
     case lists:member(Node, State#state.going_down) of
 	true ->
 	    %% Wait for the mnesia_down to be processed,
@@ -498,19 +500,24 @@ accept_protocol(Mon, Version, Protocol, From, State) ->
 handle_cast({mnesia_down, mnesia_controller, Node}, State) ->
     mnesia_tm:mnesia_down(Node),
     {noreply, State};
-
+%mnesia事物管理器告诉我们某个节点当机了
 handle_cast({mnesia_down, mnesia_tm, Node}, State) ->
     Down = {mnesia_down, Node},
     mnesia_lib:report_system_event(Down),
+    %将该节点，从正在当机状态中删除掉
     GoingDown = lists:delete(Node, State#state.going_down),
     State2 = State#state{going_down = GoingDown},
     Pending = State#state.pending_negotiators,
+    %如果节点处在up状态，则进行检查，看是否真的当机了，稍后我们会收到是否当机的消息
     State3 = check_raise_conditon_nodeup(Node, State2),
+    %节点还处在协议协商阶段，对端节点当机了
     case lists:keysearch(Node, 1, Pending) of
 	{value, {Node, Mon, ReplyTo, Reply}} ->
 	    %% Late reply to remote monitor
+	    %链接远程的monitor，并回复，如果对端当机了，我们会收到link发出的当机消息
 	    link(Mon),  %% link to remote Monitor
 	    gen_server:reply(ReplyTo, Reply),
+	    %从Pending的状态中删除掉该节点
 	    P2 = lists:keydelete(Node, 1,Pending),
 	    State4 = State3#state{pending_negotiators = P2},
 	    process_q(State4);
@@ -558,15 +565,17 @@ handle_info({'EXIT', Pid, fatal}, State) when node(Pid) == node() ->
     %% It is better to kill an innocent process
     catch exit(whereis(mnesia_locker), kill),
     {noreply, State};
-
+%主动等待退出
 handle_info(Msg = {'EXIT',Pid,_}, State) ->
     Node = node(Pid),
     if
+    	%不是本节点，且不处在connecting状态
 	Node /= node(), State#state.connecting == undefined ->
 	    %% Remotly linked process died, assume that it was a mnesia_monitor
 	    mnesia_recover:mnesia_down(Node),
 	    mnesia_controller:mnesia_down(Node),
 	    {noreply, State#state{going_down = [Node | State#state.going_down]}};
+	    %如果不是本节点，但是正在和别的节点进行链接中，那么缓存消息，稍后处理
 	Node /= node() ->
 	    {noreply, State#state{mq = State#state.mq ++ [{info, Msg}]}};
 	true ->
@@ -794,9 +803,10 @@ patch_env(Env, Val) ->
 	    application_controller:set_env(mnesia, Env, NewVal),
 	    NewVal
     end.
-
+%这个Mon是本节点的Mon
 detect_partitioned_network(Mon, Node) ->
     detect_inconcistency([Node], running_partitioned_network),
+    %先unlink，再exit，避免给Mon节点带来不必要的消息压力
     unlink(Mon),
     exit(normal).
 
@@ -869,11 +879,12 @@ check_raise_conditon_nodeup(Node, State = #state{remote_node_status = RNodeS}) -
 check_mnesia_down(Node, State = #state{remote_node_status = RNodeS}) ->
     %% Check if the network has been partitioned
     %% due to communication failure.
-
+%检查是否脑裂，如果再mnesia_decision表中发现节点是否当机
     HasDown   = mnesia_recover:has_mnesia_down(Node),
     ImRunning = mnesia_lib:is_running(),
     if
 	%% If I'm not running the test will be made later.
+	%如果当机且我们处在运行状态，开启脑裂检查
 	HasDown == true, ImRunning == yes ->
 	    spawn_link(?MODULE, detect_partitioned_network, [self(), Node]),
 	    State#state{remote_node_status = lists:keydelete(Node, 1, RNodeS)};

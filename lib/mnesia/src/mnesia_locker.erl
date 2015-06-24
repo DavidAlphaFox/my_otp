@@ -143,7 +143,7 @@ receive_release_tid_acc([Node | Nodes], Tid) ->
     end;
 receive_release_tid_acc([], _Tid) ->
     ok.
-
+%mneisa节点当机了，直接释放和该节点相关的所有锁
 mnesia_down(Node, Pending) ->
     case whereis(?MODULE) of
 	undefined -> {error, node_not_running};

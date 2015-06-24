@@ -422,6 +422,8 @@ abcast(Name, Mess) ->
 
 abcast([Node|Tail], Name, Mess) ->
     Dest = {Name,Node},
+    %这么做的好处是不会让进程被trap
+    %从而保证了异步性
     case catch erlang:send(Dest, Mess, [noconnect]) of
 	noconnect -> spawn(erlang, send, [Dest,Mess]), ok;
 	_ -> ok

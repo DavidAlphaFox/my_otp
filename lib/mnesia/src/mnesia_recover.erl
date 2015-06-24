@@ -223,7 +223,7 @@ note_decision(Tid, Outcome) ->
 
 note_up(Node, _Date, _Time) ->
     ?ets_delete(mnesia_decision, Node).
-    
+%记录节点当机    
 note_down(Node, Date, Time) ->
     ?ets_insert(mnesia_decision, {mnesia_down, Node, Date, Time}).
     
@@ -297,6 +297,7 @@ get_mnesia_downs() ->
     [Node || {mnesia_down, Node, _Date, _Time} <- Downs].
 
 %% Check if we have got a mnesia_down from Node
+%检查下，给定的节点是否是掉了
 has_mnesia_down(Node) ->
     case ?ets_lookup(mnesia_decision, Node) of
 	[{mnesia_down, Node, _Date, _Time}] ->
@@ -546,7 +547,7 @@ note_log_decisions([What | Tail], InitBy) ->
     note_log_decisions(Tail, InitBy);
 note_log_decisions([], _InitBy) ->
     ok.
-
+%记录决议
 note_log_decision(NewD, InitBy) when NewD#decision.outcome == pre_commit ->
     note_log_decision(NewD#decision{outcome = unclear}, InitBy);
 
@@ -700,6 +701,7 @@ handle_call({connect_nodes, Ns}, From, State) ->
 	    cast({announce_all, GoodNodes}),
 	    case get_master_nodes(schema) of 
 		[] ->
+			%检查脑裂问题
 		    Context = starting_partitioned_network,
 		    mnesia_monitor:detect_inconcistency(GoodNodes, Context);
 		_ -> %% If master_nodes is set ignore old inconsistencies
