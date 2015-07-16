@@ -49,10 +49,14 @@
  * erl_module_nif. Two calls opening the same library will thus have the same
  * 'handle'.
  */
+//nif模块初始化后的数据
 struct erl_module_nif {
+//私有数据
     void* priv_data;
+//链接库的句柄
     void* handle;             /* "dlopen" */
     struct enif_entry_t* entry;
+//引用计数
     erts_refc_t rt_cnt;       /* number of resource types */
     erts_refc_t rt_dtor_cnt;  /* number of resource types with destructors */
     Module* mod;           /* Can be NULL if orphan with dtor-resources left */ 
@@ -1169,13 +1173,15 @@ int enif_fprintf(void* filep, const char* format, ...)
  **       Memory managed (GC'ed) "resource" objects       **
  ***********************************************************/
 
-
+//resource_type的定义
 struct enif_resource_type_t
 {
     struct enif_resource_type_t* next;   /* list of all resource types */
     struct enif_resource_type_t* prev;    
     struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
+//析构函数
     ErlNifResourceDtor* dtor;      /* user destructor function */
+//引用计数
     erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
                           +1 for active erl_module_nif */
     Eterm module;
@@ -1241,11 +1247,11 @@ static void steal_resource_type(ErlNifResourceType* type)
 	&& lib->mod == NULL) {
 	/* last type with destructor gone, close orphan lib */
 
-	close_lib(lib);
+		 close_lib(lib);
     }
     if (erts_refc_dectest(&lib->rt_cnt, 0) == 0
 	&& lib->mod == NULL) {
-	erts_free(ERTS_ALC_T_NIF, lib);
+		 erts_free(ERTS_ALC_T_NIF, lib);
     }
 }
 
@@ -1276,45 +1282,47 @@ enif_open_resource_type(ErlNifEnv* env,
 
     ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(module_str == NULL); /* for now... */
+//创建两个原子
     module_am = make_atom(env->mod_nif->mod->module);
     name_am = enif_make_atom(env, name_str);
-
+//尝试找出这个资源类型
     type = find_resource_type(module_am, name_am);
     if (type == NULL) {
-	if (flags & ERL_NIF_RT_CREATE) {
-	    type = erts_alloc(ERTS_ALC_T_NIF,
-			      sizeof(struct enif_resource_type_t));
-	    type->module = module_am;
-	    type->name = name_am;
-	    erts_refc_init(&type->refc, 1);
-	    op = ERL_NIF_RT_CREATE;
-	#ifdef DEBUG
-	    type->dtor = (void*)1;
-	    type->owner = (void*)2;
-	    type->prev = (void*)3;
-	    type->next = (void*)4;
-	#endif
-	}
-    }
-    else {
-	if (flags & ERL_NIF_RT_TAKEOVER) {
-	    op = ERL_NIF_RT_TAKEOVER;
-	}
-	else {
-	    type = NULL;
-	}
+		 //先创建一个资源类型
+		 if (flags & ERL_NIF_RT_CREATE) {
+			  //分配enif_resource_type_t
+			  type = erts_alloc(ERTS_ALC_T_NIF,
+								sizeof(struct enif_resource_type_t));
+			  type->module = module_am;
+			  type->name = name_am;
+			  //让资源类型引用计数为1
+			  erts_refc_init(&type->refc, 1);
+			  op = ERL_NIF_RT_CREATE;
+#ifdef DEBUG
+			  type->dtor = (void*)1;
+			  type->owner = (void*)2;
+			  type->prev = (void*)3;
+			  type->next = (void*)4;
+#endif
+		 }
+    }else {
+		 if (flags & ERL_NIF_RT_TAKEOVER) {
+			  op = ERL_NIF_RT_TAKEOVER;
+		 } else {
+			  type = NULL;
+		 }
     }
     if (type != NULL) {
-	struct opened_resource_type* ort = erts_alloc(ERTS_ALC_T_TMP,
-						sizeof(struct opened_resource_type));
-	ort->op = op;
-	ort->type = type;
-	ort->new_dtor = dtor;
-	ort->next = opened_rt_list;
-	opened_rt_list = ort;
+		 struct opened_resource_type* ort = erts_alloc(ERTS_ALC_T_TMP,
+													   sizeof(struct opened_resource_type));
+		 ort->op = op;
+		 ort->type = type;
+		 ort->new_dtor = dtor;
+		 ort->next = opened_rt_list;
+		 opened_rt_list = ort;
     }
     if (tried != NULL) {
-	*tried = op;
+		 *tried = op;
     }
     return type;
 }
@@ -1363,39 +1371,48 @@ static void rollback_opened_resource_types(void)
     }
 }
 
-
+//binary的通用析构函数
 static void nif_resource_dtor(Binary* bin)
 {
+//从binary中获得resource
     ErlNifResource* resource = (ErlNifResource*) ERTS_MAGIC_BIN_DATA(bin);
     ErlNifResourceType* type = resource->type;
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
-
+//如果用户定义的析构函数不空
     if (type->dtor != NULL) {
-	ErlNifEnv env;
-	pre_nif_noproc(&env, type->owner);
-	type->dtor(&env,resource->data);
-	post_nif_noproc(&env);
+		 ErlNifEnv env;
+		 pre_nif_noproc(&env, type->owner);
+		 type->dtor(&env,resource->data);
+		 post_nif_noproc(&env);
     }
+//减少资源类型引用计数
+//如果资源类型引用计数为0了，则释放资源类型
     if (erts_refc_dectest(&type->refc, 0) == 0) {
-	ASSERT(type->next == NULL);
-	ASSERT(type->owner != NULL);
-	ASSERT(type->owner->mod == NULL);
-	steal_resource_type(type);
-	erts_free(ERTS_ALC_T_NIF, type);
+		 ASSERT(type->next == NULL);
+		 ASSERT(type->owner != NULL);
+		 ASSERT(type->owner->mod == NULL);
+		 steal_resource_type(type);
+		 erts_free(ERTS_ALC_T_NIF, type);
     }
 }
 
 void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 {
+//SIZEOF_ErlNifResource宏计算出enif_resource_type_t＋size的总大小
+//Bin此时的引用为0
     Binary* bin = erts_create_magic_binary(SIZEOF_ErlNifResource(size), &nif_resource_dtor);
+//resource是magic_bin_data
     ErlNifResource* resource = ERTS_MAGIC_BIN_DATA(bin);
 
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
+//将binary的引用增加1
     erts_refc_inc(&bin->refc, 1);
 #ifdef DEBUG
     erts_refc_init(&resource->nif_refc, 1);
 #endif
+//将资源类型的引用增加1
+//其中传入的2，是为了调试用的
     erts_refc_inc(&resource->type->refc, 2);
     return resource->data;
 }
@@ -1409,8 +1426,9 @@ void enif_release_resource(void* obj)
 #ifdef DEBUG
     erts_refc_dec(&resource->nif_refc, 0);
 #endif
+//只释放binary的引用计数，而不释放资源类型的
     if (erts_refc_dectest(&bin->binary.refc, 0) == 0) {
-	erts_bin_free(&bin->binary);
+		 erts_bin_free(&bin->binary);
     }
 }
 
@@ -1430,7 +1448,9 @@ ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_DATA(resource);
+//需要在当前堆上分配一点空间
     Eterm* hp = alloc_heap(env,PROC_BIN_SIZE);
+//该操作会增加引用计数
     return erts_mk_magic_binary_term(&hp, &MSO(env->proc), &bin->binary);
 }
 

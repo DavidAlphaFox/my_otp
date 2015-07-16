@@ -318,11 +318,12 @@ erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ASSERT(bsize > size);
     if (!bptr)
-	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
+		 erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
     bptr->flags = BIN_FLAG_MAGIC;
     bptr->orig_size = ERTS_MAGIC_BIN_ORIG_SIZE(size);
     erts_refc_init(&bptr->refc, 0);
+	//设置析构函数
     ERTS_MAGIC_BIN_DESTRUCTOR(bptr) = destructor;
     return bptr;
 }
