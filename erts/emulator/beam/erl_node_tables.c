@@ -717,7 +717,7 @@ erts_set_this_node(Eterm sysname, Uint creation)
     erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
 
 }
-
+//初始化，节点列表
 void erts_init_node_tables(void)
 {
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;

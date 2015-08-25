@@ -3147,7 +3147,7 @@ static ErtsNodesMonitor *nodes_monitors_end;
  * process struct refers to the first element in the sequence
  * corresponding to the process in question.
  */
-
+//初始化monitors相关的锁和列表
 static void
 init_nodes_monitors(void)
 {

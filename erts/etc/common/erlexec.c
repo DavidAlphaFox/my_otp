@@ -393,7 +393,7 @@ add_extra_suffixes(char *prog, int type)
 
    return res;
 }
-
+//erl脚本调用份是erlexec文件
 #ifdef __WIN32__
 __declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module, int windowed)
 #else

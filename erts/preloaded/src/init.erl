@@ -692,7 +692,7 @@ sleep(T) -> receive after T -> ok end.
 %%% Start the loader. 
 %%% The loader shall run for ever!
 %%% -------------------------------------------------
-
+%启动prim_loader
 start_prim_loader(Init,Id,Pgm,Nodes,Path,{Pa,Pz}) ->
     case erl_prim_loader:start(Id,Pgm,Nodes) of
 	{ok,Pid} when Path =:= false ->
@@ -716,7 +716,7 @@ add_to_kernel(Init,Pid) ->
 	    unlink(Pid),
 	    ok
     end.
-
+%加载器，默认是文件
 prim_load_flags(Flags) ->
     PortPgm = get_flag('-loader',Flags,<<"efile">>),
     Hosts = get_flag_list('-hosts', Flags, []),
@@ -729,7 +729,7 @@ prim_load_flags(Flags) ->
 %%% all modules specified and starts spec. processes.
 %%% Processes specified with -s or -run are finally started.
 %%% -------------------------------------------------
-
+%加载Erlang的启动镜像，进行启动
 do_boot(Flags,Start) ->
     Self = self(),
     spawn_link(fun() -> do_boot(Self,Flags,Start) end).
@@ -787,7 +787,7 @@ get_boot(BootFile0,Root) ->
 	_ ->
 	    exit({'bootfile format error',list_to_atom(BootFile)})
     end.
-    
+%获取启动列表    
 get_boot(BootFile) ->
     case erl_prim_loader:get_file(BootFile) of
 	{ok,Bin,_} ->

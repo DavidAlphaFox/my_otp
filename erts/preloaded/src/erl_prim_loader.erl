@@ -308,7 +308,7 @@ check_file_result(_, _, Other) ->
 %%% --------------------------------------------------------
 %%% The main loop.
 %%% --------------------------------------------------------
-
+%prim loader的主循环
 loop(State, Parent, Paths) ->
     receive
         {Pid,Req} when is_pid(Pid) ->

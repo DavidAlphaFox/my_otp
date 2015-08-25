@@ -435,7 +435,7 @@ ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
  * Exported functions
  * --------------------------------------------------------------------------
  */
-
+//初始化，Erlang的一个线程
 int
 ethr_init(ethr_init_data *id)
 {

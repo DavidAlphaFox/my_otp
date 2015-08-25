@@ -83,7 +83,7 @@ static int find_errcode(char *string, ErtsSysDdllError* err)
     errcodes[num_errcodes++] = my_strdup(string);
     return (num_errcodes - 1);
 }
-
+//用来检测dlopen在Linux上的Bug
 void erl_sys_ddll_init(void) {
 #if defined(HAVE_DLOPEN) && defined(ERTS_NEED_DLOPEN_BEFORE_DLERROR)
     /*

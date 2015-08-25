@@ -467,9 +467,9 @@ load_preloaded(void)
     byte* code;
     char* name;
     int length;
-
+//preload直接内嵌到了erts中了
     if ((preload_p = sys_preloaded()) == NULL) {
-	return;
+	   return;
     }
     i = 0;
     while ((name = preload_p[i].name) != NULL) {

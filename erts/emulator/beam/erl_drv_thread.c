@@ -116,7 +116,7 @@ erl_drv_thread_wrapper(void *vdtid)
 }
 
 #endif
-
+//驱动线程初始化
 void erl_drv_thr_init(void)
 {
     int i;
