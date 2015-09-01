@@ -1872,6 +1872,11 @@ void process_main(void)
      * Pick up the next message and place it in x(0).
      * If no message, jump to a wait or wait_timeout instruction.
      */
+    /*
+      此处将一个消息先取出来，循环一次整个模式匹配
+      然后再取出下一条消息，再次循环模式匹配
+      M * N的算法
+    */
  OpCase(i_loop_rec_fr):
  {
      BeamInstr *next;
@@ -1896,7 +1901,7 @@ void process_main(void)
 //消息匹配之前，先将msg_inq的消息移动到msg上
 //只有在msg上的消息才能被匹配，msg_inq相当一个缓冲
 //当msg在进行匹配的时候，依然能让别的Erlang进程对
-//当前正在执行的Erlang进程发消息切不阻塞发送进程
+//当前正在执行的Erlang进程发消息且不阻塞发送进程
 		  ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
 		  msgp = PEEK_MESSAGE(c_p);
 		  if (msgp){
