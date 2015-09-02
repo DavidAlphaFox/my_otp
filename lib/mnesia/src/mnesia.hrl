@@ -54,7 +54,7 @@
          level = 1}).     %% transaction level
 
 -define(unique_cookie, {erlang:now(), node()}).
-
+%% cstruct,从结构上看是对一个表的细节描述
 -record(cstruct, {name,                            % Atom
 		  type = set,                      % set | bag
 		  ram_copies = [],                 % [Node]

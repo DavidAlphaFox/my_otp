@@ -1239,6 +1239,7 @@ do_add_table_copy(Tab,Node,_) ->
 make_add_table_copy(Tab, Node, Storage) ->
     ensure_writable(schema),
     Cs = incr_version(val({Tab, cstruct})),
+    %% 计算Node数量
     Ns = mnesia_lib:cs_to_nodes(Cs),
     verify(false, lists:member(Node, Ns), {already_exists, Tab, Node}),
     Cs2 = new_cs(Cs, Node, Storage, add),
