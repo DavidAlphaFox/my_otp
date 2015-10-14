@@ -11054,6 +11054,8 @@ delete_process(Process* p)
 		 erts_free(ERTS_ALC_T_PSD, p->psd);
 	}
     /* Clean binaries and funs */
+    //在进程彻底退出的时候会进行off_heap的清理
+    //另一个进行清理的时间是full_gc
     erts_cleanup_offheap(&p->off_heap);
 
     /*

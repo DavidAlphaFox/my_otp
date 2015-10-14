@@ -163,7 +163,8 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
     return nbp;
 }
 
-
+// 对erlang的offheap进行清理
+// 只有引用计数为0的时候才进行删除
 void
 erts_cleanup_offheap(ErlOffHeap *offheap)
 {
