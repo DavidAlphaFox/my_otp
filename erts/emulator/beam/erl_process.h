@@ -966,6 +966,7 @@ struct process {
 //进行了多少次MirrorGC
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
+//不存在堆上的数据，用copy_struct来更新
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
     ErlHeapFragment* mbuf;	/* Pointer to message buffer list */
     Uint mbuf_sz;		/* Size of all message buffers */

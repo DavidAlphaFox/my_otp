@@ -1917,6 +1917,7 @@ void process_main(void)
 		  }
      }
 //这是一个宏不是一个函数
+//将消息的附加信息移动到堆上
      ErtsMoveMsgAttachmentIntoProc(msgp, c_p, E, HTOP, FCALLS,
 								   {
 										SWAPOUT;
@@ -2419,7 +2420,7 @@ void process_main(void)
      HTOP = hp;
      Goto(*I);
  }
-
+//创建新的map对象
  OpCase(new_map_jdII): {
      Eterm res;
 
@@ -3834,6 +3835,7 @@ get_map_elements_fail:
       * alloc = Total number of words to allocate on heap
       * Operands: NotUsed NotUsed Dst
       */
+      //如果binary小于64字节，那么是准许在堆上直接构建的
      if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
 	 ErlHeapBin* hb;
 
@@ -3983,6 +3985,7 @@ get_map_elements_fail:
 	 /*
 	  * Now allocate the ProcBin on the heap.
 	  */
+   //在堆上保存对Binary的引用结构ProcBin
 	 pb = (ProcBin *) HTOP;
 	 HTOP += PROC_BIN_SIZE;
 	 pb->thing_word = HEADER_PROC_BIN;
@@ -4014,7 +4017,7 @@ get_map_elements_fail:
 	 {
 	     ErlHeapBin* hb;
 	     Uint bin_need;
-
+      //在heap上直接分配一个binary大小＋heap_bin_header的大小
 	     bin_need = heap_bin_size(tmp_arg1);
 	     erts_bin_offset = 0;
 	     erts_writable_bin = 0;

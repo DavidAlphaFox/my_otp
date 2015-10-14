@@ -299,7 +299,7 @@ ERTS_GLB_INLINE Eterm erts_mk_magic_binary_term(Eterm **hpp,
 						Binary *mbp);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
+//在当前进程的堆上构建ProcBin结构
 ERTS_GLB_INLINE Eterm
 erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
 {
@@ -724,7 +724,7 @@ Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
 #  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
 
 #else /* !HALFWORD_HEAP */
-
+//此处是非halfword的
 Uint size_object(Eterm);
 #  define size_object_rel(A,B) size_object(A)
 

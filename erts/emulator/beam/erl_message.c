@@ -500,7 +500,8 @@ queue_message(Process *c_p,
 		 message_free(mp);
 		 return 0;
     }
-
+//从此处可以看出，放入目标进程的消息，只是对当前进程的消息的一个指针应用
+//那我们需要找出，message是如何被处理的，何时增加的引用计数
     ERL_MESSAGE_TERM(mp) = message;
     ERL_MESSAGE_TOKEN(mp) = seq_trace_token;
 #ifdef USE_VM_PROBES
@@ -866,7 +867,7 @@ erts_msg_attached_data_size_aux(ErlMessage *msg)
     }
     return sz;
 }
-
+//message中的数据移动到当前进程的堆上
 void
 erts_move_msg_attached_data_to_heap(Eterm **hpp, ErlOffHeap *ohp, ErlMessage *msg)
 {

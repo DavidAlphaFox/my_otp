@@ -1370,7 +1370,7 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3);
 	res = erts_proc_get_error_handler(BIF_P);
 	break;
-
+//获取当前堆的大小
     case am_heap_size: {
 	Uint hsz = 3;
 	(void) erts_bld_uint(NULL, &hsz, HEAP_SIZE(rp));
@@ -1411,11 +1411,11 @@ process_info_aux(Process *BIF_P,
 	total_heap_size = rp->heap_sz;
 	if (rp->old_hend && rp->old_heap)
 	    total_heap_size += rp->old_hend - rp->old_heap;
-
+    //heap的大小要加上mbuf_sz的大小
 	total_heap_size += rp->mbuf_sz;
 
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
-
+    //遍历消息队列，如果有attch的话就算进total_heap_size上
 	for (mp = rp->msg.first; mp; mp = mp->next)
 	    if (mp->data.attached)
 		total_heap_size += erts_msg_attached_data_size(mp);
@@ -1487,7 +1487,7 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3);
 	res = make_small(ERTS_TRACE_FLAGS(rp) & TRACEE_FLAGS);
 	break;
-
+    //binary实际上是获得off_heap的大小
     case am_binary: {
 	Uint sz = 3;
 	(void) bld_bin_list(NULL, &sz, &MSO(rp));

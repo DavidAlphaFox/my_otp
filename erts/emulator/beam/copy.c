@@ -196,6 +196,7 @@ Uint size_object(Eterm obj)
 /*
  *  Copy a structure to a heap.
  */
+ //向堆中复制结构体
 #if HALFWORD_HEAP
 Eterm copy_struct_rel(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
                       Eterm* src_base, Eterm* dst_base)

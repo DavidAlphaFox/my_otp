@@ -11281,7 +11281,7 @@ save_pending_exiter(Process *p)
  * This function delivers an EXIT message to a process
  * which is trapping EXITs.
  */
-
+//发送死亡消息给关心该进程的进程
 static ERTS_INLINE void
 send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 		  Eterm exit_term, Uint term_size, Eterm token)
