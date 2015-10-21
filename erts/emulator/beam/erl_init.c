@@ -1174,7 +1174,7 @@ static void set_main_stack_size(void)
     }
 }
 #endif
-
+//erlang虚拟机，启动函数
 void
 erl_start(int argc, char **argv)
 {
@@ -1996,9 +1996,12 @@ erl_start(int argc, char **argv)
     erl_first_process_otp("otp_ring0", NULL, 0, boot_argc, boot_argv);
 
 #ifdef ERTS_SMP
+	//创建调度器
     erts_start_schedulers();
     /* Let system specific code decide what to do with the main thread... */
-
+	//主线程并不做什么实际的事情
+	//只是一个空的select，如果准许处理信号
+	//则住线程久标称信号处理线程
     erts_sys_main_thread(); /* May or may not return! */
 #else
     erts_thr_set_main_status(1, 1);

@@ -446,6 +446,9 @@ typedef struct {
  * thr_create_prepare() is called in parent thread before thread creation.
  * Returned value is passed as argument to thr_create_cleanup().
  */
+//为了创建子线程，父线程必需创建相关数据
+//其中包括需要屏蔽的信号
+//调度器数据等
 static void *
 thr_create_prepare(void)
 {
@@ -463,6 +466,7 @@ thr_create_prepare(void)
 
 
 /* thr_create_cleanup() is called in parent thread after thread creation. */
+//在父线程创建新的线程后，子线程调用函数
 static void
 thr_create_cleanup(void *vtcdp)
 {
@@ -556,7 +560,8 @@ erts_sys_pre_init(void)
 #endif
 #endif /* USE_THREADS */
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
-
+//为了保持兼容
+//erlang必须打开前3个句柄
     {
       /*
        * Unfortunately we depend on fd 0,1,2 in the old shell code.
@@ -567,10 +572,10 @@ erts_sys_pre_init(void)
       int fd;
       /* Make sure fd 0 is open */
       if ((fd = open("/dev/null", O_RDONLY)) != 0)
-	close(fd);
+		   close(fd);
       /* Make sure fds 1 and 2 are open */
       while (fd < 3) {
-	fd = open("/dev/null", O_WRONLY);
+		   fd = open("/dev/null", O_WRONLY);
       }
       close(fd);
     }
@@ -625,7 +630,7 @@ erl_sys_init(void)
     /* we save this so the break handler can set and reset it properly */
     /* also so that we can reset on exit (break handler or not) */
     if (isatty(0)) {
-	tcgetattr(0,&initial_tty_mode);
+		 tcgetattr(0,&initial_tty_mode);
     }
     tzset(); /* Required at least for NetBSD with localtime_r() */
 }
@@ -818,9 +823,11 @@ break_requested(void)
 #ifdef DEBUG			
   fprintf(stderr,"break!\n");
 #endif
+  //如果已经设置标志位
+  //再次收到该信号，直接退出
   if (ERTS_BREAK_REQUESTED)
       erl_exit(ERTS_INTR_EXIT, "");
-
+//设置标志位
   ERTS_SET_BREAK_REQUESTED;
   ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 }
@@ -832,6 +839,7 @@ static RETSIGTYPE request_break(void)
 static RETSIGTYPE request_break(int signum)
 #endif
 {
+	 //在多核心的模式下使用的是notify形式
 #ifdef ERTS_SMP
     smp_sig_notify('I');
 #else
@@ -917,6 +925,10 @@ static RETSIGTYPE do_quit(int signum)
 }
 
 /* Disable break */
+//默认屏蔽的信号
+//SIGINT是终端中断字符control-c
+//SIGQUIT是退出字符control-\,但是这个不适用进程无响应的时候
+//SIGTSTP是作业控制的终止信号control-z
 void erts_set_ignore_break(void) {
     sys_sigset(SIGINT,  SIG_IGN);
     sys_sigset(SIGQUIT, SIG_IGN);
@@ -943,6 +955,7 @@ void erts_replace_intr(void) {
 
 void init_break_handler(void)
 {
+//初始化control-c的信号处理
    sys_sigset(SIGINT, request_break);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_sigset(SIGUSR1, user_signal1);
@@ -2909,14 +2922,14 @@ erl_sys_schedule(int runnable)
 #ifdef ERTS_SMP
 
 static erts_smp_tid_t sig_dispatcher_tid;
-
+//向特定的句柄写入notify的信息
 static void
 smp_sig_notify(char c)
 {
     int res;
     do {
 	/* write() is async-signal safe (according to posix) */
-	res = write(sig_notify_fds[1], &c, 1);
+		 res = write(sig_notify_fds[1], &c, 1);
     } while (res < 0 && errno == EINTR);
     if (res != 1) {
 	char msg[] =
