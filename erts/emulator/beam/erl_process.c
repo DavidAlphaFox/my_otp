@@ -1210,24 +1210,24 @@ erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flags)
 //判断是什么类型的休眠，然后唤醒
     switch (flags & ERTS_SSI_FLGS_SLEEP_TYPE) {
     case ERTS_SSI_FLG_POLL_SLEEPING:
-	erts_sys_schedule_interrupt(1);
-	break;
+		 erts_sys_schedule_interrupt(1);
+		 break;
     case ERTS_SSI_FLG_POLL_SLEEPING|ERTS_SSI_FLG_TSE_SLEEPING:
-	/*
-	 * Thread progress blocking while poll sleeping; need
-	 * to signal on both...
-	 */
-	erts_sys_schedule_interrupt(1);
-	/* fall through */
+		 /*
+		  * Thread progress blocking while poll sleeping; need
+		  * to signal on both...
+		  */
+		 erts_sys_schedule_interrupt(1);
+		 /* fall through */
     case ERTS_SSI_FLG_TSE_SLEEPING:
-	erts_tse_set(ssi->event);
-	break;
+		 erts_tse_set(ssi->event);
+		 break;
     case 0:
-	break;
+		 break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n",
-		 __FILE__, __LINE__);
-	break;
+		 erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n",
+				  __FILE__, __LINE__);
+		 break;
     }
 }
 
@@ -2554,7 +2554,7 @@ erts_non_empty_runq(ErtsRunQueue *rq)
 {
     non_empty_runq(rq);
 }
-
+//调度器准备进入等待状态
 static erts_aint32_t
 sched_prep_spin_wait(ErtsSchedulerSleepInfo *ssi)
 {
@@ -2564,10 +2564,10 @@ sched_prep_spin_wait(ErtsSchedulerSleepInfo *ssi)
     erts_aint32_t xflgs = 0;
 
     do {
-	oflgs = erts_smp_atomic32_cmpxchg_acqb(&ssi->flags, nflgs, xflgs);
-	if (oflgs == xflgs)
-	    return nflgs;
-	xflgs = oflgs;
+		 oflgs = erts_smp_atomic32_cmpxchg_acqb(&ssi->flags, nflgs, xflgs);
+		 if (oflgs == xflgs)
+			  return nflgs;
+		 xflgs = oflgs;
     } while (!(oflgs & ERTS_SSI_FLG_SUSPENDED));
     return oflgs;
 }
@@ -2739,7 +2739,7 @@ aux_thread(void *unused)
 	    erts_thr_progress_prepare_wait(NULL);
 
 	    ERTS_SCHED_FAIR_YIELD();
-
+//非辅助线程会调用该函数
 	    flgs = sched_spin_wait(ssi, 0);
 
 	    if (flgs & ERTS_SSI_FLG_SLEEPING) {
@@ -2763,7 +2763,7 @@ aux_thread(void *unused)
 }
 
 #endif /* ERTS_SMP */
-
+//调度器等待
 static void
 scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 {
@@ -2779,26 +2779,26 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 #ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	erts_smp_spin_lock(&rq->sleepers.lock);
+		 erts_smp_spin_lock(&rq->sleepers.lock);
 #endif
     flgs = sched_prep_spin_wait(ssi);
     if (flgs & ERTS_SSI_FLG_SUSPENDED) {
 	/* Go suspend instead... */
 #ifdef ERTS_DIRTY_SCHEDULERS
-	if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	    erts_smp_spin_unlock(&rq->sleepers.lock);
+		 if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
+			  erts_smp_spin_unlock(&rq->sleepers.lock);
 #endif
-	return;
+		 return;
     }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
-	ssi->prev = NULL;
-	ssi->next = rq->sleepers.list;
-	if (rq->sleepers.list)
-	    rq->sleepers.list->prev = ssi;
-	rq->sleepers.list = ssi;
-	erts_smp_spin_unlock(&rq->sleepers.lock);
+		 ssi->prev = NULL;
+		 ssi->next = rq->sleepers.list;
+		 if (rq->sleepers.list)
+			  rq->sleepers.list->prev = ssi;
+		 rq->sleepers.list = ssi;
+		 erts_smp_spin_unlock(&rq->sleepers.lock);
     }
 #endif
 
@@ -6327,7 +6327,7 @@ scheduler_ix_resume_wake(Uint ix)
     ErtsSchedulerSleepInfo *ssi = ERTS_SCHED_SLEEP_INFO_IX(ix);
     scheduler_ssi_resume_wake(ssi);
 }
-
+//调度器唤醒
 static void
 scheduler_ssi_resume_wake(ErtsSchedulerSleepInfo *ssi)
 {
@@ -9230,7 +9230,7 @@ Process *schedule(Process *p, int calls)
 		}
 	    }
 #endif
-
+//调度器进入等待态
 	    scheduler_wait(&fcalls, esdp, rq);
 
 #ifdef ERTS_SMP

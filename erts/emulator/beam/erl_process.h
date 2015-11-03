@@ -290,7 +290,7 @@ typedef struct {
     ErtsSchedulerSleepInfo *list;
 } ErtsSchedulerSleepList;
 #endif
-
+//调度器休眠信息
 struct ErtsSchedulerSleepInfo_ {
 #ifdef ERTS_SMP
     ErtsSchedulerSleepInfo *next;
@@ -558,7 +558,7 @@ typedef union {
     Uint no;
 } ErtsDirtySchedId;
 #endif
-
+//调度器附加数据
 struct ErtsSchedulerData_ {
     /*
      * Keep X registers first (so we get as many low
