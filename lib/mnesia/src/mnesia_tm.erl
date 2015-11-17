@@ -57,7 +57,7 @@
 -record(state, {coordinators = gb_trees:empty(), participants = gb_trees:empty(), supervisor,
 		blocked_tabs = [], dirty_queue = [], fixed_tabs = []}).
 %% Format on coordinators is [{Tid, EtsTabList} .....
-
+%% 默认的prep记录都是空的，提交方式为同步提交
 -record(prep, {protocol = sym_trans,
 	       %% async_dirty | sync_dirty | sym_trans | sync_sym_trans | asym_trans
 	       records = [],
@@ -1099,6 +1099,7 @@ my_process_is_alive(Pid) ->
 dirty(Protocol, Item) ->
     {{Tab, Key}, _Val, _Op} = Item,
     Tid = {dirty, self()},
+	%% dirty只有protocol被设置了值
     Prep = prepare_items(Tid, Tab, Key, [Item], #prep{protocol= Protocol}),
     CR =  Prep#prep.records,
     case Protocol of
@@ -1254,7 +1255,7 @@ prepare_schema_items(Tid, Items, Prep) ->
     Types = [{N, schema_ops} || N <- val({current, db_nodes})],
     Recs = prepare_nodes(Tid, Types, Items, Prep#prep.records, schema),
     Prep#prep{protocol = asym_trans, records = Recs}.
-
+%% 建立准备提交的数据Record
 %% Returns a prep record with all items in reverse order
 prepare_items(Tid, Tab, Key, Items, Prep) when Prep#prep.prev_tab == Tab ->
     Types = Prep#prep.prev_types,
@@ -1866,7 +1867,7 @@ do_update_op(Tid, Storage, {{Tab, K}, Obj, write}) ->
     commit_write(?catch_val({Tab, commit_work}), Tid,
 		 Tab, K, Obj, undefined),
     mnesia_lib:db_put(Storage, Tab, Obj);
-
+%% 删除操作
 do_update_op(Tid, Storage, {{Tab, K}, Val, delete}) ->
     commit_delete(?catch_val({Tab, commit_work}), Tid, Tab, K, Val, undefined),
     mnesia_lib:db_erase(Storage, Tab, K);

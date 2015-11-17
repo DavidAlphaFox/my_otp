@@ -221,7 +221,7 @@ sappend(Log, Bin) when is_binary(Bin) ->
     ok = disk_log:blog(Log, Bin);
 sappend(Log, Term) ->
     ok = disk_log:log(Log, Term).
-
+%% 如果没有磁盘表则直接忽略日志这件事情
 %% Write commit records to the latest_log
 log(C) when  C#commit.disc_copies == [],
              C#commit.disc_only_copies  == [],
