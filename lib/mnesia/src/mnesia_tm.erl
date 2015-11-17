@@ -1094,7 +1094,8 @@ my_process_is_alive(Pid) ->
 		_ -> true
 	    end
     end.
-
+%% Protocol为模式
+%% Item 为操作和操作的参数
 dirty(Protocol, Item) ->
     {{Tab, Key}, _Val, _Op} = Item,
     Tid = {dirty, self()},
@@ -1105,7 +1106,7 @@ dirty(Protocol, Item) ->
 	    %% Send commit records to the other involved nodes,
 	    %% but do only wait for one node to complete.
 	    %% Preferrably, the local node if possible.
-
+		
 	    ReadNode = val({Tab, where_to_read}),
 	    {WaitFor, FirstRes} = async_send_dirty(Tid, CR, Tab, ReadNode),
 	    rec_dirty(WaitFor, FirstRes);
@@ -1817,7 +1818,8 @@ do_abort(Tid, Bin) when is_binary(Bin) ->
 do_abort(Tid, Commit) ->
     mnesia_schema:undo_prepare_commit(Tid, Commit),
     Commit.
-
+%% 添加日志
+%% 直接commit
 do_dirty(Tid, Commit) when Commit#commit.schema_ops == [] ->
     mnesia_log:log(Commit),
     do_commit(Tid, Commit).
@@ -2062,7 +2064,7 @@ rec_dirty([Node | Tail], Res) when Node /= node() ->
     rec_dirty(Tail, NewRes);
 rec_dirty([], Res) ->
     Res.
-
+%% 接收操作结果
 get_dirty_reply(Node, Res) ->
     receive
 	{?MODULE, Node, {'EXIT', Reason}} ->
