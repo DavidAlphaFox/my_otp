@@ -260,7 +260,7 @@ close(S) ->
       Socket :: socket(),
       Packet :: iodata(),
       Reason :: closed | inet:posix().
-
+%% 此处可以看出，Socket是可以跨Erlang进程的
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
