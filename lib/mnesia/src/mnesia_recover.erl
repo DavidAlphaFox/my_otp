@@ -100,7 +100,7 @@ next_check_overload() ->
     Pid = whereis(mnesia_recover),
     erlang:send_after(timer:seconds(10), Pid, check_overload).
 
-
+%% 检查事务是否过载
 do_check_overload(S) ->
     %% Time to check if mnesia_tm is overloaded
     case whereis(mnesia_tm) of
@@ -108,6 +108,7 @@ do_check_overload(S) ->
         Threshold = 100,
         Prev = S#state.tm_queue_len,
         {message_queue_len, Len} =
+		%% mneisa事务管理器中的消息数量太多了
         process_info(Pid, message_queue_len),
         if
         Len > Threshold, Prev > Threshold ->
