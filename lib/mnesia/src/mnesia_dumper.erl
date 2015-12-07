@@ -108,6 +108,7 @@ perform_dump(InitBy, Regulator) when InitBy == scan_decisions ->
     scan_decisions(mnesia_log:latest_log_file(), InitBy, Regulator);
 
 %% Propagate the log into the DAT-files
+%% 将最终的数据日志写入DAT文件
 perform_dump(InitBy, Regulator) ->
     ?eval_debug_fun({?MODULE, perform_dump}, [InitBy]),
     LogState = mnesia_log:prepare_log_dump(InitBy),

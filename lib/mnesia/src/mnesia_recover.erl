@@ -216,7 +216,7 @@ cast(Msg) ->
 
 abcast(Nodes, Msg) ->
     gen_server:abcast(Nodes, ?MODULE, Msg).
-
+%% 添加所有节点的决议的结果
 note_decision(Tid, Outcome) ->
     Tab = val(latest_transient_decision),
     ?ets_insert(Tab, #transient_decision{tid = Tid, outcome = Outcome}).

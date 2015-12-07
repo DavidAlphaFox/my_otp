@@ -580,11 +580,12 @@ get_tid_ts_and_lock(Tab, Intent) ->
 	_ ->
 	    mnesia:abort(no_transaction)
     end.
-
+%% 元信息表(schema)事务
 schema_transaction(Fun) ->
     case get(mnesia_activity_state) of
 	undefined ->
 	    Args = [self(), Fun, whereis(mnesia_controller)],
+			%% 创建事务协调者进程
 	    Pid = spawn_link(?MODULE, schema_coordinator, Args),
 	    receive
 		{transaction_done, Res, Pid} -> Res;
@@ -605,7 +606,7 @@ schema_coordinator(Client, _Fun, undefined) ->
 schema_coordinator(Client, Fun, Controller) when is_pid(Controller) ->
     %% Do not trap exit in order to automatically die
     %% when the controller dies
-
+	%% 和controller进行关联
     link(Controller),
     unlink(Client),
 
@@ -1229,7 +1230,7 @@ make_clear_table(Tab) ->
 
 add_table_copy(Tab, Node, Storage) ->
     schema_transaction(fun() -> do_add_table_copy(Tab, Node, Storage) end).
-
+%% schema事物下执行，表添加
 do_add_table_copy(Tab, Node, Storage) when is_atom(Tab), is_atom(Node) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     insert_schema_ops(TidTs, make_add_table_copy(Tab, Node, Storage));
@@ -1238,6 +1239,7 @@ do_add_table_copy(Tab,Node,_) ->
 
 make_add_table_copy(Tab, Node, Storage) ->
     ensure_writable(schema),
+	%% 进行版本自增
     Cs = incr_version(val({Tab, cstruct})),
     %% 计算Node数量
     Ns = mnesia_lib:cs_to_nodes(Cs),

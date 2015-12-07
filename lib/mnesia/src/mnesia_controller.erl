@@ -193,7 +193,7 @@ start() ->
 			  [{timeout, infinity}
 			   %% ,{debug, [trace]}
 			  ]).
-
+%% 同步dump日志
 sync_dump_log(InitBy) ->
     call({sync_dump_log, InitBy}).
 
@@ -638,7 +638,7 @@ init([Parent]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, Reply, State}     (terminate/2 is called)
 %%----------------------------------------------------------------------
-
+%% 同步dump日志
 handle_call({sync_dump_log, InitBy}, From, State) ->
     Worker = #dump_log{initiated_by = InitBy,
 		       opt_reply_to = From

@@ -2141,7 +2141,8 @@ rec_all([Node | Tail], Tid, Res, Pids) ->
 	    rec_all(Tail, Tid, Res, Pids);
 	{?MODULE, Node, {aborted, Tid}} ->
 	    rec_all(Tail, Tid, Res, Pids);
-
+	%% 远程的mnesia节点挂掉了
+	%% monitor进程会告诉我们Mnesia集群中的某个节点Down掉了
 	{mnesia_down, Node} ->
 	    %% Make sure that mnesia_tm knows it has died
 	    %% it may have been restarted

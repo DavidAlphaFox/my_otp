@@ -2556,7 +2556,7 @@ set_master_nodes(Tab, Nodes) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Misc admin
-
+%% 直接请求dump_log
 dump_log() ->
     mnesia_controller:sync_dump_log(user).
 
