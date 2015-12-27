@@ -306,6 +306,7 @@ allocate(#file_descriptor{module = ?MODULE, data = {Port, _}}, Offset, Length) -
     drv_command(Port, Cmd).
 
 %% Returns {error, Reason} | ok.
+%% 此处未必真的写入磁盘
 write(#file_descriptor{module = ?MODULE, data = {Port, _}}, Bytes) ->
     case drv_command_nt(Port, [?FILE_WRITE,erlang:dt_prepend_vm_tag_data(Bytes)],undefined) of
 	{ok, _Size} ->
