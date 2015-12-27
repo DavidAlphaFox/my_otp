@@ -414,7 +414,8 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
     if (flags & EFILE_MODE_EXCL) {
 	mode |= O_EXCL;
     }
-
+// 如果文件模式中有SYNC的时候
+//需要操作系统支持O_SYNC操作	
     if (flags & EFILE_MODE_SYNC) {
 #ifdef O_SYNC
 	mode |= O_SYNC;
@@ -423,7 +424,7 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 	return check_error(-1, errInfo);
 #endif
     }
-
+	
     fd = open(name, mode, FILE_MODE);
 
     if (!check_error(fd, errInfo))
