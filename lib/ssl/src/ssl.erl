@@ -563,7 +563,7 @@ do_connect(Address, Port,
 	exit:{badarg, _} ->
 	    {error, {options, {socket_options, UserOpts}}}
     end.
-
+%% 处理SSL选项
 %% Handle extra ssl options given to ssl_accept
 handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
 				   cacertfile = CaCertFile0} = InheritedSslOpts) ->
