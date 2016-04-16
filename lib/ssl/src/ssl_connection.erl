@@ -67,6 +67,7 @@
 %%
 %% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
+%% 启动fsm
 connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
     try Connection:start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
 			     Timeout)
