@@ -1725,7 +1725,7 @@ strong_rand_mpint(Bits, Top, Bottom) ->
     end.
 strong_rand_mpint_nif(_Bits, _Top, _Bottom) -> ?nif_stub.
 
-
+%% 检查最大32bit证书
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
 mpint(X) when X < 0 -> mpint_neg(X);
