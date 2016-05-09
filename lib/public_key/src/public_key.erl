@@ -452,6 +452,7 @@ sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
 	     | dsa_public_key() | ec_public_key()) -> boolean().
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
+%% 直接使用crypto的verify函数
 verify(DigestOrPlainText, DigestType, Signature,
        #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
     crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
