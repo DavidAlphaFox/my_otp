@@ -144,7 +144,7 @@ env_default_opts() ->
 		    []
 	    end
     end.
-
+%% 开始编译
 do_compile(Input, Opts0) ->
     Opts = expand_opts(Opts0),
     {Pid,Ref} =
@@ -275,6 +275,7 @@ internal({forms,Forms}, Opts0) ->
     Compile = #compile{code=Forms,options=Opts1,mod_options=Opts1},
     internal_comp(Ps, Source, "", Compile);
 internal({file,File}, Opts) ->
+    %% 解析文件
     {Ext,Ps} = passes(file, Opts),
     Compile = #compile{options=Opts,mod_options=Opts},
     internal_comp(Ps, File, Ext, Compile).
@@ -587,7 +588,8 @@ select_list_passes_1([], _, Acc) ->
     {not_done,reverse(Acc)}.
 
 %% The standard passes (almost) always run.
-
+%% 标准流程
+%% pass 宏都会翻译成有一个参数的函数
 standard_passes() ->
     [?pass(transform_module),
 
@@ -793,7 +795,8 @@ no_native_compilation(BeamFile, #compile{options=Opts0}) ->
 	    member(no_new_funs, Opts) orelse not is_native_enabled(Opts);
 	_ -> false
     end.
-
+%% 分析module
+%% 默认使用utf8进行编码
 parse_module(St0) ->
     case do_parse_module(utf8, St0) of
 	{ok,_}=Ret ->
@@ -812,6 +815,7 @@ parse_module(St0) ->
     end.
 
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
+    %% 使用epp进行预处理
     R = epp:parse_file(File,
 		       [{includes,[".",Dir|inc_paths(Opts)]},
 			{macros,pre_defs(Opts)},

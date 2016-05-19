@@ -530,6 +530,8 @@ struct t_data
 
 static void *ef_safe_alloc(Uint s)
 {
+    // 文件驱拿不到足够多的内存
+    // 就会让erlang平台退出
     void *p = EF_ALLOC(s);
     if (!p) erl_exit(1, "efile drv: Can't allocate %lu bytes of memory\n", (unsigned long)s);
     return p;

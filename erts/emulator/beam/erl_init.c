@@ -2080,12 +2080,12 @@ system_cleanup(int flush_async)
 
     erts_exit_flush_async();
 }
-
+// Erlang的erts退出函数
 static __decl_noreturn void __noreturn
 erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 {
     unsigned int an;
-
+    // 清理异步县城
     system_cleanup(flush_async);
 
     save_statistics();

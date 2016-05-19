@@ -121,7 +121,7 @@ open(Name, File, StartLocation, Path, Pdm) ->
 
 open(Options) ->
     internal_open(Options, #epp{}).
-
+%% 打开文件
 internal_open(Options, St) ->
     case proplists:get_value(name, Options) of
         undefined ->
@@ -327,11 +327,13 @@ set_encoding(File) ->
       File :: io:device(). % pid(); raw files don't work
 
 set_encoding(File, Default) ->
+    %% 尝试读取编码
     Encoding = read_encoding_from_file(File, true),
     Enc = case Encoding of
               none -> Default;
               Encoding -> Encoding
           end,
+    %% io模块直接设置编码
     ok = io:setopts(File, [{encoding, Enc}]),
     Encoding.
 
