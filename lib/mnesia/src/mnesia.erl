@@ -241,6 +241,7 @@ stop() ->
     end.
 
 change_config(extra_db_nodes, Ns) when is_list(Ns) ->
+    %% 连接其它节点
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
     case mnesia_lib:is_running() of

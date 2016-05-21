@@ -440,10 +440,12 @@ try_schedule_late_disc_load(Tabs, Reason, MsgTag) ->
 
 connect_nodes(Ns) ->
     connect_nodes(Ns, fun default_merge/1).
-
+%% 连接其它节点
+%% 并且进行默认合并
 connect_nodes(Ns, UserFun) ->
     case mnesia:system_info(is_running) of
 	no ->
+        %% 如果mnesia没有启动，报错
 	    {error, {node_not_running, node()}};
 	yes ->
 	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns, UserFun]),
@@ -466,12 +468,16 @@ connect_nodes(Ns, UserFun) ->
 
 connect_nodes2(Father, Ns, UserFun) ->
     Current = val({current, db_nodes}),
+    %% 向所有节点请求合并元表
     abcast([node()|Ns], {merging_schema, node()}),
+    %% 尝试恢复，并区出新连接的和以前已经连接的
     {NewC, OldC} = mnesia_recover:connect_nodes(Ns),
     Connected = NewC ++OldC,
     New1 = mnesia_lib:intersect(Ns, Connected),
+    %% 取出所有最近的
     New = New1 -- Current,
     process_flag(trap_exit, true),
+    %% 尝试合并元表
     Res = try_merge_schema(New, [], UserFun),
     Msg = {schema_is_merged, [], late_merge, []},
     _ = multicall([node()|Ns], Msg),
@@ -984,11 +990,15 @@ handle_cast({merging_schema, Node}, State) ->
 	false ->
 	    %% This comes from dynamic connect_nodes which are made
 	    %% after mnesia:start() and the schema_merge.
+        %% 如果我们的元表类型是Ram的
+        %% 并且我们的元表是本地的
 	    ImANewKidInTheBlock =
 		(val({schema, storage_type}) == ram_copies)
 		andalso (mnesia_lib:val({schema, local_tables}) == [schema]),
 	    case ImANewKidInTheBlock of
 		true ->  %% I'm newly started ram_node..
+            %% 我们当前节点是个新启动的内存型的节点
+            %% 并且还没有和相应的节点进行同步
 		    noreply(State#state{schema_is_merged = {false, Node}});
 		false ->
 		    noreply(State)

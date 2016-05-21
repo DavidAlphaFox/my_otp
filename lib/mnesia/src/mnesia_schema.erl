@@ -2818,6 +2818,7 @@ merge_schema(UserFun) ->
 
 do_merge_schema(LockTabs0) ->
     {_Mod, Tid, Ts} = get_tid_ts_and_lock(schema, write),
+    %% 得出每个schema表的所连接的节点
     LockTabs = [{T, tab_to_nodes(T)} || T <- LockTabs0],
     [get_tid_ts_and_lock(T,write) || {T,_} <- LockTabs],
     Connected = val(recover_nodes),
