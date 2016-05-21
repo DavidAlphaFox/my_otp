@@ -81,8 +81,11 @@ start() ->
     mnesia_monitor:start_proc(?MODULE, ?MODULE, init, [self()]).
 %创建mneisa的锁进程
 init(Parent) ->
+    %% 注册锁进程
     register(?MODULE, self()),
+    %% 跟踪退出
     process_flag(trap_exit, true),
+    %% 创建锁相关的etc表
     ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_tid_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),
@@ -90,6 +93,7 @@ init(Parent) ->
     ?ets_new_table(mnesia_lock_queue, [bag, private, named_table, {keypos, 2}]),
 
     proc_lib:init_ack(Parent, {ok, self()}),
+    %% pid_sort_order的排序方案？
     case ?catch_val(pid_sort_order) of
 	r9b_plain -> put(pid_sort_order, r9b_plain);
 	standard ->  put(pid_sort_order, standard);
@@ -164,14 +168,14 @@ loop(State) ->
 
 	%% If Key == ?ALL it's a request to lock the entire table
 	%%
-
+    %% 申请读锁
 	{From, {read, Tid, Oid}} ->
 	    try_sticky_lock(Tid, read, From, Oid),
 	    loop(State);
 
 	%% Really do a  read, but get hold of a write lock
 	%% used by mnesia:wread(Oid).
-
+    %% 申请读写锁
 	{From, {read_write, Tid, Oid}} ->
 	    try_sticky_lock(Tid, read_write, From, Oid),
 	    loop(State);

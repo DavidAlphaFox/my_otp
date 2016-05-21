@@ -268,6 +268,8 @@ is_running(Node) when is_atom(Node) ->
     end.
 
 is_running() ->
+    %% 尝试从mnesia_gvar中读取
+    %% 读取不到就是no
     case ?catch_val(mnesia_status) of
 	{'EXIT', _} -> no;
 	running -> yes;
@@ -383,7 +385,7 @@ val(Var) ->
 	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
 	_VaLuE_ -> _VaLuE_ 
     end.
-
+%% 向mnesia_gvar中设置相关变量
 set(Var, Val) ->
     ?ets_insert(mnesia_gvar, {Var, Val}).
 

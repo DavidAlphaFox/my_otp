@@ -36,6 +36,9 @@ start() ->
 init([]) ->
     ProcLib = [mnesia_monitor, proc_lib],
     Flags = {one_for_all, 0, timer:hours(24)}, % Trust the top supervisor
+    %% 最新启动的是mnesia_monitor
+    %% mnesia_monitor持有mnesia_gvar和mnesia_stats两张ets表
+    %% mnesia的全局变量全都保存在此处
     Workers = [worker_spec(mnesia_monitor, timer:seconds(3), [gen_server]),
 	       worker_spec(mnesia_subscr, timer:seconds(3), [gen_server]),
 	       worker_spec(mnesia_locker, timer:seconds(3), ProcLib),

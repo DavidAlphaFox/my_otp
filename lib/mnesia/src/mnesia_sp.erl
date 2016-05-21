@@ -31,6 +31,8 @@ init_proc(Who, Mod, Fun, Args) ->
     mnesia_lib:verbose("~p starting: ~p~n", [Who, self()]),
     case catch apply(Mod, Fun, Args) of
 	{'EXIT', Reason} ->
+        %% 如果启动失败
+        %% 向mnesia_monitor汇报失败
 	    mnesia_monitor:terminate_proc(Who, Reason, Args),
 	    exit(Reason);
 	Other ->

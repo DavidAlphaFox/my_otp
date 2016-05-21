@@ -582,8 +582,11 @@ get_tid_ts_and_lock(Tab, Intent) ->
     end.
 %% 元信息表(schema)事务
 schema_transaction(Fun) ->
+%%尝试得到mnesia_activity_state状态
+
     case get(mnesia_activity_state) of
 	undefined ->
+        %% 需要确保mnesia_controller进程已经启动
 	    Args = [self(), Fun, whereis(mnesia_controller)],
 			%% 创建事务协调者进程
 	    Pid = spawn_link(?MODULE, schema_coordinator, Args),

@@ -152,6 +152,7 @@ abort_write(BackupRef) ->
 %% Returns {ok, OpaqueData} or {error, Reason}
 open_read(OpaqueData) ->
     File = OpaqueData,
+    %% 尝试读取文件信息
     case file:read_file_info(File) of
 	{error, Reason} ->
 	    {error, Reason};
@@ -161,8 +162,10 @@ open_read(OpaqueData) ->
 				{repair, false},
 				{mode, read_only},
 				{linkto, self()}]) of
+        %% 成功打开文件进行读取
 		{ok, Fd} ->
 		    {ok, #restore{file = File, file_desc = Fd, cont = start}};
+        %% 进行了修复
 		{repaired, Fd, _, {badbytes, 0}} ->
 		    {ok, #restore{file = File, file_desc = Fd, cont = start}};
 		{repaired, Fd, _, _} ->
@@ -179,13 +182,16 @@ open_read(OpaqueData) ->
 %% BackupItems == [] is interpreted as eof
 read(OpaqueData) ->
     R = OpaqueData,
+    %% 获取文件句柄
     Fd = R#restore.file_desc,
+    %% 尝试读取一块日志
     case disk_log:chunk(Fd, R#restore.cont) of
         {error, Reason} ->
             {error, {"Possibly truncated", Reason}};
         eof ->
             {ok, R, []};
         {Cont, []} ->
+            %% 没有数据？
             read(R#restore{cont = Cont});
         {Cont, BackupItems, _BadBytes} ->
             {ok, R#restore{cont = Cont}, BackupItems};

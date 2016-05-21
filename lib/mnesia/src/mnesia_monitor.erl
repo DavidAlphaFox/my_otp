@@ -266,9 +266,12 @@ init([Parent]) ->
     ?ets_new_table(mnesia_stats, [set, public, named_table]),
 %用来保存订阅者
     set(subscribers, []),
+%%用来保存互动订阅者    
     set(activity_subscribers, []),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
+%%得到mnesia的版本
     Version = mnesia:system_info(version),
+    %% 保存版本
     set(version, Version),
     dbg_out("Version: ~p~n", [Version]),
 

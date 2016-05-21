@@ -2167,8 +2167,10 @@ system_info2(fallback_activated) ->
     end;
 
 system_info2(version) ->
+    %% 从mnesia_gvar中读取
     case ?catch_val(version) of
 	{'EXIT', _} ->
+        %% 失败了，读取application的VSN
 	    Apps = application:loaded_applications(),
 	    case lists:keysearch(?APPLICATION, 1, Apps) of
 		{value, {_Name, _Desc, Version}} ->

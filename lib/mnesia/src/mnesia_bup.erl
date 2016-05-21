@@ -78,6 +78,7 @@
 %% BunchOfRecords will be [] when the iteration is done.
 iterate(Mod, Fun, Opaque, Acc) ->
     R = #restore{bup_module = Mod, bup_data = Opaque},
+    %% 读取元表
     case catch read_schema_section(R) of
         {error, Reason} ->
             {error, Reason};
@@ -115,11 +116,13 @@ safe_apply(R, write, [_, Items]) when Items =:= [] ->
     R;
 safe_apply(R, What, Args) ->
     Abort = fun(Re) -> abort_restore(R, What, Args, Re) end,
+    %% 得到相应的模块Mod
     Mod = R#restore.bup_module,
     case catch apply(Mod, What, Args) of
 	{ok, Opaque, Items} when What =:= read ->
 	    {R#restore{bup_data = Opaque}, Items};
 	{ok, Opaque}  when What =/= read->
+        %% Opaque是上下文
 	    R#restore{bup_data = Opaque};
 	{error, Re} ->
 	    Abort(Re);
@@ -176,6 +179,7 @@ read_schema_section(R) ->
             catch safe_apply(R, close_read, [R#restore.bup_data]),
             {error, Reason};
         {R2, {H, Schema, Rest}} ->
+            %% 转化Schema，主要是进行升级
             Schema2 = convert_schema(H#log_header.log_version, Schema),
             {R2, {H, Schema2, Rest}}
     end.
@@ -184,7 +188,8 @@ do_read_schema_section(R) ->
     R2 = safe_apply(R, open_read, [R#restore.bup_data]),
     {R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),
     do_read_schema_section(R3, verify_header(RawSchema), []).
-
+%% 读取到了backup的Header和Current的Header
+%% 但是没有读取到Schema的信息
 do_read_schema_section(R, {ok, B, C, []}, Acc) ->
     case safe_apply(R, read, [R#restore.bup_data]) of
         {R2, []} ->
@@ -202,8 +207,9 @@ do_read_schema_section(R, {ok, B, _C, Rest}, Acc) ->
 
 do_read_schema_section(_R, {error, Reason}, _Acc) ->
     {error, Reason}.
-
+%% 对Schema进行校验
 verify_header([H | RawSchema]) when is_record(H, log_header) ->
+    %% 得到当前Mnesia的Log头
     Current = mnesia_log:backup_log_header(),
     if
         H#log_header.log_kind =:= Current#log_header.log_kind ->
@@ -714,6 +720,7 @@ throw_bad_res(_Expected, Actual) -> throw({error, Actual}).
 tm_fallback_start(IgnoreFallback) ->
 %锁定元数据表
     mnesia_schema:lock_schema(),
+    %% 检查是否有fallback文件，FALLBACK.BUP
     Res = do_fallback_start(fallback_exists(), IgnoreFallback),
     mnesia_schema:unlock_schema(),
     case Res of
@@ -758,7 +765,7 @@ do_fallback_start(true, false) ->
         {'EXIT', Reason} ->
             {error, {"Cannot start from fallback", Reason}}
     end.
-
+%% 对表进行恢复
 restore_tables(All=[Rec | Recs], Header, Schema, State={local, LocalTabs, LT}) ->
     Tab = element(1, Rec),
     if
@@ -795,10 +802,14 @@ restore_tables(All=[Rec | Recs], Header, Schema, S = {not_local, LocalTabs, Prev
             State = {new, LocalTabs},
             restore_tables(All, Header, Schema, State)
     end;
+%% 第一次执行，会从此处开始    
 restore_tables(Recs, Header, Schema, {start, LocalTabs}) ->
+    %% 获取mneisa的目录
     Dir = mnesia_lib:dir(),
     OldDir = filename:join([Dir, "OLD_DIR"]),
+    %% 删除OLD_DIR下的数据
     mnesia_schema:purge_dir(OldDir, []),
+    %% 删除Mnesia目录下除FALLBACK.DUP文件的所有其它文件
     mnesia_schema:purge_dir(Dir, [fallback_name()]),
     init_dat_files(Schema, LocalTabs),
     State = {new, LocalTabs},
@@ -811,6 +822,7 @@ restore_tables([], _Header, _Schema, State) ->
 %%
 %% Returns a list of local_tab tuples for all local tables
 init_dat_files(Schema, LocalTabs) ->
+    %% 创建schma的tmp文件
     TmpFile = mnesia_lib:tab2tmp(schema),
     Args = [{file, TmpFile}, {keypos, 2}, {type, set}],
     case dets:open_file(schema, Args) of % Assume schema lock
@@ -825,6 +837,8 @@ init_dat_files(Schema, LocalTabs) ->
 				  swap         = undefined,
                                   record_name  = schema,
                                   opened = false},
+            %% 向ets临时表mnesia_local_tables
+            %% 放入schma表的信息                      
             ?ets_insert(LocalTabs, LocalTab);
         {error, Reason} ->
             throw({error, {"Cannot open file", schema, Args, Reason}})
