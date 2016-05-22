@@ -132,6 +132,7 @@
 %% in a table called schema !!
 %初始化mnesia的schema
 init(IgnoreFallback) ->
+    %% 需要保存元表
     Res = read_schema(true, IgnoreFallback),
     {ok, Source, _CreateList} = exit_on_error(Res),
     verbose("Schema initiated from: ~p~n", [Source]),
@@ -458,11 +459,14 @@ read_schema(Keep, IgnoreFallback) ->
             yes ->
                 {ok, ram, get_create_list(schema)};
             _IsRunning ->
+                    %% 是否存在mnesia目录
                     case mnesia_monitor:use_dir() of
                         true ->
+                            %% 从磁盘读取元表
                             read_disc_schema(Keep, IgnoreFallback);
                         false when Keep == true ->
                             Args = [{keypos, 2}, public, named_table, set],
+                            %% 创建schema表，拥有者为mnesia_monitor
                             mnesia_monitor:mktab(schema, Args),
                             CreateList = get_initial_schema(ram_copies, []),
                             ?ets_insert(schema,{schema, schema, CreateList}),
@@ -484,6 +488,7 @@ read_disc_schema(Keep, IgnoreFallback) ->
             %% If we're running, we read the schema file even
             %% if fallback exists
             Dat = mnesia_lib:tab2dat(schema),
+            %% 表名存在，从磁盘读取
             case mnesia_lib:exists(Dat) of
                 true ->
                     do_read_disc_schema(Dat, Keep);
