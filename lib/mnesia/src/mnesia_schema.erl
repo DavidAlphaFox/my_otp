@@ -254,6 +254,7 @@ version() ->
     end.
 
 %% Calculate next table version from old cstruct
+%% 更新表的版本
 incr_version(Cs) ->
     {{Major, Minor}, _} = Cs#cstruct.version,
     Nodes = mnesia_lib:intersect(val({schema, disc_copies}),
@@ -631,7 +632,7 @@ schema_coordinator(Client, Fun, Controller) when is_pid(Controller) ->
 
 insert_schema_ops({_Mod, _Tid, Ts}, SchemaIOps) ->
     do_insert_schema_ops(Ts#tidstore.store, SchemaIOps).
-
+%% 向ets内插入数据
 do_insert_schema_ops(Store, [Head | Tail]) ->
     ?ets_insert(Store, Head),
     do_insert_schema_ops(Store, Tail);
@@ -1085,7 +1086,7 @@ do_multi_create_table(TabDef) ->
 	    lists:foreach(fun do_create_table/1, CsList)
     end,
     ok.
-
+%% 进行建表操作
 do_create_table(Cs) ->
     {_Mod, _Tid, Ts} =  get_tid_ts_and_lock(schema, none),
     Store = Ts#tidstore.store,
@@ -1210,7 +1211,7 @@ make_delete_table2(Tab) ->
 
 change_table_frag(Tab, Change) ->
     schema_transaction(fun() -> do_change_table_frag(Tab, Change) end).
-
+%% 修改表的分片
 do_change_table_frag(Tab, Change) when is_atom(Tab), Tab /= schema ->
     TidTs = get_tid_ts_and_lock(schema, write),
     Ops = mnesia_frag:change_table_frag(Tab, Change),
@@ -2683,7 +2684,7 @@ check_restore_arg({default_op, Op}, R) ->
 
 check_restore_arg(BadArg,_) ->
     exit({badarg, BadArg}).
-
+%% mnesia的事务内进行操作
 do_restore(R, BupSchema) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     R2 = restore_schema(BupSchema, R),

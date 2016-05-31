@@ -55,7 +55,7 @@
 
 -define(unique_cookie, {erlang:now(), node()}).
 %% cstruct,从结构上看是对一个表的细节描述
--record(cstruct, {name,                            % Atom
+-record(cstruct, {name,                    % Atom
 		  type = set,                      % set | bag
 		  ram_copies = [],                 % [Node]
 		  disc_copies = [],                % [Node]
@@ -71,8 +71,8 @@
 		  user_properties = [],            % [Record]
 		  frag_properties = [],            % [{Key, Val]
 		  storage_properties = [],         % [{Key, Val]
-                  cookie = ?unique_cookie,         % Term
-                  version = {{2, 0}, []}}).        % {{Integer, Integer}, [Node]}
+          cookie = ?unique_cookie,         % Term
+          version = {{2, 0}, []}}).        % {{Integer, Integer}, [Node]}
 
 %% Record for the head structure in Mnesia's log files
 %% 

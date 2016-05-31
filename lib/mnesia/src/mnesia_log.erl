@@ -934,7 +934,7 @@ ets2dcd({Recs, Cont}, Tab, Log) ->
 
 dcd2ets(Tab) ->
     dcd2ets(Tab, mnesia_monitor:get_env(auto_repair)).
-
+%% 从磁盘日志和存储文件恢复到ets中
 dcd2ets(Tab, Rep) ->
     Dcd = mnesia_lib:tab2dcd(Tab),
     case mnesia_lib:exists(Dcd) of
@@ -969,7 +969,7 @@ insert_dcdchunk({Cont, Recs}, Log, Tab) ->
     insert_dcdchunk(chunk_log(Log, Cont), Log, Tab);
 insert_dcdchunk(eof, _Log, _Tab) ->
     ok.
-
+%% 加载日志
 load_dcl(Tab, Rep) ->
     FName = mnesia_lib:tab2dcl(Tab),
     case mnesia_lib:exists(FName) of

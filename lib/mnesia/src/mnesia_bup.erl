@@ -183,7 +183,7 @@ read_schema_section(R) ->
             Schema2 = convert_schema(H#log_header.log_version, Schema),
             {R2, {H, Schema2, Rest}}
     end.
-
+%% 读取schema的头
 do_read_schema_section(R) ->
     R2 = safe_apply(R, open_read, [R#restore.bup_data]),
     {R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),

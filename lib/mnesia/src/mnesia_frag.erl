@@ -1193,6 +1193,7 @@ lookup_prop(Tab, Prop) ->
     end.
 
 lookup_frag_hash(Tab) ->
+    %% mnesia_gvar中读取fragmentation的hash函数
     case ?catch_val({Tab, frag_hash}) of
 	FH when is_record(FH, frag_state) ->
 	    FH;
