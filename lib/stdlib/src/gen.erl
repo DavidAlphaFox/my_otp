@@ -197,51 +197,51 @@ call({_Name, Node}=Process, Label, Request, Timeout)
     end.
 
 do_call(Process, Label, Request, Timeout) ->
+		%% 先监控目标进程
     try erlang:monitor(process, Process) of
-	Mref ->
-	    %% If the monitor/2 call failed to set up a connection to a
-	    %% remote node, we don't want the '!' operator to attempt
-	    %% to set up the connection again. (If the monitor/2 call
-	    %% failed due to an expired timeout, '!' too would probably
-	    %% have to wait for the timeout to expire.) Therefore,
-	    %% use erlang:send/3 with the 'noconnect' option so that it
-	    %% will fail immediately if there is no connection to the
-	    %% remote node.
-
-	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
-		  [noconnect]),
-	    receive
-		{Mref, Reply} ->
-		    erlang:demonitor(Mref, [flush]),
-		    {ok, Reply};
-		{'DOWN', Mref, _, _, noconnection} ->
-		    Node = get_node(Process),
-		    exit({nodedown, Node});
-		{'DOWN', Mref, _, _, Reason} ->
-		    exit(Reason)
-	    after Timeout ->
-		    erlang:demonitor(Mref, [flush]),
-		    exit(timeout)
-	    end
+				Mref ->
+						%% If the monitor/2 call failed to set up a connection to a
+						%% remote node, we don't want the '!' operator to attempt
+						%% to set up the connection again. (If the monitor/2 call
+						%% failed due to an expired timeout, '!' too would probably
+						%% have to wait for the timeout to expire.) Therefore,
+						%% use erlang:send/3 with the 'noconnect' option so that it
+						%% will fail immediately if there is no connection to the
+						%% remote node.
+						%% 将Pid和Monitor作为请求的一部分构成From
+		        catch erlang:send(Process, {Label, {self(), Mref}, Request},[noconnect]),
+						receive
+								{Mref, Reply} ->
+										erlang:demonitor(Mref, [flush]),
+										{ok, Reply};
+								{'DOWN', Mref, _, _, noconnection} ->
+										Node = get_node(Process),
+										exit({nodedown, Node});
+								{'DOWN', Mref, _, _, Reason} ->
+										exit(Reason)
+						after Timeout ->
+										erlang:demonitor(Mref, [flush]),
+										exit(timeout)
+						end
     catch
-	error:_ ->
-	    %% Node (C/Java?) is not supporting the monitor.
-	    %% The other possible case -- this node is not distributed
-	    %% -- should have been handled earlier.
-	    %% Do the best possible with monitor_node/2.
-	    %% This code may hang indefinitely if the Process 
-	    %% does not exist. It is only used for featureweak remote nodes.
-	    Node = get_node(Process),
-	    monitor_node(Node, true),
-	    receive
-		{nodedown, Node} -> 
-		    monitor_node(Node, false),
-		    exit({nodedown, Node})
-	    after 0 -> 
-		    Tag = make_ref(),
-		    Process ! {Label, {self(), Tag}, Request},
-		    wait_resp(Node, Tag, Timeout)
-	    end
+				error:_ ->
+						%% Node (C/Java?) is not supporting the monitor.
+						%% The other possible case -- this node is not distributed
+						%% -- should have been handled earlier.
+						%% Do the best possible with monitor_node/2.
+						%% This code may hang indefinitely if the Process 
+						%% does not exist. It is only used for featureweak remote nodes.
+						Node = get_node(Process),
+						monitor_node(Node, true),
+						receive
+								{nodedown, Node} -> 
+										monitor_node(Node, false),
+										exit({nodedown, Node})
+						after 0 -> 
+										Tag = make_ref(),
+										Process ! {Label, {self(), Tag}, Request},
+										wait_resp(Node, Tag, Timeout)
+						end
     end.
 
 get_node(Process) ->
