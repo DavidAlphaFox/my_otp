@@ -900,10 +900,11 @@ ERTS_GLB_INLINE Process *erts_proc_lookup_raw(Eterm pid)
     Process *proc;
 
     ERTS_SMP_LC_ASSERT(erts_thr_progress_lc_is_delaying());
-
+		// 如果PID不是本节点的PID
+		// 直接返回NULL
     if (is_not_internal_pid(pid))
-	return NULL;
-
+				 return NULL;
+		// 得到Process结构
     proc = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						 internal_pid_index(pid));
     if (proc && proc->common.id != pid)
@@ -915,7 +916,7 @@ ERTS_GLB_INLINE Process *erts_proc_lookup(Eterm pid)
 {
     Process *proc = erts_proc_lookup_raw(pid);
     if (proc && ERTS_PROC_IS_EXITING(proc))
-	return NULL;
+				 return NULL;
     return proc;
 }
 

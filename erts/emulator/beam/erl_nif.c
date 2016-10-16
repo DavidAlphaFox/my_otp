@@ -253,8 +253,10 @@ struct enif_msg_environment_t
 
 ErlNifEnv* enif_alloc_env(void)
 {
+		 // 动态分配一个msg_environment
     struct enif_msg_environment_t* msg_env =
 	erts_alloc_fnf(ERTS_ALC_T_NIF, sizeof(struct enif_msg_environment_t));
+		// 创建虚假的堆栈
     Eterm* phony_heap = (Eterm*) msg_env; /* dummy non-NULL ptr */
 	
     msg_env->env.hp = phony_heap; 
@@ -318,47 +320,52 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     ErlHeapFragment* frags;
     Eterm receiver = to_pid->pid;
     int flush_me = 0;
+		// 获取当前调度器的是否是0
     int scheduler = erts_get_scheduler_id() != 0;
 
     if (env != NULL) {
-	c_p = env->proc;
-	if (receiver == c_p->common.id) {
-	    rp_locks = ERTS_PROC_LOCK_MAIN;
-	    flush_me = 1;
-	}
-    }
-    else {
+				 // 如果env不是NULL，需要获取当前的env上的proc
+				 c_p = env->proc;
+				 // 接收者和env的进程是相同的
+				 if (receiver == c_p->common.id) {
+							rp_locks = ERTS_PROC_LOCK_MAIN;
+							flush_me = 1;
+				 }
+    } else {
 #ifdef ERTS_SMP
-	c_p = NULL;
+				 c_p = NULL;
 #else
-	erl_exit(ERTS_ABORT_EXIT,"enif_send: env==NULL on non-SMP VM");
+				 // 在非SMP的运行时环境上是不可能存在的情况
+				 erl_exit(ERTS_ABORT_EXIT,"enif_send: env==NULL on non-SMP VM");
 #endif
     }    
-
+		// 得到接收者的Process信息
     rp = (scheduler
-	  ? erts_proc_lookup(receiver)
-	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
-			      receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC));
+					? erts_proc_lookup(receiver)
+					: erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN, receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC));
     if (rp == NULL) {
-	ASSERT(env == NULL || receiver != c_p->common.id);
-	return 0;
+				 // 没有接收者的Process信息
+				 // 直接返回
+				 ASSERT(env == NULL || receiver != c_p->common.id);
+				 return 0;
     }
+		// 清空发送者的消息环境
     flush_env(msg_env);
     frags = menv->env.heap_frag; 
     ASSERT(frags == MBUF(&menv->phony_proc));
     if (frags != NULL) {
-	/* Move all offheap's from phony proc to the first fragment.
-	   Quick and dirty, but erts_move_msg_mbuf_to_heap doesn't care. */
-	ASSERT(!is_offheap(&frags->off_heap));
-	frags->off_heap = MSO(&menv->phony_proc);
-	clear_offheap(&MSO(&menv->phony_proc));
-	menv->env.heap_frag = NULL; 
-	MBUF(&menv->phony_proc) = NULL;
+				 /* Move all offheap's from phony proc to the first fragment.
+						Quick and dirty, but erts_move_msg_mbuf_to_heap doesn't care. */
+				 ASSERT(!is_offheap(&frags->off_heap));
+				 frags->off_heap = MSO(&menv->phony_proc);
+				 clear_offheap(&MSO(&menv->phony_proc));
+				 menv->env.heap_frag = NULL; 
+				 MBUF(&menv->phony_proc) = NULL;
     }
     ASSERT(!is_offheap(&MSO(&menv->phony_proc)));
 
     if (flush_me) {	
-	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
+				 flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
     erts_queue_message(rp, &rp_locks, frags, msg, am_undefined
 #ifdef USE_VM_PROBES
@@ -366,13 +373,13 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 #endif
 		       );
     if (c_p == rp)
-	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+				 rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks)
-	erts_smp_proc_unlock(rp, rp_locks);
+				 erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
-	erts_smp_proc_dec_refc(rp);
+				 erts_smp_proc_dec_refc(rp);
     if (flush_me) {
-	cache_env(env);
+				 cache_env(env);
     }
     return 1;
 }

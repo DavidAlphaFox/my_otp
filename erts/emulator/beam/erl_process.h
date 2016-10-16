@@ -2032,13 +2032,17 @@ ERTS_GLB_INLINE
 Uint erts_get_scheduler_id(void)
 {
 #ifdef ERTS_SMP
+		 //得到调度器信息
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
 #ifdef ERTS_DIRTY_SCHEDULERS
+		// 如果是脏调度器，直接返回0
     if (esdp && ERTS_SCHEDULER_IS_DIRTY(esdp))
-	return 0;
+				 return 0;
     else
 #endif
-	return esdp ? esdp->no : (Uint) 0;
+				 // 调度器的信息不为空，返回调度器的ID
+				 // 否则返回0
+		return esdp ? esdp->no : (Uint) 0;
 #else
     return erts_get_scheduler_data() ? (Uint) 1 : (Uint) 0;
 #endif
