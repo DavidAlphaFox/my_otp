@@ -267,7 +267,9 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_EPILOGUE
 #endif
 
-
+//Erlang的NIF初始化宏
+//方便我们编写NIF
+//声明一个nif_init的函数
 #define ERL_NIF_INIT(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD) \
 ERL_NIF_INIT_PROLOGUE                   \
 ERL_NIF_INIT_GLOB                       \

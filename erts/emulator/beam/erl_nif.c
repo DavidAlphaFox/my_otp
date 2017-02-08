@@ -124,13 +124,15 @@ static ERTS_INLINE void ensure_heap(ErlNifEnv* env, unsigned may_need)
 
 void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif)
 {
-    env->mod_nif = mod_nif;
-    env->proc = p;
-    env->hp = HEAP_TOP(p);
-    env->hp_end = HEAP_LIMIT(p);
-    env->heap_frag = NULL;
-    env->fpe_was_unmasked = erts_block_fpe();
-    env->tmp_obj_list = NULL;
+		 // 设置调用的环境enviroment
+		 // 就是告诉nif，调用者模块，进程和堆栈信息
+		 env->mod_nif = mod_nif;
+		 env->proc = p;
+		 env->hp = HEAP_TOP(p);
+		 env->hp_end = HEAP_LIMIT(p);
+		 env->heap_frag = NULL;
+		 env->fpe_was_unmasked = erts_block_fpe();
+		 env->tmp_obj_list = NULL;
 }
 
 static void pre_nif_noproc(ErlNifEnv* env, struct erl_module_nif* mod_nif)
@@ -1508,16 +1510,17 @@ void* enif_dlopen(const char* lib,
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     void* handle;
     void* init_func;
+		// 加载dll或者so
     if (erts_sys_ddll_open(lib, &handle, &errdesc) == ERL_DE_NO_ERROR) {
-	if (erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) == ERL_DE_NO_ERROR) {
-	    erts_sys_ddll_call_nif_init(init_func);
-	}
-    }
-    else {
-	if (err_handler != NULL) {
-	    (*err_handler)(err_arg, errdesc.str);
-	}
-	handle = NULL;
+				 if (erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) == ERL_DE_NO_ERROR) {
+							// 初始化nif的nif_init函数
+							erts_sys_ddll_call_nif_init(init_func);
+				 }
+    } else {
+				 if (err_handler != NULL) {
+							(*err_handler)(err_arg, errdesc.str);
+				 }
+				 handle = NULL;
     }
     erts_sys_ddll_free_error(&errdesc);
     return handle;
@@ -1529,11 +1532,11 @@ void* enif_dlsym(void* handle, const char* symbol,
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     void* ret;
     if (erts_sys_ddll_sym2(handle, symbol, &ret, &errdesc) != ERL_DE_NO_ERROR) {
-	if (err_handler != NULL) {
-	    (*err_handler)(err_arg, errdesc.str);
-	}
-	erts_sys_ddll_free_error(&errdesc);
-	return NULL;
+				 if (err_handler != NULL) {
+							(*err_handler)(err_arg, errdesc.str);
+				 }
+				 erts_sys_ddll_free_error(&errdesc);
+				 return NULL;
     }
     return ret;
 }
@@ -1647,23 +1650,23 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     if (!ep)
-	ep = allocate_nif_sched_data(proc, argc);
+				 ep = allocate_nif_sched_data(proc, argc);
     else if (need_save && ep->alloced_argv_sz < argc) {
-	NifExport* new_ep = allocate_nif_sched_data(proc, argc);
-	destroy_nif_export(ep);
-	ep = new_ep;
+				 NifExport* new_ep = allocate_nif_sched_data(proc, argc);
+				 destroy_nif_export(ep);
+				 ep = new_ep;
     }
     ERTS_VBUMP_ALL_REDS(proc);
     for (i = 0; i < argc; i++) {
-	if (need_save)
-	    ep->argv[i] = reg[i];
-	reg[i] = (Eterm) argv[i];
+				 if (need_save)
+							ep->argv[i] = reg[i];
+				 reg[i] = (Eterm) argv[i];
     }
     if (need_save) {
-	ep->saved_mfa[0] = proc->current[0];
-	ep->saved_mfa[1] = proc->current[1];
-	ep->saved_mfa[2] = proc->current[2];
-	ep->saved_argc = argc;
+				 ep->saved_mfa[0] = proc->current[0];
+				 ep->saved_mfa[1] = proc->current[1];
+				 ep->saved_mfa[2] = proc->current[2];
+				 ep->saved_argc = argc;
     }
     proc->i = (BeamInstr*) ep->exp.addressv[0];
     ep->exp.code[0] = (BeamInstr) proc->current[0];
@@ -2234,26 +2237,27 @@ static Eterm load_nif_error(Process* p, const char* atom, const char* format, ..
  * provide backwards compatibility across the version 2.7 change that added
  * the "flags" field to ErlNifFunc.
  */
+// 进行版本兼容
 static ErlNifFunc* next_func(ErlNifEntry* entry, int* incrp, ErlNifFunc* func)
 {
     ASSERT(incrp);
     if (!*incrp) {
-	if (entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
-	    *incrp = sizeof(ErlNifFunc);
-	else {
+				 if (entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
+							*incrp = sizeof(ErlNifFunc);
+				 else {
 	    /*
 	     * ErlNifFuncV1 below is what ErlNifFunc was before the
 	     * addition of the flags field for 2.7, and is needed to handle
 	     * backward compatibility.
 	     */
-	    typedef struct {
-		const char* name;
-		unsigned arity;
-		ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-	    }ErlNifFuncV1;
-	    *incrp = sizeof(ErlNifFuncV1);
-	}
-    }
+							typedef struct {
+									 const char* name;
+									 unsigned arity;
+									 ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+							}ErlNifFuncV1;
+							*incrp = sizeof(ErlNifFuncV1);
+				 }
+		}
     return (ErlNifFunc*) ((char*)func + *incrp);
 }
 
@@ -2286,17 +2290,18 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         /* since lib_name is used in error messages */
         encoding = ERL_FILENAME_UTF8;
     }
+		// 获得文件名字
     lib_name = erts_convert_filename_to_encoding(BIF_ARG_1, NULL, 0,
                                                  ERTS_ALC_T_TMP, 1, 0, encoding,
 						 NULL, 0);
     if (!lib_name) {
-	BIF_ERROR(BIF_P, BADARG);
+				 BIF_ERROR(BIF_P, BADARG);
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	erts_free(ERTS_ALC_T_TMP, lib_name);
-	ERTS_BIF_YIELD2(bif_export[BIF_load_nif_2],
-			BIF_P, BIF_ARG_1, BIF_ARG_2);
+				 erts_free(ERTS_ALC_T_TMP, lib_name);
+				 ERTS_BIF_YIELD2(bif_export[BIF_load_nif_2],
+												 BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
     /* Block system (is this the right place to do it?) */
@@ -2308,78 +2313,79 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(BIF_P->current[0] == am_erlang
 	   && BIF_P->current[1] == am_load_nif 
 	   && BIF_P->current[2] == 2);
+		//得到caller,caller是{module,function,arity}
     caller = find_function_from_pc(BIF_P->cp);
     ASSERT(caller != NULL);
+		//得到caller的模块名称
     mod_atom = caller[0];
     ASSERT(is_atom(mod_atom));
-    mod=erts_get_module(mod_atom, erts_active_code_ix());
+		// 得到模块
+    mod = erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(mod != NULL);
-
+		// 得到该模块的原子表
     mod_atomp = atom_tab(atom_val(mod_atom));
     init_func = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
+		// 获得handle，这个handle应该是nif的nif_entry的指针
     if (init_func != NULL)
       handle = init_func;
 
     if (!in_area(caller, mod->curr.code, mod->curr.code_length)) {
-	ASSERT(in_area(caller, mod->old.code, mod->old.code_length));
+				 ASSERT(in_area(caller, mod->old.code, mod->old.code_length));
 
-	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
+				 ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
 			     "module '%T' not allowed", mod_atom);
-    }    
-    else if (init_func == NULL &&
-	     (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
-	const char slogan[] = "Failed to load NIF library";
-	if (strstr(errdesc.str, lib_name) != NULL) {
-	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
-	}
-	else {
-	    ret = load_nif_error(BIF_P, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
-	}
-    }
-    else if (init_func == NULL &&
+    }else if (init_func == NULL &&
+							(err = erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
+				 const char slogan[] = "Failed to load NIF library";
+				 if (strstr(errdesc.str, lib_name) != NULL) {
+							ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
+				 }
+				 else {
+							ret = load_nif_error(BIF_P, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
+				 }
+    } else if (init_func == NULL &&
 	     erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
-	ret  = load_nif_error(BIF_P, bad_lib, "Failed to find library init"
+				 //初始化函数不存在，且初始化不成功
+				 ret  = load_nif_error(BIF_P, bad_lib, "Failed to find library init"
 			      " function: '%s'", errdesc.str);
-	
-    }
-    else if ((add_taint(mod_atom),
-	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
-	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
-    }
-    else if (entry->major < ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
+    }else if ((add_taint(mod_atom),
+							 (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
+				 // 初始化函数存在
+				 // 初始化不成功
+				 ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
+    } else if (entry->major < ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
 	     || (ERL_NIF_MAJOR_VERSION < entry->major
-		 || (ERL_NIF_MAJOR_VERSION == entry->major
-		     && ERL_NIF_MINOR_VERSION < entry->minor))
-	     || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
-	
-	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
-			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
-    }   
-    else if (entry->minor >= 1
-	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
-	ret = load_nif_error(BIF_P, bad_lib, "Library (%s) not compiled for "
-			     "this vm variant (%s).",
-			     entry->vm_variant, ERL_NIF_VM_VARIANT);
-    }
-    else if (!erts_is_atom_str((char*)entry->name, mod_atom, 1)) {
-	ret = load_nif_error(BIF_P, bad_lib, "Library module name '%s' does not"
-			     " match calling module '%T'", entry->name, mod_atom);
-    }
-    else {
-	/*erts_fprintf(stderr, "Found module %T\r\n", mod_atom);*/
-
-	int maybe_dirty_nifs = ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
-				&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION));
-	int incr = 0;
-	ErlNifFunc* f = entry->funcs;
-	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
-	    BeamInstr** code_pp;
-	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
-		|| (code_pp = get_func_pp(mod->curr.code, f_atom, f->arity))==NULL) {
-		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
-				     mod_atom, f->name, f->arity);
-	    }
-	    else if (maybe_dirty_nifs && f->flags) {
+					 || (ERL_NIF_MAJOR_VERSION == entry->major
+							 && ERL_NIF_MINOR_VERSION < entry->minor))
+							 || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
+				 //版本不匹配
+				 ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
+															entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
+    } else if (entry->minor >= 1
+							 && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
+				 // 编译器的版本不正确
+				 ret = load_nif_error(BIF_P, bad_lib, "Library (%s) not compiled for "
+															"this vm variant (%s).",
+															entry->vm_variant, ERL_NIF_VM_VARIANT);
+    } else if (!erts_is_atom_str((char*)entry->name, mod_atom, 1)) {
+				 // nif和erlang的模块名字不同
+				 ret = load_nif_error(BIF_P, bad_lib, "Library module name '%s' does not"
+															" match calling module '%T'", entry->name, mod_atom);
+    }else {
+				 /*erts_fprintf(stderr, "Found module %T\r\n", mod_atom);*/
+				 //是否有脏调度器
+				 int maybe_dirty_nifs = ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
+																 && (entry->options & ERL_NIF_DIRTY_NIF_OPTION));
+				 int incr = 0;
+				 ErlNifFunc* f = entry->funcs;
+				 for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
+							BeamInstr** code_pp;
+							if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
+									|| (code_pp = get_func_pp(mod->curr.code, f_atom, f->arity))==NULL) {
+									 // 匹配erlang模块和nif的函数
+									 ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
+																				mod_atom, f->name, f->arity);
+							}else if (maybe_dirty_nifs && f->flags) {
 		/*
 		 * If the flags field is non-zero and this emulator was
 		 * built with dirty scheduler support, check that the flags
@@ -2388,32 +2394,32 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		 * a load error.
 		 */
 #ifdef ERTS_DIRTY_SCHEDULERS
-		if (f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND && f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND)
-		    ret = load_nif_error(BIF_P, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
-					 f->flags, mod_atom, f->name, f->arity);
+									 if (f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND && f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND)
+												ret = load_nif_error(BIF_P, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
+																						 f->flags, mod_atom, f->name, f->arity);
 #else
-		ret = load_nif_error(BIF_P, bad_lib, "NIF %T:%s/%u requires a runtime with dirty scheduler support.",
-				     mod_atom, f->name, f->arity);
+									 ret = load_nif_error(BIF_P, bad_lib, "NIF %T:%s/%u requires a runtime with dirty scheduler support.",
+																				mod_atom, f->name, f->arity);
 #endif
-	    }
+							}
 #ifdef ERTS_DIRTY_SCHEDULERS
-	    else if (code_pp[1] - code_pp[0] < (5+4))
+							else if (code_pp[1] - code_pp[0] < (5+4))
 #else
-	    else if (code_pp[1] - code_pp[0] < (5+3))
+							else if (code_pp[1] - code_pp[0] < (5+3))
 #endif
-	    {
-		ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
-				     " in module (%T:%s/%u too small)",
-				     mod_atom, f->name, f->arity);
-	    }
-	    /*erts_fprintf(stderr, "Found NIF %T:%s/%u\r\n",
-	      mod_atom, f->name, f->arity);*/
-	    f = next_func(entry, &incr, f);
-	}
+							{
+									 ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
+																				" in module (%T:%s/%u too small)",
+																				mod_atom, f->name, f->arity);
+							}
+							/*erts_fprintf(stderr, "Found NIF %T:%s/%u\r\n",
+								mod_atom, f->name, f->arity);*/
+							f = next_func(entry, &incr, f);
+				 }
     }
 
     if (ret != am_ok) {
-	goto error;
+				 goto error;
     }
 
     /* Call load, reload or upgrade:
@@ -2434,76 +2440,76 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	 * is deprecated and was only ment as a development feature not to
 	 * be used in production systems. (See warning below)
 	 */
-	int k, old_incr = 0;
-	ErlNifFunc* old_func;
-        lib->priv_data = mod->curr.nif->priv_data;
+				 int k, old_incr = 0;
+				 ErlNifFunc* old_func;
+				 lib->priv_data = mod->curr.nif->priv_data;
 
-	ASSERT(mod->curr.nif->entry != NULL);
-	if (entry->reload == NULL) {
-	    ret = load_nif_error(BIF_P,reload,"Reload not supported by this NIF library.");
-	    goto error;
-	}
-	/* Check that no NIF is removed */
-	old_func = mod->curr.nif->entry->funcs;
-	for (k=0; k < mod->curr.nif->entry->num_of_funcs; k++) {
-	    int incr = 0;
-	    ErlNifFunc* f = entry->funcs;
-	    for (i=0; i < entry->num_of_funcs; i++) {
-		if (old_func->arity == f->arity
-		    && sys_strcmp(old_func->name, f->name) == 0) {
-		    break;
-		}
-		f = next_func(entry, &incr, f);
-	    }
-	    if (i == entry->num_of_funcs) {
-		ret = load_nif_error(BIF_P,reload,"Reloaded library missing "
-				     "function %T:%s/%u\r\n", mod_atom,
-				     old_func->name, old_func->arity);
-		goto error;
-	    }
-	    old_func = next_func(mod->curr.nif->entry, &old_incr, old_func);
-	}
-	erts_pre_nif(&env, BIF_P, lib);
-	veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
-	erts_post_nif(&env);
-	if (veto) {
-	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful.");
-	}
-	else {
-	    commit_opened_resource_types(lib);
-	    mod->curr.nif->entry = NULL; /* to prevent 'unload' callback */
-	    erts_unload_nif(mod->curr.nif);
-	    reload_warning = 1;
-	}
-    }
-    else {
-	lib->priv_data = NULL;
-	if (mod->old.nif != NULL) { /**************** Upgrade ***************/
-	    void* prev_old_data = mod->old.nif->priv_data;
-	    if (entry->upgrade == NULL) {
-		ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
-		goto error;
-	    }
-	    erts_pre_nif(&env, BIF_P, lib);
-	    veto = entry->upgrade(&env, &lib->priv_data, &mod->old.nif->priv_data, BIF_ARG_2);
-	    erts_post_nif(&env);
-	    if (veto) {
-		mod->old.nif->priv_data = prev_old_data;
-		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
-	    }
-	    else
-		commit_opened_resource_types(lib);
-	}
-	else if (entry->load != NULL) { /********* Initial load ***********/
-	    erts_pre_nif(&env, BIF_P, lib);
-	    veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
-	    erts_post_nif(&env);
-	    if (veto) {
-		ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful.");
-	    }
-	    else
-		commit_opened_resource_types(lib);
-	}
+				 ASSERT(mod->curr.nif->entry != NULL);
+				 if (entry->reload == NULL) {
+							ret = load_nif_error(BIF_P,reload,"Reload not supported by this NIF library.");
+							goto error;
+				 }
+				 /* Check that no NIF is removed */
+				 old_func = mod->curr.nif->entry->funcs;
+				 for (k=0; k < mod->curr.nif->entry->num_of_funcs; k++) {
+							int incr = 0;
+							ErlNifFunc* f = entry->funcs;
+							for (i=0; i < entry->num_of_funcs; i++) {
+									 if (old_func->arity == f->arity
+											 && sys_strcmp(old_func->name, f->name) == 0) {
+												break;
+									 }
+									 f = next_func(entry, &incr, f);
+							}
+							if (i == entry->num_of_funcs) {
+									 ret = load_nif_error(BIF_P,reload,"Reloaded library missing "
+																				"function %T:%s/%u\r\n", mod_atom,
+																				old_func->name, old_func->arity);
+									 goto error;
+							}
+							old_func = next_func(mod->curr.nif->entry, &old_incr, old_func);
+				 }
+				 erts_pre_nif(&env, BIF_P, lib);
+				 veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
+				 erts_post_nif(&env);
+				 if (veto) {
+							ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful.");
+				 }else {
+							commit_opened_resource_types(lib);
+							mod->curr.nif->entry = NULL; /* to prevent 'unload' callback */
+							erts_unload_nif(mod->curr.nif);
+							reload_warning = 1;
+				 }
+    } else {
+				 lib->priv_data = NULL;
+				 if (mod->old.nif != NULL) { /**************** Upgrade ***************/
+							void* prev_old_data = mod->old.nif->priv_data;
+							if (entry->upgrade == NULL) {
+									 ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
+									 goto error;
+							}
+							erts_pre_nif(&env, BIF_P, lib);
+							veto = entry->upgrade(&env, &lib->priv_data, &mod->old.nif->priv_data, BIF_ARG_2);
+							erts_post_nif(&env);
+							if (veto) {
+									 mod->old.nif->priv_data = prev_old_data;
+									 ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
+							}else {
+									 commit_opened_resource_types(lib);
+							}
+	} else if (entry->load != NULL) { /********* Initial load ***********/
+							// 首次加载nif
+							//初始化env
+							erts_pre_nif(&env, BIF_P, lib);
+							// 执行entry的load函数
+							veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
+							erts_post_nif(&env);
+							if (veto) {
+									 ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful.");
+							}else {
+									 commit_opened_resource_types(lib);
+							}
+				 }
     }
     if (ret == am_ok) {
 	/*

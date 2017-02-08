@@ -5436,7 +5436,7 @@ BeamInstr*
 find_function_from_pc(BeamInstr* pc)
 {
     FunctionInfo fi;
-
+		// 找到调用函数
     erts_lookup_function_info(&fi, pc, 0);
     return fi.current;
 }

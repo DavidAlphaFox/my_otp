@@ -3606,13 +3606,15 @@ get_map_elements_fail:
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    {
-		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
-		NifF* fp = vbf = (NifF*) I[1];
-		struct enif_environment_t env;
-		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
-		reg[0] = r(0);
-		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
-		erts_post_nif(&env);
+					 typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
+					 NifF* fp = vbf = (NifF*) I[1];
+					 struct enif_environment_t env;
+					 // 从此处可以看出，env是个局部变量
+					 // 在nif的函数中，是不应当保存env的，因为每次调用，里面的信息都会发生变化 
+					 erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
+					 reg[0] = r(0);
+					 nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
+					 erts_post_nif(&env);
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
