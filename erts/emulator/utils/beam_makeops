@@ -17,6 +17,7 @@
 #
 # %CopyrightEnd%
 #
+## 使用perl脚本生成beam的opcode
 use strict;
 use vars qw($BEAM_FORMAT_NUMBER);
 
@@ -125,28 +126,29 @@ my $genop_types = $compiler_types . $loader_types;
 #
 # Defines the argument types and their loaded size assuming no packing.
 #
-my %arg_size = ('r' => 0,	# x(0) - x register zero
-		'x' => 1,	# x(N), N > 0 - x register
-		'y' => 1,	# y(N) - y register
-		'i' => 1,	# tagged integer
-		'a' => 1,	# tagged atom
-		'n' => 0,	# NIL (implicit)
-		'c' => 1,	# tagged constant (integer, atom, nil)
-		's' => 1,	# tagged source; any of the above
+## 定义参数类型
+my %arg_size = ('r' => 0,	# x(0) - x register zero 寄存器0，常用寄存器
+		'x' => 1,	# x(N), N > 0 - x register 寄存器n，最大256个
+		'y' => 1,	# y(N) - y register 令一个寄存器，最大256个
+		'i' => 1,	# tagged integer 打包整形
+		'a' => 1,	# tagged atom 原子类型
+		'n' => 0,	# NIL (implicit) 空值
+		'c' => 1,	# tagged constant (integer, atom, nil) 打包的常值 
+		's' => 1,	# tagged source; any of the above 
 		'd' => 1,	# tagged destination register (r, x, y)
-		'f' => 1,	# failure label
-		'j' => 1,	# either 'f' or 'p'
-		'e' => 1,	# pointer to export entry
-		'L' => 0,	# label
-		'I' => 1,	# untagged integer
-		't' => 1,	# untagged integer -- can be packed
-		'b' => 1,	# pointer to bif
-		'A' => 1,	# arity value
-		'P' => 1,	# byte offset into tuple or stack
-		'Q' => 1,	# like 'P', but packable
-		'h' => 1,	# character
-		'l' => 1,	# float reg
-		'q' => 1,	# literal term
+		'f' => 1,	# failure label 失败跳转标签
+		'j' => 1,	# either 'f' or 'p'  
+		'e' => 1,	# pointer to export entry 导出的指针
+		'L' => 0,	# label 标签
+		'I' => 1,	# untagged integer 非打包整形
+		't' => 1,	# untagged integer -- can be packed 非打包整形可打包
+		'b' => 1,	# pointer to bif bif指针
+		'A' => 1,	# arity value  数组
+		'P' => 1,	# byte offset into tuple or stack 堆栈偏移？？
+		'Q' => 1,	# like 'P', but packable 打包过的堆栈偏移
+		'h' => 1,	# character 字符
+		'l' => 1,	# float reg 浮点型
+		'q' => 1,	# literal term erlang的term类型
 	     );
 
 #

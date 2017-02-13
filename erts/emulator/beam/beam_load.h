@@ -26,7 +26,7 @@
 Eterm beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks,
 			    Eterm module);
 
-
+// 定义操作码，数据结构
 typedef struct gen_op_entry {
    char* name;
    int arity;
