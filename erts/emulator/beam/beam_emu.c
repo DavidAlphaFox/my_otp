@@ -1413,14 +1413,14 @@ void process_main(void)
  OpCase(i_plus_jId):
  {
      Eterm result;
-
+		 // 如果两个都是小数
      if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 Sint i = signed_val(tmp_arg1) + signed_val(tmp_arg2);
-	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-	 if (MY_IS_SSMALL(i)) {
-	     result = make_small(i);
-	     STORE_ARITH_RESULT(result);
-	 }
+					Sint i = signed_val(tmp_arg1) + signed_val(tmp_arg2);
+					ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+					if (MY_IS_SSMALL(i)) {
+							 result = make_small(i);
+							 STORE_ARITH_RESULT(result);
+					}
      
      }
      arith_func = ARITH_FUNC(mixed_plus);

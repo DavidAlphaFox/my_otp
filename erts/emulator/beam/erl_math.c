@@ -37,23 +37,25 @@ math_call_1(Process* p, double (*func)(double), Eterm arg1)
     Eterm* hp;
 
     ERTS_FP_CHECK_INIT(p);
+		//检查参数，确保有效
     if (is_float(arg1)) {
-	GET_DOUBLE(arg1, a1);
+				 GET_DOUBLE(arg1, a1);
     } else if (is_small(arg1)) {
-	a1.fd = signed_val(arg1);
+				 a1.fd = signed_val(arg1);
     } else if (is_big(arg1)) {
-	if (big_to_double(arg1, &a1.fd) < 0) {
-	badarith:
-	    p->freason = BADARITH;
-	    return THE_NON_VALUE;
-	}
+				 if (big_to_double(arg1, &a1.fd) < 0) {
+				 badarith:
+							p->freason = BADARITH;
+							return THE_NON_VALUE;
+				 }
     } else {
-	p->freason = BADARG;
-	return THE_NON_VALUE;
+				 p->freason = BADARG;
+				 return THE_NON_VALUE;
     }
     a1.fd = (*func)(a1.fd);
     ERTS_FP_ERROR_THOROUGH(p, a1.fd, goto badarith);
     hp = HAlloc(p, FLOAT_SIZE_OBJECT);
+		// 将数据放入堆上
     res = make_float(hp);
     PUT_DOUBLE(a1, hp);
     return res;
