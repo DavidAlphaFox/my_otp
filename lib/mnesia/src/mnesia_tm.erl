@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
-
+%% mnesia的事务管理器
 %%
 -module(mnesia_tm).
 

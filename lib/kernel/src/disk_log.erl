@@ -766,17 +766,21 @@ handle({From, unblock}, S) ->
 	    reply(From, {error, {not_blocked_by_pid, L#log.name}}, S)
     end;
 handle({From, sync}, S) ->
+		%% 获得日志文件的信息
     case get(log) of
-	L when L#log.mode =:= read_only ->
-	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok ->
-	    sync_loop([From], S);
-	L when L#log.status =:= {blocked, false} ->
-	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
-	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	_ ->
-	    loop(S#state{queue = [{From, sync} | S#state.queue]})
+				L when L#log.mode =:= read_only ->
+						%% 只读模式
+						reply(From, {error, {read_only_mode, L#log.name}}, S);
+				L when L#log.status =:= ok ->
+						sync_loop([From], S);
+				L when L#log.status =:= {blocked, false} ->
+						%% 日志不在被阻塞的状态
+						reply(From, {error, {blocked_log, L#log.name}}, S);
+				L when L#log.blocked_by =:= From ->
+						%% 日志被当前进程阻塞了
+						reply(From, {error, {blocked_log, L#log.name}}, S);
+				_ ->
+						loop(S#state{queue = [{From, sync} | S#state.queue]})
     end;
 handle({From, {truncate, Head, F, A}}, S) ->
     case get(log) of
@@ -1045,10 +1049,10 @@ log_loop(#state{}=S, Pids, Bins, Sync, Sz) when Sz > ?MAX_LOOK_AHEAD ->
     loop(log_end(S, Pids, Bins, Sync));
 log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
     receive 
-	Message ->
+				Message ->
             log_loop(Message, Pids, Bins, Sync, Sz, S, get(log))
     after 0 ->
-	    loop(log_end(S, Pids, Bins, Sync))
+						loop(log_end(S, Pids, Bins, Sync))
     end;
 log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz) ->
     S1 = S#state{messages = Ms},
@@ -1075,15 +1079,15 @@ log_end(S, [], [], Sync) ->
     log_end_sync(S, Sync);
 log_end(S, Pids, Bins, Sync) ->
     case do_log(get(log), rflat(Bins)) of
-	N when is_integer(N) ->
-	    ok = replies(Pids, ok),
-	    S1 = (state_ok(S))#state{cnt = S#state.cnt+N},
-	    log_end_sync(S1, Sync);
+				N when is_integer(N) ->
+						ok = replies(Pids, ok),
+						S1 = (state_ok(S))#state{cnt = S#state.cnt+N},
+						log_end_sync(S1, Sync);
         {error, {error, {full, _Name}}, N} when Pids =:= [] ->
             log_end_sync(state_ok(S#state{cnt = S#state.cnt + N}), Sync);
-	{error, Error, N} ->
-	    ok = replies(Pids, Error),
-	    state_err(S#state{cnt = S#state.cnt + N}, Error)
+				{error, Error, N} ->
+						ok = replies(Pids, Error),
+						state_err(S#state{cnt = S#state.cnt + N}, Error)
     end.
 
 %% Inlined.
@@ -1767,14 +1771,14 @@ halt_write_full(L, _Bs, _Format, N) ->
 
 halt_write(Halt, L, B, Bs, BSize) ->
     case disk_log_1:fwrite(Halt#halt.fdc, L#log.filename, Bs, BSize) of
-	{ok, NewFdC} ->
-	    NCurB = Halt#halt.curB + BSize,
-	    NewHalt = Halt#halt{fdc = NewFdC, curB = NCurB},
-	    put(log, L#log{extra = NewHalt}),
-	    length(B);
-	{Error, NewFdC} ->
-	    put(log, L#log{extra = Halt#halt{fdc = NewFdC}}),
-	    {error, Error, 0}
+				{ok, NewFdC} ->
+						NCurB = Halt#halt.curB + BSize,
+						NewHalt = Halt#halt{fdc = NewFdC, curB = NCurB},
+						put(log, L#log{extra = NewHalt}),
+						length(B);
+				{Error, NewFdC} ->
+						put(log, L#log{extra = Halt#halt{fdc = NewFdC}}),
+						{error, Error, 0}
     end.
 
 %% -> ok | Error
@@ -1894,13 +1898,15 @@ reply(To, Reply, S) ->
     loop(S).
 
 req(Log, R) ->
+		%% 通过disk_log_server获取命名log的进程pid
     case disk_log_server:get_log_pids(Log) of
-	{local, Pid} ->
-	    monitor_request(Pid, R);
-	undefined ->
-	    {error, no_such_log};
-	{distributed, Pids} ->
-	    multi_req({self(), R}, Pids)
+				{local, Pid} ->
+						%% 本地进程，监控模式处理请求
+						monitor_request(Pid, R);
+				undefined ->
+						{error, no_such_log};
+				{distributed, Pids} ->
+						multi_req({self(), R}, Pids)
     end.
 
 multi_req(Msg, Pids) ->
@@ -1954,15 +1960,19 @@ get_near_pid([Pid], _ ) -> Pid;
 get_near_pid([_ | T], Node) -> get_near_pid(T, Node).
 
 monitor_request(Pid, Req) ->
+		%% 监控指定的Pid
     Ref = erlang:monitor(process, Pid),
+		%% 将请求和当前进程作为消息发给Pid
     Pid ! {self(), Req},
     receive 
-	{'DOWN', Ref, process, Pid, _Info} ->
-	    {error, no_such_log};
-	{disk_log, Pid, Reply} when not is_tuple(Reply) orelse
+				{'DOWN', Ref, process, Pid, _Info} ->
+						%% disk_log进程崩溃
+						{error, no_such_log};
+				{disk_log, Pid, Reply} when not is_tuple(Reply) orelse
                                     element(2, Reply) =/= disk_log_stopped ->
-	    erlang:demonitor(Ref, [flush]),
-	    Reply
+						%% 不是tuple或者tuple的第二个元素不是disk_log_stopped
+						erlang:demonitor(Ref, [flush]),
+						Reply
     end.
 
 req2(Pid, R) ->
