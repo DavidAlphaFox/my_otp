@@ -116,7 +116,8 @@
 %%---------------------------------------------------------------------------
 
 -define(NO_CALLBACK, 'no callback module').
-
+%% 创建的进程永远都是这个模块
+%% 不是自己写的模块
 -spec start() -> start_ret().
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
@@ -448,12 +449,12 @@ server_add_sup_handler(Mod, Args, MSL, Parent) ->
 
 server_delete_handler(HandlerId, Args, MSL, SName) -> 
     case split(HandlerId, MSL) of
-	{Mod, Handler, MSL1} ->
-	    {do_terminate(Mod, Handler, Args,
-			  Handler#handler.state, delete, SName, normal),
-	     MSL1};
-	error ->
-	    {{error, module_not_found}, MSL}
+				{Mod, Handler, MSL1} ->
+						{do_terminate(Mod, Handler, Args,
+													Handler#handler.state, delete, SName, normal),
+						 MSL1};
+				error ->
+						{{error, module_not_found}, MSL}
     end.
 
 %% server_swap_handler(Handler1, Args1, Handler2, Args2, MSL, SN) -> MSL'
@@ -463,10 +464,10 @@ server_swap_handler(Handler1, Args1, Handler2, Args2, MSL, SName) ->
     {State2, Sup, MSL1} = split_and_terminate(Handler1, Args1, MSL,
 					      SName, Handler2, false),
     case s_s_h(Sup, Handler2, {Args2, State2}, MSL1) of
-	{Hib, ok, MSL2} ->
-	    {Hib, ok, MSL2};
-	{Hib, What, MSL2} ->
-	    {Hib, {error, What}, MSL2}
+				{Hib, ok, MSL2} ->
+						{Hib, ok, MSL2};
+				{Hib, What, MSL2} ->
+						{Hib, {error, What}, MSL2}
     end.
 
 server_swap_handler(Handler1, Args1, Handler2, Args2, MSL, Sup, SName) ->
