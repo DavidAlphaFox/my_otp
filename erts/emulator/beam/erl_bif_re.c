@@ -421,7 +421,7 @@ parse_options(Eterm listp, /* in */
 /*
  * Build Erlang term result from compilation
  */
-
+//构建正则表达式编译结果
 static Eterm 
 build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, const char *errstr, int errofset, int unicode, int with_ok, Eterm extra_err_tag) 
 {
@@ -433,41 +433,41 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
     unsigned long options;
     if (!result) {
 	/* Return {error_tag, {Code, String, Offset}} */
-	int elen = sys_strlen(errstr);
-	int need = 3 /* tuple of 2 */ + 
-	    3 /* tuple of 2 */ + 
-	    (2 * elen) /* The error string list */ +
-	    ((extra_err_tag != NIL) ? 3 : 0);
-	hp = HAlloc(p, need);
-	ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
-	ret = TUPLE2(hp, ret, make_small(errofset));
-	hp += 3;
-	if (extra_err_tag != NIL) {
+				 int elen = sys_strlen(errstr);
+				 int need = 3 /* tuple of 2 */ + 
+							3 /* tuple of 2 */ + 
+							(2 * elen) /* The error string list */ +
+							((extra_err_tag != NIL) ? 3 : 0);
+				 hp = HAlloc(p, need);
+				 ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
+				 ret = TUPLE2(hp, ret, make_small(errofset));
+				 hp += 3;
+				 if (extra_err_tag != NIL) {
 	    /* Return {error_tag, {extra_tag, 
 	       {Code, String, Offset}}} instead */
-	    ret =  TUPLE2(hp, extra_err_tag, ret);
-	    hp += 3;
-	}
-	ret = TUPLE2(hp, error_tag, ret);
+							ret =  TUPLE2(hp, extra_err_tag, ret);
+							hp += 3;
+				 }
+				 ret = TUPLE2(hp, error_tag, ret);
     } else {
-	erts_pcre_fullinfo(result, NULL, PCRE_INFO_SIZE, &pattern_size);
-	erts_pcre_fullinfo(result, NULL, PCRE_INFO_CAPTURECOUNT, &capture_count);
-	erts_pcre_fullinfo(result, NULL, PCRE_INFO_OPTIONS, &options);
-	options &= PCRE_NEWLINE_CR|PCRE_NEWLINE_LF | PCRE_NEWLINE_CRLF |
-               PCRE_NEWLINE_ANY | PCRE_NEWLINE_ANYCRLF;
-	use_crlf = (options == PCRE_NEWLINE_ANY ||
-		    options == PCRE_NEWLINE_CRLF ||
-		    options == PCRE_NEWLINE_ANYCRLF);
-	/* XXX: Optimize - keep in offheap binary to allow this to 
-	   be kept across traps w/o need of copying */
-	ret = new_binary(p, (byte *) result, pattern_size);
-	erts_pcre_free(result);
-	hp = HAlloc(p, (with_ok) ? (3+6) : 6);
-	ret = TUPLE5(hp,am_re_pattern, make_small(capture_count), make_small(unicode),make_small(use_crlf),ret);
-	if (with_ok) {
-	    hp += 6;
-	    ret = TUPLE2(hp,am_ok,ret);
-	}	    
+				 erts_pcre_fullinfo(result, NULL, PCRE_INFO_SIZE, &pattern_size);
+				 erts_pcre_fullinfo(result, NULL, PCRE_INFO_CAPTURECOUNT, &capture_count);
+				 erts_pcre_fullinfo(result, NULL, PCRE_INFO_OPTIONS, &options);
+				 options &= PCRE_NEWLINE_CR|PCRE_NEWLINE_LF | PCRE_NEWLINE_CRLF |
+							PCRE_NEWLINE_ANY | PCRE_NEWLINE_ANYCRLF;
+				 use_crlf = (options == PCRE_NEWLINE_ANY ||
+										 options == PCRE_NEWLINE_CRLF ||
+										 options == PCRE_NEWLINE_ANYCRLF);
+				 /* XXX: Optimize - keep in offheap binary to allow this to 
+						be kept across traps w/o need of copying */
+				 ret = new_binary(p, (byte *) result, pattern_size);
+				 erts_pcre_free(result);
+				 hp = HAlloc(p, (with_ok) ? (3+6) : 6);
+				 ret = TUPLE5(hp,am_re_pattern, make_small(capture_count), make_small(unicode),make_small(use_crlf),ret);
+				 if (with_ok) {
+							hp += 6;
+							ret = TUPLE2(hp,am_ok,ret);
+				 }	    
     }
     return ret;
 }
@@ -494,19 +494,18 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
 #endif
 
 
-    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL)
-	< 0) {
-	BIF_ERROR(p,BADARG);
+    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL) < 0) {
+				 BIF_ERROR(p,BADARG);
     }
 
     if (pflags & PARSE_FLAG_UNIQUE_EXEC_OPT) {
-	BIF_ERROR(p,BADARG);
+				 BIF_ERROR(p,BADARG);
     }
 
     unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;
 
     if (pflags & PARSE_FLAG_UNICODE && !is_binary(arg1)) {
-	BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
+				 BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
     }
 
     if (erts_iolist_size(arg1, &slen)) {
@@ -1078,35 +1077,34 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     int match_limit_recursion = 0;
 
     if (parse_options(arg3,&comp_options,&options,&pflags,&startoffset,capture,
-		      &match_limit,&match_limit_recursion)
-	< 0) {
-	BIF_ERROR(p,BADARG);
+		      &match_limit,&match_limit_recursion)< 0) {
+				 BIF_ERROR(p,BADARG);
     }
     is_list_cap = ((pflags & PARSE_FLAG_CAPTURE_OPT) && 
 		   (capture[CAPSPEC_TYPE] == am_list));
 
     if (is_not_tuple(arg2) || (arityval(*tuple_val(arg2)) != 5)) {
-	if (is_binary(arg2) || is_list(arg2) || is_nil(arg2)) {
-	    /* Compile from textual RE */
-	    ErlDrvSizeT slen;
-	    char *expr;
-	    pcre *result;
-	    int errcode = 0;
-	    const char *errstr = "";
-	    int errofset = 0;
-	    int capture_count;
+				 if (is_binary(arg2) || is_list(arg2) || is_nil(arg2)) {
+							/* Compile from textual RE */
+							ErlDrvSizeT slen;
+							char *expr;
+							pcre *result;
+							int errcode = 0;
+							const char *errstr = "";
+							int errofset = 0;
+							int capture_count;
 #ifdef DEBUG
 	    int buffres;
 #endif
 
 	    if (pflags & PARSE_FLAG_UNICODE && 
-		(!is_binary(arg2) || !is_binary(arg1) ||
-		 (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { 
-		BIF_TRAP3(urun_trap_exportp, p, arg1, arg2, arg3);
+					(!is_binary(arg2) || !is_binary(arg1) ||
+					 (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { 
+					 BIF_TRAP3(urun_trap_exportp, p, arg1, arg2, arg3);
 	    }
 	    
 	    if (erts_iolist_size(arg2, &slen)) {
-		BIF_ERROR(p,BADARG);
+					 BIF_ERROR(p,BADARG);
 	    }
 	    
 	    expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen + 1);
@@ -1120,26 +1118,26 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 
 	    expr[slen]='\0';
 	    result = erts_pcre_compile2(expr, comp_options, &errcode, 
-				   &errstr, &errofset, default_table);
+																	&errstr, &errofset, default_table);
 	    if (!result) {
 		/* Compilation error gives badarg except in the compile 
 		   function or if we have PARSE_FLAG_REPORT_ERRORS */
-		if (pflags &  PARSE_FLAG_REPORT_ERRORS) {
-		    res = build_compile_result(p, am_error, result, errcode,
-					       errstr, errofset, 
-					       (pflags & 
-						PARSE_FLAG_UNICODE) ? 1 : 0, 
-					       1, am_compile);
-		    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
-		    BIF_RET(res);
-		} else {
-		    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
-		    BIF_ERROR(p,BADARG);
-		}
+					 if (pflags &  PARSE_FLAG_REPORT_ERRORS) {
+								res = build_compile_result(p, am_error, result, errcode,
+																					 errstr, errofset, 
+																					 (pflags & 
+																						PARSE_FLAG_UNICODE) ? 1 : 0, 
+																					 1, am_compile);
+								erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
+								BIF_RET(res);
+					 } else {
+								erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
+								BIF_ERROR(p,BADARG);
+					 }
 	    }
 	    if (pflags & PARSE_FLAG_GLOBAL) {
-		Eterm precompiled = 
-		    build_compile_result(p, am_error,
+					 Eterm precompiled = 
+								build_compile_result(p, am_error,
 					 result, errcode, 
 					 errstr, errofset, 
 					 (pflags & 
