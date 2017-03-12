@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(string).
@@ -191,8 +191,8 @@ cspan([], _Cs, I) -> I.
       String :: string(),
       SubString :: string(),
       Start :: pos_integer().
-
-substr(String, 1) when is_list(String) -> 
+%% 整个字符串
+substr(String, 1) when is_list(String) ->
     String;
 substr(String, S) when is_integer(S), S > 1 ->
     substr2(String, S).
@@ -208,7 +208,7 @@ substr(String, S, L) when is_integer(S), S >= 1, is_integer(L), L >= 0 ->
 
 substr1([C|String], L) when L > 0 -> [C|substr1(String, L-1)];
 substr1(String, _L) when is_list(String) -> [].	     %Be nice!
-
+%% 使用遍历的方式，来获得字符串
 substr2(String, 1) when is_list(String) -> String;
 substr2([_|String], S) -> substr2(String, S-1).
 
@@ -320,9 +320,9 @@ sub_word(String, Index, Char) when is_integer(Index), is_integer(Char) ->
 s_word([], _, _, _,Res) -> reverse(Res);
 s_word([Char|_],Index,Char,Index,Res) -> reverse(Res);
 s_word([H|T],Index,Char,Index,Res) -> s_word(T,Index,Char,Index,[H|Res]);
-s_word([Char|T],Stop,Char,Index,Res) when Index < Stop -> 
+s_word([Char|T],Stop,Char,Index,Res) when Index < Stop ->
     s_word(strip(T,left,Char),Stop,Char,Index+1,Res);
-s_word([_|T],Stop,Char,Index,Res) when Index < Stop -> 
+s_word([_|T],Stop,Char,Index,Res) when Index < Stop ->
     s_word(T,Stop,Char,Index,Res).
 
 %%% STRIP %%%
