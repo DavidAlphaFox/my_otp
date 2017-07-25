@@ -416,6 +416,7 @@ cast(Node, Mod, Fun, Args) when Node =:= node() ->
     catch spawn(Mod, Fun, Args),
     true;
 cast(Node, Mod, Fun, Args) ->
+		%% 直接对本地结点进行cast
     gen_server:cast({?NAME,Node}, {cast,Mod,Fun,Args,group_leader()}),
     true.
 
