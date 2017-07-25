@@ -115,6 +115,11 @@ extern int erts_is_alive;
  * have been taken. Apropriate actions would typically be setting
  * up the connection.
  */
+ /*
+  *erts_dsig_prepare 是准备发送远程信号的操作
+	*如果没返回ERTS_DSIG_PREP_CONNECTED，就不能发送远程信号
+	*需要经过一系列操作到达ERTS_DSIG_PREP_CONNECTED，才能发送远程信号ERTS_DSIG_PREP_NOT_ALIVE
+ */
 
 /* Connected; signal can be sent. */
 #define ERTS_DSIG_PREP_CONNECTED	0
@@ -136,7 +141,7 @@ void erts_schedule_dist_command(Port *, DistEntry *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE int 
+ERTS_GLB_INLINE int
 erts_dsig_prepare(ErtsDSigData *dsdp,
 		  DistEntry *dep,
 		  Process *proc,
@@ -261,7 +266,7 @@ erts_destroy_dist_link(ErtsDistLinkData *dldp)
     if (dldp->d_lnk)
 	erts_destroy_link(dldp->d_lnk);
     if (dldp->d_sub_lnk)
-	erts_destroy_link(dldp->d_sub_lnk);	
+	erts_destroy_link(dldp->d_sub_lnk);
 }
 
 #endif

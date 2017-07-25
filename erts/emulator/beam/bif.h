@@ -271,7 +271,8 @@ do {							\
       (p)->freason = TRAP;					\
       return THE_NON_VALUE;					\
  } while(0)
-
+// 在调用的Erlang的进程中设置相应的参数和函数调用地址
+// 相当于在调用进程上伪造了函数栈帧
 #define BIF_TRAP2(Trap_, p, A0, A1) do {			\
       Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
       (p)->arity = 2;						\

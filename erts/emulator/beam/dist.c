@@ -189,7 +189,7 @@ get_suspended_on_de(DistEntry *dep, Uint32 unset_qflgs)
 ** A full node name constists of a "n@h"
 **
 ** n must be a valid node name: string of ([a-z][A-Z][0-9]_-)+
-** 
+**
 ** h is not checked at all, we assume that we have a properly
 ** configured machine where the networking is ok for the OS
 **
@@ -241,8 +241,8 @@ typedef struct {
     Eterm *lhp;
 } NetExitsContext;
 
-/* 
-** This function is called when a distribution 
+/*
+** This function is called when a distribution
 ** port or process terminates
 */
 static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
@@ -279,7 +279,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 	    rp_locks |= ERTS_PROC_LOCKS_MSG_SEND;
 	    erts_smp_proc_lock(rp, ERTS_PROC_LOCKS_MSG_SEND);
 #endif
-	    erts_queue_monitor_message(rp, &rp_locks, mon->ref, am_process, 
+	    erts_queue_monitor_message(rp, &rp_locks, mon->ref, am_process,
 				       watched, am_noconnection);
 	    erts_destroy_monitor(rmon);
 	}
@@ -289,16 +289,16 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
  done:
     erts_destroy_monitor(mon);
 }
-	
+
 typedef struct {
     NetExitsContext *necp;
     ErtsLink *lnk;
 } LinkNetExitsContext;
 
-/* 
+/*
 ** This is the function actually doing the job of sending exit messages
 ** for links in a dist entry upon net_exit (the node goes down), NB,
-** only process links, not node monitors are handled here, 
+** only process links, not node monitors are handled here,
 ** they reside in a separate tree....
 */
 static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
@@ -340,14 +340,14 @@ static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
     erts_destroy_link(sublnk);
 
 }
-    
 
 
 
 
-/* 
-** This function is called when a distribution 
-** port or process terminates, once for each link on the high level, 
+
+/*
+** This function is called when a distribution
+** port or process terminates, once for each link on the high level,
 ** it in turn traverses the link subtree for the specific link node...
 */
 static void doit_link_net_exits(ErtsLink *lnk, void *vnecp)
@@ -441,7 +441,7 @@ inc_no_nodes(void)
 #endif
     erts_smp_atomic_inc_mb(&no_nodes);
 }
-	
+
 /*
  * proc is currently running or exiting process.
  */
@@ -754,7 +754,7 @@ erts_dsig_send_unlink(ErtsDSigData *dsdp, Eterm local, Eterm remote)
    {DOP_MONITOR_P_EXIT, Local pid or name, Remote pid, ref, reason},
    which is rather sad as only the ref is needed, no pid's... */
 int
-erts_dsig_send_m_exit(ErtsDSigData *dsdp, Eterm watcher, Eterm watched, 
+erts_dsig_send_m_exit(ErtsDSigData *dsdp, Eterm watcher, Eterm watched,
 			  Eterm ref, Eterm reason)
 {
     Eterm ctl;
@@ -799,7 +799,7 @@ erts_dsig_send_monitor(ErtsDSigData *dsdp, Eterm watcher, Eterm watched,
     return res;
 }
 
-/* A local process monitoring a remote one wants to stop monitoring, either 
+/* A local process monitoring a remote one wants to stop monitoring, either
    because of a demonitor bif call or because the local process died. We send
    {DOP_DEMONITOR_P, Local pid, Remote pid or name, ref}, which is once again
    rather redundant as only the ref will be needed on the other side... */
@@ -840,9 +840,9 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
 #endif
 
     UseTmpHeapNoproc(5);
-    if (SEQ_TRACE_TOKEN(sender) != NIL 
+    if (SEQ_TRACE_TOKEN(sender) != NIL
 #ifdef USE_VM_PROBES
-	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag
 #endif
 	) {
 	seq_trace_update_send(sender);
@@ -902,7 +902,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     UseTmpHeapNoproc(6);
     if (SEQ_TRACE_TOKEN(sender) != NIL
 #ifdef USE_VM_PROBES
-		&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+		&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag
 #endif
 	) {
 		 seq_trace_update_send(sender);
@@ -944,7 +944,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 
 /* local has died, deliver the exit signal to remote */
 int
-erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote, 
+erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
 		       Eterm reason, Eterm token)
 {
     Eterm ctl;
@@ -962,11 +962,11 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
 #endif
 
     UseTmpHeapNoproc(6);
-    if (token != NIL 
+    if (token != NIL
 #ifdef USE_VM_PROBES
 	&& token != am_have_dt_utag
 #endif
-	) {	
+	) {
 	seq_trace_update_send(dsdp->proc);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
 	ctl = TUPLE5(&ctl_heap[0],
@@ -1043,7 +1043,7 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
     UseTmpHeapNoproc(4);
     ctl = TUPLE3(&ctl_heap[0],
 		 make_small(DOP_GROUP_LEADER), leader, remote);
-
+     // 发送一个远程消息
     res = dsig_send(dsdp, ctl, THE_NON_VALUE, 0);
     UnUseTmpHeapNoproc(4);
     return res;
@@ -1078,7 +1078,7 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 /*
 ** Input from distribution port.
 **  Input follows the distribution protocol v4.5
-**  
+**
 **   The protocol is a 4 byte header protocol
 **   the DOP_DATA is stripped by driver_output
 **
@@ -1199,7 +1199,7 @@ int erts_net_message(Port *prt,
     erts_fprintf(stderr, "<<%s CTL: %T\n", len != orig_len ? "P" : " ", arg);
 #endif
 
-    if (is_not_tuple(arg) || 
+    if (is_not_tuple(arg) ||
 		(tuple = tuple_val(arg), (tuple_arity = arityval(*tuple)) < 1) ||
 		is_not_small(tuple[1])) {
 		 goto invalid_message;
@@ -1264,7 +1264,7 @@ int erts_net_message(Port *prt,
 		 if (is_not_pid(from) || is_not_pid(to)) {
 			  goto invalid_message;
 		 }
-	
+
 		 rp = erts_pid2proc_opt(NULL, 0,
 								to, ERTS_PROC_LOCK_LINK,
 								ERTS_P2P_FLG_ALLOW_OTHER_X);
@@ -1272,7 +1272,7 @@ int erts_net_message(Port *prt,
 			  break;
 
 		 lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
-		 
+
 		 if (IS_TRACED_FL(rp, F_TRACE_PROCS) && lnk != NULL) {
 			  trace_proc(NULL, rp, am_getting_unlinked, from);
 		 }
@@ -1285,12 +1285,12 @@ int erts_net_message(Port *prt,
 			  erts_destroy_link(lnk);
 		 break;
     }
-//收到远程要求我们监控我们Node中的进程    
+//收到远程要求我们监控我们Node中的进程
     case DOP_MONITOR_P: {
 	/* A remote process wants to monitor us, we get:
 	   {DOP_MONITOR_P, Remote pid, local pid or name, ref} */
 		 Eterm name;
-	
+
 		 if (tuple_arity != 4) {
 			  goto invalid_message;
 		 }
@@ -1298,7 +1298,7 @@ int erts_net_message(Port *prt,
 		 watcher = tuple[2];
 		 watched = tuple[3];  /* local proc to monitor */
 		 ref     = tuple[4];
-		 
+
 		 if (is_not_ref(ref)) {
 			  goto invalid_message;
 		 }
@@ -1349,7 +1349,7 @@ int erts_net_message(Port *prt,
 	/* watcher = tuple[2]; */
 	/* watched = tuple[3]; May be an atom in case of monitor name */
 		 ref = tuple[4];
-		 
+
 		 if(is_not_ref(ref)) {
 			  goto invalid_message;
 		 }
@@ -1428,7 +1428,7 @@ int erts_net_message(Port *prt,
 				   token = tuple[5];
 				   token = copy_struct(token, token_size, &hp, ohp);
 			  }
-			  
+
 			  erts_queue_dist_message(rp, &locks, ede_copy, token);
 			  if (locks)
 				   erts_smp_proc_unlock(rp, locks);
@@ -1439,7 +1439,7 @@ int erts_net_message(Port *prt,
 		 if (tuple_arity != 4) {
 			  goto invalid_message;
 	}
-	
+
 		 token_size = size_object(tuple[4]);
 		 /* Fall through ... */
     case DOP_SEND:
@@ -1487,7 +1487,7 @@ int erts_net_message(Port *prt,
     case DOP_MONITOR_P_EXIT: {
 	/* We are monitoring a process on the remote node which dies, we get
 	   {DOP_MONITOR_P_EXIT, Remote pid or name, Local pid, ref, reason} */
-	   
+
 
 		 DeclareTmpHeapNoproc(lhp,3);
 		 Eterm sysname;
@@ -1501,7 +1501,7 @@ int erts_net_message(Port *prt,
 	/* watcher = tuple[3]; */
 		 ref     = tuple[4];
 		 reason  = tuple[5];
-		 
+
 		 if(is_not_ref(ref)) {
 			  goto invalid_message;
 		 }
@@ -1533,11 +1533,11 @@ int erts_net_message(Port *prt,
 			  break;
 		 }
 		 UseTmpHeapNoproc(3);
-	
+
 		 watched = (is_not_nil(mon->name)
 					? TUPLE2(&lhp[0], mon->name, sysname)
 					: mon->pid);
-	
+
 		 erts_queue_monitor_message(rp, &rp_locks,
 									ref, am_process, watched, reason);
 		 erts_smp_proc_unlock(rp, rp_locks);
@@ -1555,7 +1555,7 @@ int erts_net_message(Port *prt,
 			  if (tuple_arity != 4) {
 				   goto invalid_message;
 			  }
-	    
+
 			  from = tuple[2];
 			  to = tuple[3];
 			  reason = tuple[4];
@@ -1594,7 +1594,7 @@ int erts_net_message(Port *prt,
 				   xres = erts_send_exit_signal(NULL,
 												from,
 												rp,
-												&rp_locks, 
+												&rp_locks,
 												reason,
 												token,
 												NULL,
@@ -1659,7 +1659,7 @@ int erts_net_message(Port *prt,
 		 if (is_not_pid(from) || is_not_pid(to)) {
 			  goto invalid_message;
 		 }
-		 
+     //如果是to是远程进程，直接忽略，不修改
 		 rp = erts_pid2proc(NULL, 0, to, ERTS_PROC_LOCK_MAIN);
 		 if (!rp)
 			  break;
@@ -1667,7 +1667,7 @@ int erts_net_message(Port *prt,
 		 erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 		 break;
 
-    default: 
+    default:
 		 goto invalid_message;
     }
 
@@ -1785,7 +1785,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 			  dep->qflgs |= ERTS_DE_QFLG_BUSY;
 		 if (!force_busy && (dep->qflgs & ERTS_DE_QFLG_BUSY)) {
 			  erts_smp_mtx_unlock(&dep->qlock);
-			  
+
 			  plp = erts_proclist_create(c_p);
 			  erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 			  suspended = 1;
@@ -1827,7 +1827,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 		 erts_smp_mtx_unlock(&dep->qlock);
 		 erts_schedule_dist_command(NULL, dep);
 		 erts_smp_de_runlock(dep);
-		 
+
 		 if (resume) {
 			  erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
 			  erts_proclist_destroy(plp);
@@ -1841,7 +1841,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 
     if (c_p) {
 		 int reds;
-	/* 
+	/*
 	 * Bump reductions on calling process.
 	 *
 	 * This is the reduction cost: Always a base cost of 8 reductions
@@ -2352,10 +2352,10 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
 	else
 	    erts_print(to, arg, "{%T, %T}\n",
 		       rmon->name,
-		       rmon->pid); /* which in this case is the 
+		       rmon->pid); /* which in this case is the
 				      remote system name... */
     }
-}    
+}
 
 static void print_monitor_info(int to, void *arg, ErtsMonitor *mon)
 {
@@ -2380,7 +2380,7 @@ static void doit_print_link_info(ErtsLink *lnk, void *vptdp)
     if (is_internal_pid(lnk->pid) && erts_proc_lookup(lnk->pid)) {
 	PrintLinkContext plc = {(struct print_to_data *) vptdp, lnk->pid};
 	erts_doforall_links(ERTS_LINK_ROOT(lnk), &doit_print_link_info2, &plc);
-    } 
+    }
 }
 
 static void print_link_info(int to, void *arg, ErtsLink *lnk)
@@ -2393,7 +2393,7 @@ typedef struct {
     struct print_to_data ptd;
     Eterm sysname;
 } PrintNodeLinkContext;
-    
+
 
 static void doit_print_nodelink_info(ErtsLink *lnk, void *vpcontext)
 {
@@ -2459,21 +2459,21 @@ info_dist_entry(int to, void *arg, DistEntry *dep, int visible, int connected)
   print_nodelink_info(to, arg, dep->node_links, dep->sysname);
 
   return 0;
-    
+
 }
 int distribution_info(int to, void *arg)	/* Called by break handler */
 {
     DistEntry *dep;
 
     erts_print(to, arg, "=node:%T\n", erts_this_dist_entry->sysname);
- 
+
     if (erts_this_node->sysname == am_Noname) {
 	erts_print(to, arg, "=no_distribution\n");
 	return(0);
     }
 
 #if 0
-    if (!erts_visible_dist_entries && !erts_hidden_dist_entries) 
+    if (!erts_visible_dist_entries && !erts_hidden_dist_entries)
       erts_print(to, arg, "Alive but not holding any connections \n");
 #endif
 
@@ -2607,7 +2607,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
  **
  ** Note that in distribution protocols above 1, the Initial parameter
  ** is always NIL and the cookies are always the atom '', cookies are not
- ** sent in the distribution messages but are only used in 
+ ** sent in the distribution messages but are only used in
  ** the handshake.
  **
  ***********************************************************************/
@@ -2800,7 +2800,7 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 	goto error;
 
     rdep = external_dist_entry(remote);
-    
+
     if(rdep == erts_this_dist_entry)
 	goto error;
 
@@ -2821,7 +2821,7 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 		BIF_RET(am_true); /* ignore */
 	    }
 	}
-	
+
 	(void) erts_send_exit_signal(BIF_P,
 				     remote,
 				     lp,
@@ -2865,7 +2865,7 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 /* node(Object) -> Node */
 
 BIF_RETTYPE node_1(BIF_ALIST_1)
-{ 
+{
 //检查是否是正确的node
     if (is_not_node_container(BIF_ARG_1))
 		 BIF_ERROR(BIF_P, BADARG);
@@ -3044,7 +3044,7 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
 
     if (Bool == am_true) {
 	ASSERT(dep->cid != NIL);
-	lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE, 
+	lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE,
 				      p->common.id);
 	++ERTS_LINK_REFC(lnk);
 	lnk = erts_add_or_lookup_link(&ERTS_P_LINKS(p), LINK_NODE, Node);
@@ -3054,7 +3054,7 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
 	lnk = erts_lookup_link(dep->node_links, p->common.id);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
-		erts_destroy_link(erts_remove_link(&(dep->node_links), 
+		erts_destroy_link(erts_remove_link(&(dep->node_links),
 						   p->common.id));
 	    }
 	}
@@ -3105,7 +3105,7 @@ BIF_RETTYPE net_kernel_dflag_unicode_io_1(BIF_ALIST_1)
     erts_smp_de_runlock(de);
     BIF_RET(((f & DFLAG_UNICODE_IO) ? am_true : am_false));
 }
-    
+
 /*
  * The major part of the implementation of net_kernel:monitor_nodes/[1,2]
  * follows.
@@ -3221,7 +3221,7 @@ send_nodes_mon_msg(Process *rp,
 	if (what == am_nodedown
 	    && (nmp->opts & ERTS_NODES_MON_OPT_DOWN_REASON)) {
 	    Eterm rsn_cpy;
-	    
+
 	    if (is_immed(reason))
 		rsn_cpy = reason;
 	    else {
@@ -3284,7 +3284,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 		 int i;
 		 Uint16 no;
 		 Uint sz;
-		 
+
 		 ASSERT(nmp->proc != NULL);
 //opts为空
 		 if (!nmp->opts) {
@@ -3312,7 +3312,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 				   erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
 			  }
 		 }
-		 
+
 		 if (rp != nmp->proc) {
 			  if (rp) {
 				   if (rp == c_p){
@@ -3327,7 +3327,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 				   rp_locks |= ERTS_PROC_LOCK_MAIN;
 			  }
 		 }
-		 
+
 		 ASSERT(rp);
 		 //计算监控消息的大小
 		 sz = nodes_mon_msg_sz(nmp, what, reason);
@@ -3343,7 +3343,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 								 reason,
 								 sz);
     }
-	
+
     if (rp) {
 		 if (rp == c_p){
 			  rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -3381,7 +3381,7 @@ insert_nodes_monitor(Process *c_p, Uint32 opts)
 		 ASSERT(xnmp->opts == opts
 				|| !xnmp->next
 				|| xnmp->next->proc != c_p);
-		 
+
 		 if (xnmp->opts != opts)
 			  goto alloc_new;
 		 else {
@@ -3487,7 +3487,7 @@ remove_nodes_monitors(Process *c_p, Uint32 opts, int all)
 	    erts_free(ERTS_ALC_T_NODES_MON, free_nmp);
 	}
     }
-    
+
     ASSERT(!all || !c_p->nodes_monitors);
     return res;
 }
@@ -3630,7 +3630,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 		case ERTS_NODES_MON_OPT_TYPE_HIDDEN:  type = am_hidden;  break;
 		default: erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
 		}
-		olist = erts_bld_cons(hpp, szp, 
+		olist = erts_bld_cons(hpp, szp,
 				      erts_bld_tuple(hpp, szp, 2,
 						     am_node_type,
 						     type),

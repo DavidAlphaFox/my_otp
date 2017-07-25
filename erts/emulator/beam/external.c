@@ -17,7 +17,7 @@
  * %CopyrightEnd%
  */
 
-/*  Implementation of the erlang external format 
+/*  Implementation of the erlang external format
  *
  *  And a nice cache mechanism which is used just to send a
  *  index indicating a specific atom to a remote node instead of the
@@ -75,7 +75,7 @@
  *   creation of the node which it belongs to when it enters
  *   that node.
  *       This typically happens when a remote pid is created with
- *   list_to_pid/1 and then sent to the remote node. This behavior 
+ *   list_to_pid/1 and then sent to the remote node. This behavior
  *   has the undesirable effect that a pid can be passed between nodes,
  *   and as a result of that not being equal to itself (the pid that
  *   comes back isn't equal to the original pid).
@@ -98,7 +98,7 @@ static byte* dec_pid(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*);
 static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
-static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 
+static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags,
 				     Binary *context_b);
 
 static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
@@ -639,7 +639,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	erts_smp_de_rlock(dep);
 	if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
 	    edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
-	    
+
 	edep->flags |= (dep->connection_id & ERTS_DIST_EXT_CON_ID_MASK);
 	erts_smp_de_runlock(dep);
     }
@@ -991,7 +991,7 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
     ede.flags = ERTS_DIST_EXT_ATOM_TRANS_TAB;
     ede.dep = NULL;
     ede.heap_size = -1;
-    
+
     if (is_not_tuple(BIF_ARG_1))
 	goto badarg;
     tp = tuple_val(BIF_ARG_1);
@@ -1207,7 +1207,7 @@ static uLongf binary2term_uncomp_size(byte* data, Sint size)
     if (err == Z_OK) {
 	do {
 	    stream.next_out = tmp_buf;
-	    stream.avail_out = chunk_size;	   
+	    stream.avail_out = chunk_size;
 	    err = inflate(&stream, Z_NO_FLUSH);
 	    uncomp_size += chunk_size - stream.avail_out;
 	}while (err == Z_OK);
@@ -1239,7 +1239,7 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
     else  {
 	uLongf dest_len = (Uint32) get_int32(bytes+1);
 	bytes += 5;
-	size -= 5;	
+	size -= 5;
 	if (dest_len > 32*1024*1024
 	    || (state->extp = erts_alloc_fnf(ERTS_ALC_T_EXT_TERM_DATA, dest_len)) == NULL) {
             /*
@@ -1814,7 +1814,7 @@ static void ttb_context_destructor(Binary *context_bin)
 		erts_bin_free(context->s.cc.destination_bin);
 		context->s.cc.destination_bin = NULL;
 	    }
-	    
+
 	    if (context->s.cc.result_bin != NULL) { /* Set to NULL if ever made alive! */
 		ASSERT(erts_refc_read(&(context->s.cc.result_bin->refc),0) == 0);
 		erts_bin_free(context->s.cc.result_bin);
@@ -1825,8 +1825,8 @@ static void ttb_context_destructor(Binary *context_bin)
     }
 }
 
-static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 
-				     Binary *context_b) 
+static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags,
+				     Binary *context_b)
 {
     Eterm *hp;
     Eterm res;
@@ -1836,7 +1836,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 #else
     Sint reds = 20; /* For testing */
 #endif
-    Sint initial_reds = reds; 
+    Sint initial_reds = reds;
     TTBContext c_buff;
     TTBContext *context = &c_buff;
 
@@ -1869,7 +1869,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	context->s.sc.level = level;
     } else {
 	context = ERTS_MAGIC_BIN_DATA(context_b);
-    }	    
+    }
     /* Initialization done, now we will go through the states */
     for (;;) {
 	switch (context->state) {
@@ -1892,7 +1892,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		level = context->s.sc.level;
 		if (size <=  ERL_ONHEAP_BIN_LIMIT) {
 		    /* Finish in one go */
-		    res = erts_term_to_binary_simple(p, Term, size, 
+		    res = erts_term_to_binary_simple(p, Term, size,
 						     level, flags);
 		    BUMP_REDS(p, 1);
 		    return res;
@@ -1949,11 +1949,11 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    return make_binary(pb);
 		}
 		/* Continue with compression... */
-		/* To make absolutely sure that zlib does not barf on a reallocated context, 
+		/* To make absolutely sure that zlib does not barf on a reallocated context,
 		   we make sure it's "exported" before doing anything compession-like */
 		EXPORT_CONTEXT();
 		bytes = (byte *) result_bin->orig_bytes; /* result_bin is reallocated */
-		if (erl_zlib_deflate_start(&(context->s.cc.stream),bytes+1,real_size-1,level) 
+		if (erl_zlib_deflate_start(&(context->s.cc.stream),bytes+1,real_size-1,level)
 		    != Z_OK) {
 		    goto return_normal;
 		}
@@ -1976,8 +1976,8 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	    {
 		uLongf tot_dest_len = context->s.cc.real_size - 6;
 		uLongf left = (tot_dest_len - context->s.cc.dest_len);
-		uLongf this_time = (left > TERM_TO_BINARY_COMPRESS_CHUNK) ?  
-		    TERM_TO_BINARY_COMPRESS_CHUNK : 
+		uLongf this_time = (left > TERM_TO_BINARY_COMPRESS_CHUNK) ?
+		    TERM_TO_BINARY_COMPRESS_CHUNK :
 		    left;
 		Binary *result_bin;
 		ProcBin *pb;
@@ -2026,7 +2026,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			}
 			return make_binary(pb);
 		    }
-		default: /* Compression error, revert to uncompressed binary (still in 
+		default: /* Compression error, revert to uncompressed binary (still in
 			    context) */
 		no_use_compressing:
 		    result_bin = context->s.cc.result_bin;
@@ -2056,7 +2056,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
     }
 #undef EXPORT_CONTEXT
 #undef RETURN_STATE
-}			
+}
 
 
 
@@ -2144,7 +2144,7 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 		}
 		put_int16(len, ep);
 		ep += 2;
-	    }	    
+	    }
 	}
 	ep += len;
 	return ep;
@@ -2305,12 +2305,14 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
      * validity tests are done.
      */
     node = dec_get_node(sysname, cre);
-
+		// 在pid解码的时候，会检查是否是自己结点的pid
+		// 如果是的话就创建一个本地内部pid
     if(node == erts_this_node) {
-	*objp = make_internal_pid(data);
+			*objp = make_internal_pid(data);
     } else {
-	ExternalThing *etp = (ExternalThing *) *hpp;
-	*hpp += EXTERNAL_THING_HEAD_SIZE + 1;
+			// 创建外部Pid
+			ExternalThing *etp = (ExternalThing *) *hpp;
+			*hpp += EXTERNAL_THING_HEAD_SIZE + 1;
 
 	etp->header = make_external_pid_header(1);
 	etp->next = off_heap->first;
@@ -2319,7 +2321,7 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 
 	off_heap->first = (struct erl_off_heap_header*) etp;
 	*objp = make_external_pid(etp);
-    }
+  }
     return ep;
 }
 
@@ -2481,7 +2483,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 			 int sign = big_sign(obj);
 			 n = big_bytes(obj);
 			 if (sizeof(Sint)==4 && n<=4) {
-				  Uint dig = big_digit(obj,0);		   
+				  Uint dig = big_digit(obj,0);
 				  Sint val = sign ? -dig : dig;
 				  if ((val<0) == sign) {
 					   *ep++ = INTEGER_EXT;
@@ -2624,7 +2626,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		put_int32(f.fw[1], ep);
 		ep += 4;
 		put_int32(f.fw[0], ep);
-#endif		
+#endif
 		ep += 4;
 	    } else {
 		*ep++ = FLOAT_EXT;
@@ -2668,7 +2670,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 			    *ep++ = BINARY_INTERNAL_REF;
 			}
 			if (pb->flags) {
-			    char* before_realloc = pb->val->orig_bytes; 
+			    char* before_realloc = pb->val->orig_bytes;
 			    erts_emasculate_writable_binary(pb);
 			    bytes += (pb->val->orig_bytes - before_realloc);
 			}
@@ -2783,18 +2785,18 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		     * jinterface node. Convert the fun to a tuple to
 		     * avoid crasching.
 		     */
-		
+
 		    /* Tag, arity */
 		    *ep++ = SMALL_TUPLE_EXT;
 		    put_int8(5, ep);
 		    ep += 1;
-		
+
 		    /* 'fun' */
 		    ep = enc_atom(acmp, am_fun, ep, dflags);
-		
+
 		    /* Module name */
 		    ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-		
+
 		    /* Index, Uniq */
 		    *ep++ = INTEGER_EXT;
 		    put_int32(funp->fe->old_index, ep);
@@ -2802,7 +2804,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    *ep++ = INTEGER_EXT;
 		    put_int32(funp->fe->old_uniq, ep);
 		    ep += 4;
-		
+
 		    /* Environment sub-tuple arity */
 		    ASSERT(funp->num_free < MAX_ARG);
 		    *ep++ = SMALL_TUPLE_EXT;
@@ -2862,7 +2864,7 @@ is_external_string(Eterm list, int* p_is_string)
     return len;
 }
 
-/* Assumes that the ones to undo are preluding the list. */ 
+/* Assumes that the ones to undo are preluding the list. */
 static void
 undo_offheap_in_area(ErlOffHeap* off_heap, Eterm* start, Eterm* end)
 {
@@ -2880,13 +2882,13 @@ undo_offheap_in_area(ErlOffHeap* off_heap, Eterm* start, Eterm* end)
 	    break;
 	}
 	hdr_nextp = &hdr->next;
-    }    
+    }
 
-    /* Assert that the ones to undo were indeed preluding the list. */ 
+    /* Assert that the ones to undo were indeed preluding the list. */
 #ifdef DEBUG
     for (hdr = off_heap->first; hdr != NULL; hdr = hdr->next) {
 	ASSERT(!in_area(hdr, start, area_sz));
-    }    
+    }
 #endif /* DEBUG */
 }
 
@@ -3221,7 +3223,7 @@ dec_term_atom_common:
 		ep += 4;
 		ff.fw[0] = get_int32(ep);
 		ep += 4;
-#endif		
+#endif
 		__ERTS_FP_CHECK_INIT(fpexnp);
 		__ERTS_FP_ERROR_THOROUGH(fpexnp, ff.fd, goto error);
 		*objp = make_float(hp);
@@ -3264,7 +3266,7 @@ dec_term_atom_common:
 		else {
 		    ExternalThing *etp = (ExternalThing *) hp;
 		    hp += EXTERNAL_THING_HEAD_SIZE + 1;
-		    
+
 		    etp->header = make_external_port_header(1);
 		    etp->next = off_heap->first;
 		    etp->node = node;
@@ -3376,7 +3378,7 @@ dec_term_atom_common:
 	    {
 		n = get_int32(ep);
 		ep += 4;
-	    
+
 		if ((unsigned)n <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
@@ -3671,9 +3673,9 @@ dec_term_atom_common:
 		*objp = make_fun(funp);
 
 		/* Creator pid */
-		if (*ep != PID_EXT 
+		if (*ep != PID_EXT
 		    || (ep = dec_pid(edep, hpp, ++ep, off_heap,
-				     &funp->creator))==NULL) { 
+				     &funp->creator))==NULL) {
 		    goto error;
 		}
 
@@ -3698,7 +3700,7 @@ dec_term_atom_common:
 		if (!is_small(temp)) {
 		    goto error;
 		}
-		
+
 		/*
 		 * It is safe to link the fun into the fun list only when
 		 * no more validity tests can fail.
@@ -3825,7 +3827,7 @@ dec_term_atom_common:
 error:
     /* UNDO:
      * Must unlink all off-heap objects that may have been
-     * linked into the process. 
+     * linked into the process.
      */
     if (hp < *hpp) { /* Sometimes we used hp and sometimes *hpp */
 	hp = *hpp;   /* the largest must be the freshest */
@@ -3836,7 +3838,7 @@ error:
 	ctx->state = B2TDecodeFail;
 	ctx->reds = reds;
     }
-        
+
     return NULL;
 }
 
@@ -3892,7 +3894,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	     * in a fun's environment).
 	     */
 	}
-    
+
     L_jump_start:
 	if (ctx && --r == 0) {
 	    *reds = r;
@@ -4078,7 +4080,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	case FUN_DEF:
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
-		
+
 		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
 		    result += 20+1+1+4;	/* New ID + Tag */
 		    result += 4; /* Length field (number of free variables */
@@ -4293,7 +4295,7 @@ init_done:
 
 		CHKSIZE(2);
 		id_words = get_int16(ep);
-		    
+
 		if (id_words > ERTS_MAX_REF_NUMBERS)
 		    goto error;
 
@@ -4395,7 +4397,7 @@ init_done:
 
 		CHKSIZE(1+16+4+4);
 		total_size = get_int32(ep);
-		CHKSIZE(total_size);		
+		CHKSIZE(total_size);
 		ep += 1+16+4+4;
 		/*FALLTHROUGH*/
 

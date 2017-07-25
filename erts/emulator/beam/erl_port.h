@@ -34,12 +34,12 @@ typedef struct ErtsProc2PortSigData_ ErtsProc2PortSigData;
 #ifndef __WIN32__
 #define ERTS_DEFAULT_MAX_PORTS (1 << 16)
 #else
-/* 
+/*
  *  Do not default to as many max ports on Windows
  *  as there are no os limits to stop system
  *  from running amok. If allowed to go too high
  *  windows rarely recovers from the errors and
- *  other OS processes can be effected. 
+ *  other OS processes can be effected.
  */
 #define ERTS_DEFAULT_MAX_PORTS (1 << 13)
 #endif /* __WIN32__ */
@@ -285,7 +285,7 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 #define ERTS_PORT_SFLG_CLOSING		((Uint32) (1 <<  5))
 /* Send a closed message when terminating */
 #define ERTS_PORT_SFLG_SEND_CLOSED	((Uint32) (1 <<  6))
-/* Line orinted io on port */  
+/* Line orinted io on port */
 #define ERTS_PORT_SFLG_LINEBUF_IO	((Uint32) (1 <<  7))
 /* Immortal port (only certain system ports) */
 #define ERTS_PORT_SFLG_FREE		((Uint32) (1 <<  8))
@@ -300,7 +300,7 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 #define ERTS_PORT_SFLG_PORT_DEBUG	((Uint32) (1 << 31))
 #endif
 
-/* Combinations of port status flags */ 
+/* Combinations of port status flags */
 #define ERTS_PORT_SFLGS_DEAD						\
   (ERTS_PORT_SFLG_FREE | ERTS_PORT_SFLG_INITIALIZING)
 #define ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP				\
@@ -376,7 +376,7 @@ ERTS_GLB_INLINE void erts_port_dec_refc(Port *prt)
 #else
     int refc = erts_atomic32_dec_read_nob(&prt->refc);
     if (refc == 0)
-	erts_port_free(prt);	
+	erts_port_free(prt);
 #endif
 }
 
@@ -389,7 +389,7 @@ ERTS_GLB_INLINE void erts_port_add_refc(Port *prt, Sint32 add_refc)
 #else
     int refc = erts_atomic32_add_read_nob(&prt->refc, add_refc);
     if (refc == 0)
-	erts_port_free(prt);	
+	erts_port_free(prt);
 #endif
 }
 
@@ -661,6 +661,7 @@ erts_thr_port_release(Port *prt)
 ERTS_GLB_INLINE Port *
 erts_thr_drvport2port(ErlDrvPort drvport, int lock_pdl)
 {
+  //直接拿出port
     Port *prt = ERTS_ErlDrvPort2Port(drvport);
     ASSERT(prt != NULL);
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
@@ -703,7 +704,7 @@ erts_drvport2port_state(ErlDrvPort drvport, erts_aint32_t *statep)
 	return ERTS_INVALID_ERL_DRV_PORT;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)
 		       || ERTS_IS_CRASH_DUMPING);
-    /* 
+    /*
      * This state check is only needed since a driver callback
      * might terminate the port, and then call back into the
      * emulator. Drivers should preferably have been forbidden

@@ -139,7 +139,7 @@
          trace_pattern/3, tuple_to_list/1, system_info/1,
          universaltime_to_localtime/1]).
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
-	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]). 
+	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -701,11 +701,11 @@ dt_put_tag(_IoData) ->
       TagData :: term().
 dt_restore_tag(_TagData) ->
     erlang:nif_error(undefined).
-    
+
 %% dt_spread_tag/1
 -spec erlang:dt_spread_tag(boolean()) -> TagData when
       TagData :: term().
-dt_spread_tag(_Bool) ->   
+dt_spread_tag(_Bool) ->
     erlang:nif_error(undefined).
 
 %% erase/0
@@ -2566,7 +2566,7 @@ remote_spawn_error({'EXIT', Reason}, _) ->
     {fault, Reason};
 remote_spawn_error(Other, _) ->
     {fault, Other}.
-    
+
 is_well_formed_list([]) ->
     true;
 is_well_formed_list([_|Rest]) ->
@@ -2837,7 +2837,7 @@ port_info(Port, Item) ->
 -spec erlang:port_set_data(Port, Data) -> 'true' when
       Port :: port() | atom(),
       Data :: term().
-    
+
 port_set_data(_Port, _Data) ->
     erlang:nif_error(undefined).
 
@@ -2849,7 +2849,7 @@ port_get_data(_Port) ->
 
 %%
 %% If the emulator wants to perform a distributed command and
-%% a connection is not established to the actual node the following 
+%% a connection is not established to the actual node the following
 %% functions are called in order to set up the connection and then
 %% reactivate the command.
 %%
@@ -2887,12 +2887,14 @@ dmonitor_node(Node, Flag, Opts) ->
     end.
 
 dgroup_leader(Leader, Pid) ->
+		%% 连接远程结点
     case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:group_leader(Leader, Pid);
-	false -> true  %% bad arg ?
+			%% 成功后重新进入group_leader函数
+			true -> erlang:group_leader(Leader, Pid);
+			false -> true  %% bad arg ?
     end.
 
-dexit(Pid, Reason) -> 
+dexit(Pid, Reason) ->
     case net_kernel:connect(erlang:node(Pid)) of
 	true -> erlang:exit(Pid, Reason);
 	false -> true
@@ -2964,7 +2966,7 @@ delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 %% The business with different in and out cookies represented
 %% everywhere is discarded.
 %% A node has a cookie, connections/messages to that node use that cookie.
-%% Messages to us use our cookie. IF we change our cookie, other nodes 
+%% Messages to us use our cookie. IF we change our cookie, other nodes
 %% have to reflect that, which we cannot forsee.
 %%
 -spec erlang:set_cookie(Node, Cookie) -> true when
@@ -2988,7 +2990,7 @@ get_cookie() ->
       Base :: 2..36.
 integer_to_list(I, 10) ->
     erlang:integer_to_list(I);
-integer_to_list(I, Base) 
+integer_to_list(I, Base)
   when erlang:is_integer(I), erlang:is_integer(Base),
        Base >= 2, Base =< 1+$Z-$A+10 ->
     if I < 0 ->
@@ -3018,7 +3020,7 @@ integer_to_list(I0, Base, R0) ->
       Base :: 2..36.
 integer_to_binary(I, 10) ->
     erlang:integer_to_binary(I);
-integer_to_binary(I, Base) 
+integer_to_binary(I, Base)
   when erlang:is_integer(I), erlang:is_integer(Base),
        Base >= 2, Base =< 1+$Z-$A+10 ->
     if I < 0 ->
@@ -3060,13 +3062,13 @@ flush_monitor_message(Ref, Res) when erlang:is_reference(Ref),
 
 %% erlang:set_cpu_topology/1 is for internal use only!
 %%
-%% erlang:system_flag(cpu_topology, CpuTopology) traps to 
+%% erlang:system_flag(cpu_topology, CpuTopology) traps to
 %% erlang:set_cpu_topology(CpuTopology).
 set_cpu_topology(CpuTopology) ->
     try format_cpu_topology(erlang:system_flag(internal_cpu_topology,
 					       cput_e2i(CpuTopology)))
     catch
-	Class:Exception when Class =/= error; Exception =/= internal_error -> 
+	Class:Exception when Class =/= error; Exception =/= internal_error ->
 	    erlang:error(badarg, [CpuTopology])
     end.
 
@@ -3091,9 +3093,9 @@ cput_e2i(undefined) ->
 cput_e2i(E) ->
     rvrs(cput_e2i(E, -1, -1, #cpu{}, 0, cput_e2i_clvl(E, 0), [])).
 
-cput_e2i([], _NId, _PId, _IS, _PLvl, _Lvl, Res) -> 
+cput_e2i([], _NId, _PId, _IS, _PLvl, _Lvl, Res) ->
     Res;
-cput_e2i([E|Es], NId0, PId, IS, PLvl, Lvl, Res0) -> 
+cput_e2i([E|Es], NId0, PId, IS, PLvl, Lvl, Res0) ->
     case cput_e2i(E, NId0, PId, IS, PLvl, Lvl, Res0) of
 	[] ->
 	    cput_e2i(Es, NId0, PId, IS, PLvl, Lvl, Res0);
@@ -3404,7 +3406,7 @@ get_memval(_, #memory{}) -> 0.
 
 memory_is_supported() ->
     {_, _, FeatureList, _} = erlang:system_info(allocator),
-    case ((erlang:system_info(alloc_util_allocators) 
+    case ((erlang:system_info(alloc_util_allocators)
 	   -- ?CARRIER_ALLOCS)
 	  -- FeatureList) of
 	[] -> true;
@@ -3698,7 +3700,6 @@ gc_info(_Ref, 0, {Colls,Recl}) ->
     {Colls,Recl,0};
 gc_info(Ref, N, {OrigColls,OrigRecl}) ->
     receive
-	{Ref, {_,Colls, Recl}} -> 
+	{Ref, {_,Colls, Recl}} ->
 	    gc_info(Ref, N-1, {Colls+OrigColls,Recl+OrigRecl})
     end.
-

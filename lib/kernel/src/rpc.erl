@@ -78,6 +78,8 @@ start() ->
     gen_server:start({local,?NAME}, ?MODULE, [], []).
 
 -spec start_link() -> {'ok', pid()} | 'ignore' | {'error', term()}.
+%% 创建本地名字为rpc的进程
+%% 每个erts中只有一个这个进程
 
 start_link() ->
     gen_server:start_link({local,?NAME}, ?MODULE, [], []).
@@ -104,9 +106,12 @@ init([]) ->
 handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
     handle_call_call(Mod, Fun, Args, Gleader, To, S);
 handle_call({block_call, Mod, Fun, Args, Gleader}, _To, S) ->
+		%% 得到自己的erts中的group_leader
     MyGL = group_leader(),
+		%% 将自己的group_leader换成调用者的group_leader
+		%% 就是将所有的本地console输出重定向到远程输出上
     set_group_leader(Gleader),
-    Reply = 
+    Reply =
 	case catch apply(Mod,Fun,Args) of
 	    {'EXIT', _} = Exit ->
 		{badrpc, Exit};
@@ -123,6 +128,9 @@ handle_call(_, _To, S) ->
 -spec handle_cast(term(), state()) -> {'noreply', state()}.
 
 handle_cast({cast, Mod, Fun, Args, Gleader}, S) ->
+		%% 创建一个进程来处理这个事情
+		%% 如果远程erts结点使用rpc:cast来进行操作
+		%% 会给被调用erts结点带来巨大的进程数量压力
     spawn(fun() ->
 		  set_group_leader(Gleader),
 		  apply(Mod, Fun, Args)
@@ -150,7 +158,7 @@ handle_info({Caller, {reply, Reply}}, S) ->
     case gb_trees:lookup(Caller, S) of
 	{value, To} ->
 	    receive
-		{'DOWN', _, process, Caller, _} -> 
+		{'DOWN', _, process, Caller, _} ->
 		    gen_server:reply(To, Reply),
 		    {noreply, gb_trees:delete(Caller, S)}
 	    end;
@@ -199,8 +207,8 @@ handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
 	erlang:spawn_monitor(
 	  fun () ->
 		  set_group_leader(Gleader),
-		  Reply = 
-		      %% in case some sucker rex'es 
+		  Reply =
+		      %% in case some sucker rex'es
 		      %% something that throws
 		      case catch apply(Mod, Fun, Args) of
 			  {'EXIT', _} = Exit ->
@@ -215,9 +223,9 @@ handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
 
 %% RPC aid functions ....
 
-set_group_leader(Gleader) when is_pid(Gleader) -> 
+set_group_leader(Gleader) when is_pid(Gleader) ->
     group_leader(Gleader, self());
-set_group_leader(user) -> 
+set_group_leader(user) ->
     %% For example, hidden C nodes doesn't want any I/O.
     Gleader = case whereis(user) of
 		  Pid when is_pid(Pid) -> Pid;
@@ -272,7 +280,7 @@ proxy_user_flush() ->
       Args :: [term()],
       Res :: term(),
       Reason :: term().
-
+%% 先判断是否是本地结点
 call(N,M,F,A) when node() =:= N ->  %% Optimize local call
     local_call(M, F, A);
 call(N,M,F,A) ->
@@ -306,6 +314,7 @@ call(N,M,F,A,Timeout) when is_integer(Timeout), Timeout >= 0 ->
 block_call(N,M,F,A) when node() =:= N -> %% Optimize local call
     local_call(M,F,A);
 block_call(N,M,F,A) ->
+	%%调用结点的group_leader
     do_call(N, {block_call,M,F,A,group_leader()}, infinity).
 
 -spec block_call(Node, Module, Function, Args, Timeout) ->
@@ -332,9 +341,11 @@ local_call(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     end.
 
 do_call(Node, Request, infinity) ->
+	%% 调用远程erts中的rpc进程来执行相应的请求
     rpc_check(catch gen_server:call({?NAME,Node}, Request, infinity));
 do_call(Node, Request, Timeout) ->
     Tag = make_ref(),
+		%% 当带有timeout的时候，会创建一个进程来执行远程请求
     {Receiver,Mref} =
 	erlang:spawn_monitor(
 	  fun() ->
@@ -348,14 +359,16 @@ do_call(Node, Request, Timeout) ->
 	{'DOWN',Mref,_,_,{Receiver,Tag,Result}} ->
 	    rpc_check(Result);
 	{'DOWN',Mref,_,_,Reason} ->
-	    %% The middleman code failed. Or someone did 
+	    %% The middleman code failed. Or someone did
 	    %% exit(_, kill) on the middleman process => Reason==killed
 	    rpc_check_t({'EXIT',Reason})
     end.
-
+%% 收到超时的时候并不会让调用进程结束
+%% 收到nodedown也不会让调用进程结束
+%% 而是将这两个作为badrpc返回给调用进程
 rpc_check_t({'EXIT', {timeout,_}}) -> {badrpc, timeout};
 rpc_check_t(X) -> rpc_check(X).
-	    
+
 rpc_check({'EXIT', {{nodedown,_},_}}) -> {badrpc, nodedown};
 rpc_check({'EXIT', X}) -> exit(X);
 rpc_check(X) -> X.
@@ -366,7 +379,7 @@ rpc_check(X) -> X.
 %% Receives messages on the form {From, Request} and replies on the
 %% form From ! {ReplyWrapper, Node, Reply}.
 %% This function makes such a server call and ensures that that
-%% The entire call is packed into an atomic transaction which 
+%% The entire call is packed into an atomic transaction which
 %% either succeeds or fails, i.e. never hangs (unless the server itself hangs).
 
 -spec server_call(Node, Name, ReplyWrapper, Msg) -> Reply | {error, Reason} when
@@ -377,7 +390,7 @@ rpc_check(X) -> X.
       Reply :: term(),
       Reason :: nodedown.
 
-server_call(Node, Name, ReplyWrapper, Msg) 
+server_call(Node, Name, ReplyWrapper, Msg)
   when is_atom(Node), is_atom(Name) ->
     if node() =:= nonode@nohost, Node =/= nonode@nohost ->
 	    {error, nodedown};
@@ -484,7 +497,7 @@ send_nodes([Node|Tail], Name, Msg, Monitors) when is_atom(Node) ->
 send_nodes([_Node|Tail], Name, Msg, Monitors) ->
     %% Skip non-atom _Node
     send_nodes(Tail, Name, Msg, Monitors);
-send_nodes([], _Name,  _Req, Monitors) -> 
+send_nodes([], _Name,  _Req, Monitors) ->
     Monitors.
 
 %% Starts a monitor, either the new way, or the old.
@@ -507,7 +520,7 @@ start_monitor(Node, Name) ->
       ResL :: [term()],
       BadNodes :: [node()].
 
-multicall(M, F, A) -> 
+multicall(M, F, A) ->
     multicall(M, F, A, infinity).
 
 -spec multicall(Nodes, Module, Function, Args) -> {ResL, BadNodes} when
@@ -543,14 +556,14 @@ multicall(M, F, A, Timeout) ->
 multicall(Nodes, M, F, A, infinity)
   when is_list(Nodes), is_atom(M), is_atom(F), is_list(A) ->
     do_multicall(Nodes, M, F, A, infinity);
-multicall(Nodes, M, F, A, Timeout) 
-  when is_list(Nodes), is_atom(M), is_atom(F), is_list(A), is_integer(Timeout), 
+multicall(Nodes, M, F, A, Timeout)
+  when is_list(Nodes), is_atom(M), is_atom(F), is_list(A), is_integer(Timeout),
        Timeout >= 0 ->
     do_multicall(Nodes, M, F, A, Timeout).
 
 do_multicall(Nodes, M, F, A, Timeout) ->
-    {Rep,Bad} = gen_server:multi_call(Nodes, ?NAME, 
-				      {call, M,F,A, group_leader()}, 
+    {Rep,Bad} = gen_server:multi_call(Nodes, ?NAME,
+				      {call, M,F,A, group_leader()},
 				      Timeout),
     {lists:map(fun({_,R}) -> R end, Rep), Bad}.
 
@@ -558,10 +571,10 @@ do_multicall(Nodes, M, F, A, Timeout) ->
 %% Send Msg to Name on all nodes, and collect the answers.
 %% Return {Replies, Badnodes} where Badnodes is a list of the nodes
 %% that failed during the timespan of the call.
-%% This function assumes that if we send a request to a server 
+%% This function assumes that if we send a request to a server
 %% called Name, the server will reply with a reply
 %% on the form {Name, Node, Reply}, otherwise this function will
-%% hang forever. 
+%% hang forever.
 %% It also assumes that the server receives messages on the form
 %% {From, Msg} and then replies as From ! {Name, node(), Reply}.
 %%
@@ -583,7 +596,7 @@ multi_server_call(Name, Msg) ->
       Replies :: [Reply :: term()],
       BadNodes :: [node()].
 
-multi_server_call(Nodes, Name, Msg) 
+multi_server_call(Nodes, Name, Msg)
   when is_list(Nodes), is_atom(Name) ->
     Monitors = send_nodes(Nodes, Name, Msg, []),
     rec_nodes(Name, Monitors).
@@ -610,7 +623,7 @@ safe_multi_server_call(Nodes, Name, Msg) ->
     multi_server_call(Nodes, Name, Msg).
 
 
-rec_nodes(Name, Nodes) -> 
+rec_nodes(Name, Nodes) ->
     rec_nodes(Name, Nodes, [], []).
 
 rec_nodes(_Name, [],  Badnodes, Replies) ->
@@ -619,7 +632,7 @@ rec_nodes(Name, [{N,R} | Tail], Badnodes, Replies) ->
     receive
 	{'DOWN', R, _, _, _} ->
 	    rec_nodes(Name, Tail, [N|Badnodes], Replies);
-	{?NAME, N, {nonexisting_name, _}} ->  
+	{?NAME, N, {nonexisting_name, _}} ->
 	    %% used by sbcast()
 	    erlang:demonitor(R, [flush]),
 	    rec_nodes(Name, Tail, [N|Badnodes], Replies);
@@ -630,7 +643,7 @@ rec_nodes(Name, [{N,R} | Tail], Badnodes, Replies) ->
 
 %% Now for an asynchronous rpc.
 %% An asyncronous version of rpc that is faster for series of
-%% rpc's towards the same node. I.e. it returns immediately and 
+%% rpc's towards the same node. I.e. it returns immediately and
 %% it returns a Key that can be used in a subsequent yield(Key).
 
 -opaque key() :: pid().
@@ -689,7 +702,7 @@ do_yield(Key, Timeout) ->
 
 %% A parallel network evaluator
 %% ArgL === [{M,F,Args},........]
-%% Returns a lists of the evaluations in the same order as 
+%% Returns a lists of the evaluations in the same order as
 %% given to ArgL
 -spec parallel_eval(FuncCalls) -> ResL when
       FuncCalls :: [{Module, Function, Args}],
@@ -705,12 +718,12 @@ parallel_eval(ArgL) ->
 
 map_nodes([],_,_) -> [];
 map_nodes(ArgL,[],Original) ->
-    map_nodes(ArgL,Original,Original); 
+    map_nodes(ArgL,Original,Original);
 map_nodes([{M,F,A}|Tail],[Node|MoreNodes], Original) ->
-    [?MODULE:async_call(Node,M,F,A) | 
+    [?MODULE:async_call(Node,M,F,A) |
      map_nodes(Tail,MoreNodes,Original)].
 
-%% Parallel version of lists:map/3 with exactly the same 
+%% Parallel version of lists:map/3 with exactly the same
 %% arguments and return value as lists:map/3,
 %% except that it calls exit/1 if a network error occurs.
 -spec pmap(FuncSpec, ExtraArgs, List1) -> List2 when

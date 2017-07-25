@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 2007-2012. All Rights Reserved.
- * 
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -719,7 +719,7 @@ erts_smp_proc_trylock__(Process *p,
 }
 
 #ifdef ERTS_PROC_LOCK_DEBUG
-ERTS_GLB_INLINE void 
+ERTS_GLB_INLINE void
 erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
 {
     int i;
@@ -763,7 +763,7 @@ ERTS_GLB_INLINE void
 erts_smp_proc_lock_x(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
 #else
 erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
-#endif 
+#endif
 {
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_smp_proc_lock_x__(p,
@@ -900,7 +900,7 @@ ERTS_GLB_INLINE Process *erts_proc_lookup_raw(Eterm pid)
     Process *proc;
 
     ERTS_SMP_LC_ASSERT(erts_thr_progress_lc_is_delaying());
-		// 如果PID不是本节点的PID
+		// 如果PID不是本地内部的PID
 		// 直接返回NULL
     if (is_not_internal_pid(pid))
 				 return NULL;
@@ -940,5 +940,5 @@ erts_pid2proc_opt(Process *c_p_unused,
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* #ifndef ERTS_PROCESS_LOCK_H__ */
-#endif /* #if !defined(ERTS_PROCESS_LOCK_ONLY_PROC_LOCK_TYPE__) 
+#endif /* #if !defined(ERTS_PROCESS_LOCK_ONLY_PROC_LOCK_TYPE__)
 	  && !defined(ERTS_PROCESS_LOCK_ONLY_LOCK_CHECK_PROTO__) */
