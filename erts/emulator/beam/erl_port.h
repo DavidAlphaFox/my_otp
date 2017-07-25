@@ -154,7 +154,8 @@ typedef struct ErtsXPortsList_ ErtsXPortsList;
 
 struct _erl_drv_port {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
-
+    // Port任务的调度器信息
+    // 此处存储的是，该Port的所有的任务信息
     ErtsPortTaskSched sched;
     ErtsPortTaskHandle timeout_task;
 #ifdef ERTS_SMP
@@ -178,6 +179,7 @@ struct _erl_drv_port {
     erts_driver_t* drv_ptr;
     UWord drv_data;
     SWord os_pid;                /* Child process ID */
+    //Ports上关联的，暂停的进程
     ErtsProcList *suspended;	 /* List of suspended processes. */
     LineBuf *linebuf;            /* Buffer to hold data not ready for
 				    process to get (line oriented I/O)*/

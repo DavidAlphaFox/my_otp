@@ -894,7 +894,7 @@ struct process {
     BeamInstr* cp;		/* (untagged) Continuation pointer (for threaded code). */
     BeamInstr* i;		/* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
-    Sint fcalls;		/* 
+    Sint fcalls;		/*
 				 * Number of reductions left to execute.
 				 * Only valid for the current process.
 				 */
@@ -933,8 +933,8 @@ struct process {
 #ifdef USE_VM_PROBES
     Eterm dt_utag;              /* Place to store the dynamc trace user tag */
     Uint dt_utag_flags;         /* flag field for the dt_utag */
-#endif      
-//初始化的函数 
+#endif
+//初始化的函数
     BeamInstr initial[3];	/* Initial module(0), function(1), arity(2), often used instead
 				   of pointer to funcinfo instruction, hence the BeamInstr datatype */
 //当前的函数
@@ -943,7 +943,7 @@ struct process {
 				 * (module and functions are tagged atoms;
 				 * arity an untagged integer). BeamInstr * because it references code
 				 */
-    
+
     /*
      * Information mainly for post-mortem use (erl crash dump).
      */
@@ -1008,7 +1008,7 @@ struct process {
 #endif
 
 #ifdef FORCE_HEAP_FRAGS
-    Uint space_verified;        /* Avoid HAlloc forcing heap fragments when */ 
+    Uint space_verified;        /* Avoid HAlloc forcing heap fragments when */
     Eterm* space_verified_from; /* we rely on available heap space (TestHeap) */
 #endif
 };
@@ -1030,10 +1030,10 @@ void erts_check_for_holes(Process* p);
 #endif
 
 /*
- * The MBUF_GC_FACTOR decides how easily a process is subject to GC 
+ * The MBUF_GC_FACTOR decides how easily a process is subject to GC
  * due to message buffers allocated outside the heap.
  * The larger the factor, the easier the process gets GCed.
- * On a small memory system with lots of processes, this makes a significant 
+ * On a small memory system with lots of processes, this makes a significant
  * difference, especially since the GCs help fragmentation quite a bit too.
  */
 #if defined(SMALL_MEMORY)
@@ -1071,7 +1071,7 @@ void erts_check_for_holes(Process* p);
  *             prio may be higher than user prio.
  * USR_PRIO -> User prio. i.e., prio the user has set.
  * PRQ_PRIO -> Prio queue prio, i.e., prio queue currently
- *             enqueued in. 
+ *             enqueued in.
  */
 #define ERTS_PSFLGS_ACT_PRIO_MASK \
     (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_ACT_PRIO_OFFSET)
@@ -1180,7 +1180,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
     ASSERT(hf!=NULL && (hp - hf->mem < (unsigned long)hf->alloc_size));
 
     hf->used_size = hp - hf->mem;
-}	
+}
 #endif /* inline */
 
 Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
@@ -1205,7 +1205,7 @@ struct erts_system_monitor_flags_t {
 extern struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system_profile, same rules as for system_monitor.
-	erts_profile must be != NIL when 
+	erts_profile must be != NIL when
 	erts_profile_* is set. */
 
 extern Eterm erts_system_profile;
@@ -1233,7 +1233,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 
 /* process trace_flags */
 #define F_SENSITIVE          (1 << 0)
-#define F_TRACE_SEND         (1 << 1)   
+#define F_TRACE_SEND         (1 << 1)
 #define F_TRACE_RECEIVE      (1 << 2)
 #define F_TRACE_SOS          (1 << 3) /* Set on spawn       */
 #define F_TRACE_SOS1         (1 << 4) /* Set on first spawn */
@@ -1293,7 +1293,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define DT_UTAG_PERMANENT (1 << 0)
 #define DT_UTAG_SPREADING (1 << 1)
 #define DT_UTAG(P) ((P)->dt_utag)
-#define DT_UTAG_FLAGS(P)  ((P)->dt_utag_flags) 
+#define DT_UTAG_FLAGS(P)  ((P)->dt_utag_flags)
 #endif
 
 /* Option flags to erts_send_exit_signal() */
@@ -1423,7 +1423,7 @@ ERTS_GLB_INLINE void erts_proclist_store_first(ErtsProcList **list,
     }
     *list = element;
 }
-
+//调整proclist的链表
 ERTS_GLB_INLINE void erts_proclist_store_last(ErtsProcList **list,
 					      ErtsProcList *element)
 {
@@ -2168,11 +2168,11 @@ erts_smp_runqs_lock(ErtsRunQueue *rq1, ErtsRunQueue *rq2)
 	erts_smp_mtx_lock(&rq1->mtx);
     else if (rq1 < rq2) {
 	erts_smp_mtx_lock(&rq1->mtx);
-	erts_smp_mtx_lock(&rq2->mtx);	
+	erts_smp_mtx_lock(&rq2->mtx);
     }
     else {
 	erts_smp_mtx_lock(&rq2->mtx);
-	erts_smp_mtx_lock(&rq1->mtx);	
+	erts_smp_mtx_lock(&rq1->mtx);
     }
 #endif
 }

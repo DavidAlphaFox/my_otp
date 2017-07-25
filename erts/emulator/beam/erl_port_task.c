@@ -94,7 +94,9 @@ typedef union {
 } ErtsPortTaskTypeData;
 
 struct ErtsPortTask_ {
+    // 状态
     erts_smp_atomic32_t state;
+    // PortTask的类型
     ErtsPortTaskType type;
     union {
 	struct {
@@ -297,7 +299,7 @@ busy_wait_move_to_busy_queue(Port *pp, ErtsPortTask *ptp)
 	pp->sched.taskq.local.busy.first = ptp;
 
 #ifdef DEBUG
-	flags = 
+	flags =
 #endif
 	    erts_smp_atomic32_read_bor_nob(&pp->sched.flags,
 					   ERTS_PTS_FLG_HAVE_BUSY_TASKS);
@@ -603,21 +605,21 @@ check_unset_busy_port_q(Port *pp,
     qsize = (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->size);
     low = (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low);
     if (qsize < low) {
-	erts_aint32_t mask = ~(ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q
+	     erts_aint32_t mask = ~(ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q
 			       | ERTS_PTS_FLG_BUSY_PORT_Q);
-	flags = erts_smp_atomic32_read_band_relb(&pp->sched.flags, mask);
-	if ((flags & ERTS_PTS_FLGS_BUSY) == ERTS_PTS_FLG_BUSY_PORT_Q)
-	    resume_procs = 1;
-    }
-    else if (flags & ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q) {
-	flags = erts_smp_atomic32_read_band_relb(&pp->sched.flags,
+	     flags = erts_smp_atomic32_read_band_relb(&pp->sched.flags, mask);
+       // 调度器中的flags只有ERTS_PTS_FLG_BUSY_PORT_Q
+       // 那么Port是可以恢复调度的
+	     if ((flags & ERTS_PTS_FLGS_BUSY) == ERTS_PTS_FLG_BUSY_PORT_Q)
+	         resume_procs = 1;
+    }else if (flags & ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q) {
+	     flags = erts_smp_atomic32_read_band_relb(&pp->sched.flags,
 						 ~ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q);
-	flags &= ~ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q;
+	     flags &= ~ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q;
     }
     erts_port_task_sched_unlock(&pp->sched);
     if (resume_procs)
-	erts_port_resume_procs(pp);
-
+	     erts_port_resume_procs(pp);
     return flags;
 }
 
@@ -656,20 +658,21 @@ dequeued_proc2port_data(Port *pp, ErlDrvSizeT size)
     ErlDrvSizeT qsz;
 
     ASSERT(pp->sched.taskq.bpq);
-
+    // 不出队数据
     if (size == 0)
-	return;
-
+      return;
+    //忙队列数据
     bpq = pp->sched.taskq.bpq;
-
+    //出队后新的数据
     qsz = (ErlDrvSizeT) erts_smp_atomic_add_read_acqb(&bpq->size,
 						      (erts_aint_t) -size);
     ASSERT(qsz + size > qsz);
     flags = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    // 如果调度器的flags没有busy直接返回
     if (!(flags & ERTS_PTS_FLG_BUSY_PORT_Q))
-	return;
+      return;
     if (qsz < (ErlDrvSizeT) erts_smp_atomic_read_acqb(&bpq->low))
-	check_unset_busy_port_q(pp, flags, bpq);
+	   check_unset_busy_port_q(pp, flags, bpq);
 }
 
 static ERTS_INLINE erts_aint32_t
@@ -679,28 +682,31 @@ enqueue_proc2port_data(Port *pp,
 {
     ErtsPortTaskBusyPortQ *bpq = pp->sched.taskq.bpq;
     if (sigdp && bpq) {
-	ErlDrvSizeT size = erts_proc2port_sig_command_data_size(sigdp);
-	if (size) {
-	    erts_aint_t asize = erts_smp_atomic_add_read_acqb(&bpq->size,
+      //获取command的数据大小
+      ErlDrvSizeT size = erts_proc2port_sig_command_data_size(sigdp);
+	    if (size) {
+	       erts_aint_t asize = erts_smp_atomic_add_read_acqb(&bpq->size,
 							      (erts_aint_t) size);
-	    ErlDrvSizeT qsz = (ErlDrvSizeT) asize;
+	       ErlDrvSizeT qsz = (ErlDrvSizeT) asize;
 
-	    ASSERT(qsz - size < qsz);
-
-	    if (!(flags & ERTS_PTS_FLG_BUSY_PORT_Q) && qsz > bpq->high) {
-		flags = erts_smp_atomic32_read_bor_acqb(&pp->sched.flags,
-							ERTS_PTS_FLG_BUSY_PORT_Q);
-		flags |= ERTS_PTS_FLG_BUSY_PORT_Q;
-		qsz = (ErlDrvSizeT) erts_smp_atomic_read_acqb(&bpq->size);
-		if (qsz < (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low)) {
-		    flags = (erts_smp_atomic32_read_bor_relb(
-				 &pp->sched.flags,
-				 ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q));
-		    flags |= ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q;
-		}
+	       ASSERT(qsz - size < qsz);
+         //如果没有ERTS_PTS_FLG_BUSY_PORT_Q状态，并且队列数据大于上限了
+         //需要设置ERTS_PTS_FLG_BUSY_PORT_Q状态
+	       if (!(flags & ERTS_PTS_FLG_BUSY_PORT_Q) && qsz > bpq->high) {
+		         flags = erts_smp_atomic32_read_bor_acqb(&pp->sched.flags,
+							        ERTS_PTS_FLG_BUSY_PORT_Q);
+		         flags |= ERTS_PTS_FLG_BUSY_PORT_Q;
+		         qsz = (ErlDrvSizeT) erts_smp_atomic_read_acqb(&bpq->size);
+             // 二次检测，因为这阶段Port是可能发生调度的
+		         if (qsz < (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low)) {
+		             flags = (erts_smp_atomic32_read_bor_relb(
+				               &pp->sched.flags,
+				               ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q));
+		             flags |= ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q;
+		         }
+	       }
+	       ASSERT(!(flags & ERTS_PTS_FLG_EXIT));
 	    }
-	    ASSERT(!(flags & ERTS_PTS_FLG_EXIT));
-	}
     }
     return flags;
 }
@@ -755,7 +761,7 @@ erl_drv_busy_msgq_limits(ErlDrvPort dport, ErlDrvSizeT *lowp, ErlDrvSizeT *highp
 	    erts_smp_atomic_set_relb(&bpq->low, (erts_aint_t) low);
 	    written = 1;
 	}
-    
+
 	if (!high)
 	    high = bpq->high;
 	else {
@@ -943,7 +949,7 @@ enqueue_task(Port *pp,
     erts_aint32_t flags;
     ptp->u.alive.next = NULL;
     if (ns_pthlp)
-	fail_flags |= ERTS_PTS_FLG_BUSY_PORT;
+	   fail_flags |= ERTS_PTS_FLG_BUSY_PORT;
     erts_port_task_sched_lock(&pp->sched);
     flags = erts_smp_atomic32_read_nob(&pp->sched.flags);
     if (flags & fail_flags)
@@ -1180,7 +1186,7 @@ fetch_in_queue(Port *pp, ErtsPortTask **execqp)
 	erts_smp_atomic32_read_band_nob(&pp->sched.flags,
 					~ERTS_PTS_FLG_HAVE_TASKS);
 
-    
+
     if (pp->sched.taskq.local.busy.nosuspend)
 	free_nshp = get_free_nosuspend_handles(pp);
 
@@ -1434,7 +1440,7 @@ erts_port_task_schedule(Eterm id,
 
 		 ptp->type = type;
 		 ptp->u.alive.flags = 0;
-		 
+
 		 erts_smp_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
 
 		 set_handle(ptp, pthp);
@@ -1661,7 +1667,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_smp_runq_unlock(runq);
 
     *curr_port_pp = pp;
-    
+
     if (erts_sched_stat.enabled) {
 		 ErtsSchedulerData *esdp = erts_get_scheduler_data();
 		 Uint old = ERTS_PORT_SCHED_ID(pp, esdp->no);
@@ -1695,7 +1701,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     while (1) {
 		 erts_aint32_t task_state;
 		 ErtsPortTask *ptp;
-		 
+
 		 ptp = select_task_for_exec(pp, &execq, &processing_busy_q);
 		 if (!ptp)
 			  break;
@@ -1715,7 +1721,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		 ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
 		 ERTS_SMP_CHK_NO_PROC_LOCKS;
 		 ASSERT(pp->drv_ptr);
-		 
+
 		 switch (ptp->type) {
 		 case ERTS_PORT_TASK_TIMEOUT:
 			  reset_handle(ptp);
@@ -1784,9 +1790,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 					   (int) ptp->type);
 			  break;
 		 }
-		 
+
 		 reds += erts_port_driver_callback_epilogue(pp, &state);
-		 
+
 		 if (start_time != 0) {
 			  Sint64 diff = erts_timestamp_millis() - start_time;
 			  if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
@@ -1802,16 +1808,16 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		 if (state & ERTS_PORT_SFLG_FREE) {
 			  reds += ERTS_PORT_REDS_FREE;
 			  begin_port_cleanup(pp, &execq, &processing_busy_q);
-			  
+
 			  break;
 		 }
-		 
+
 		 vreds += ERTS_PORT_CALLBACK_VREDS;
 		 reds += ERTS_PORT_CALLBACK_VREDS;
 
 		 pp->reds += reds;
 		 reds = 0;
-		 
+
 		 if (pp->reds >= CONTEXT_REDS)
 			  break;
     }
@@ -1839,7 +1845,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     *curr_port_pp = NULL;
 
     erts_smp_runq_lock(runq);
- 
+
     if (active) {
 #ifdef ERTS_SMP
 		 ErtsRunQueue *xrunq;
