@@ -1239,7 +1239,7 @@ make_clear_table(Tab) ->
 
 add_table_copy(Tab, Node, Storage) ->
     schema_transaction(fun() -> do_add_table_copy(Tab, Node, Storage) end).
-%% schema事物下执行，表添加
+%% schema事务下执行，表添加
 do_add_table_copy(Tab, Node, Storage) when is_atom(Tab), is_atom(Node) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     insert_schema_ops(TidTs, make_add_table_copy(Tab, Node, Storage));
@@ -3249,4 +3249,3 @@ unannounce_im_running([N | Ns]) ->
     unannounce_im_running(Ns);
 unannounce_im_running([]) ->
     ok.
-

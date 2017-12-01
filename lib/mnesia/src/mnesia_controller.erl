@@ -403,7 +403,7 @@ master_nodes_updated(schema, _Masters) ->
     ignore;
 master_nodes_updated(Tab, Masters) ->
     cast({master_nodes_updated, Tab, Masters}).
-
+%% 调度延迟加载
 schedule_late_disc_load(Tabs, Reason) ->
     MsgTag = late_disc_load,
     try_schedule_late_disc_load(Tabs, Reason, MsgTag).
@@ -467,6 +467,7 @@ connect_nodes(Ns, UserFun) ->
     end.
 
 connect_nodes2(Father, Ns, UserFun) ->
+		%% 得到当前的节点
     Current = val({current, db_nodes}),
     %% 向所有节点请求合并元表
     abcast([node()|Ns], {merging_schema, node()}),
@@ -538,7 +539,7 @@ try_merge_schema(Nodes, Told0, UserFun) ->
 	Other ->
 	    Other
     end.
-
+%% 向全部节点广播自己已经启动
 im_running(OldFriends, NewFriends) ->
     abcast(OldFriends, {im_running, node(), NewFriends}).
 
@@ -780,6 +781,7 @@ handle_call(Msg, From, State) when State#state.schema_is_merged /= true ->
     Msgs = State#state.early_msgs,
     noreply(State#state{early_msgs = [{call, Msg, From} | Msgs]});
 
+%% 延迟加载器会通过gen_server:call调用
 handle_call({late_disc_load, Tabs, Reason, RemoteLoaders}, From, State) ->
     State2 = late_disc_load(Tabs, Reason, RemoteLoaders, From, State),
     noreply(State2);
@@ -824,7 +826,7 @@ late_disc_load(TabsR, Reason, RemoteLoaders, From,
 		    [{tabs, TabsR},
 		     {reason, Reason},
 		     {loaders, RemoteLoaders}]),
-
+		%% 先告诉对方已经加入队列了
     reply(From, queued),
     %% RemoteLoaders is a list of {ok, Node, Tabs} tuples
 
@@ -1016,16 +1018,21 @@ handle_cast(Msg, State) when State#state.schema_is_merged /= true ->
 %% might trigger a table load from wrong nodes as a result of that we don't
 %% know which tables we can load safly first.
 handle_cast({im_running, Node, NewFriends}, State) ->
+		%% im_running的接收者，找到本地所有除了schema的表
     LocalTabs = mnesia_lib:local_active_tables() -- [schema],
+		%% 找到只在本地保存内容的表
     RemoveLocalOnly = fun(Tab) -> not val({Tab, local_content}) end,
+		%% 去掉本地中所有只在本地保存内容的表
     Tabs = lists:filter(RemoveLocalOnly, LocalTabs),
     Nodes = mnesia_lib:union([Node],val({current, db_nodes})),
     Ns = mnesia_lib:intersect(NewFriends, Nodes),
+		%% 向全集群广播adopt_orphans
     abcast(Ns, {adopt_orphans, node(), Tabs}),
     noreply(State);
 
 handle_cast({disc_load, Tab, Reason}, State) ->
     Worker = #disc_load{table = Tab, reason = Reason},
+		%% 加入异步工作池中
     State2 = add_worker(Worker, State),
     noreply(State2);
 
@@ -1081,12 +1088,14 @@ handle_cast({master_nodes_updated, Tab, Masters}, State) ->
     end;
 
 handle_cast({adopt_orphans, Node, Tabs}, State) ->
+	%% 本节点将远程节点加入表的活动副本中,并开始异步取得数据
     State2 = node_has_tabs(Tabs, Node, State),
 
     case ?catch_val({node_up,Node}) of
 	true -> ignore;
 	_ ->
 	    %% Register the other node as up and running
+			%% 标识远程节点拉起,产生 mnesia_up 事件
 	    set({node_up, Node}, true),
 	    mnesia_recover:log_mnesia_up(Node),
 	    verbose("Logging mnesia_up ~w~n",[Node]),
@@ -1094,9 +1103,11 @@ handle_cast({adopt_orphans, Node, Tabs}, State) ->
 	    %% Load orphan tables
 	    LocalTabs = val({schema, local_tables}) -- [schema],
 	    Nodes = val({current, db_nodes}),
+			%% 尝试去找Master和所有Local表
 	    {LocalOrphans, RemoteMasters} =
 		orphan_tables(LocalTabs, Node, Nodes, [], []),
 	    Reason = {adopt_orphan, node()},
+			%% 异步加载
 	    mnesia_late_loader:async_late_disc_load(node(), LocalOrphans, Reason),
 
 	    Fun =
@@ -2262,5 +2273,3 @@ do_filter_active(false, Active, []) ->
     Active;
 do_filter_active(false, Active, Masters) ->
     mnesia_lib:intersect(Active, Masters).
-
-
