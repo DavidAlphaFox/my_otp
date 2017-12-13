@@ -76,10 +76,15 @@
 %% Returns {ok, OpaqueData} or {error, Reason}
 open_write(OpaqueData) ->
     File = OpaqueData,
+    %% 产生结尾为BUPTMP的文件
     Tmp = lists:concat([File,".BUPTMP"]),
+    %% 删掉临时文件，删掉File
     file:delete(Tmp),
     file:delete(File),
     %打开一个临时的日志文件
+    %% name 指定日志名称
+    %% file 指定日志文件名称
+    %% 非修复模式打开，并关联到当前进程上
     case disk_log:open([{name, make_ref()},
 			{file, Tmp},
 			{repair, false},
@@ -184,7 +189,7 @@ read(OpaqueData) ->
     R = OpaqueData,
     %% 获取文件句柄
     Fd = R#restore.file_desc,
-    %% 尝试读取一块日志
+    %% 尝试读取一块日志，cont代表位置
     case disk_log:chunk(Fd, R#restore.cont) of
         {error, Reason} ->
             {error, {"Possibly truncated", Reason}};
@@ -209,4 +214,3 @@ close_read(OpaqueData) ->
         {error, Reason} -> {error, Reason}
     end.
 %0
-

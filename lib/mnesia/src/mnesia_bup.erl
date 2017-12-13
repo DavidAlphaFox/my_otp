@@ -76,6 +76,7 @@
 %% of records has been collected.
 %%
 %% BunchOfRecords will be [] when the iteration is done.
+%% 从backup文件进行数据恢复通用遍历函数
 iterate(Mod, Fun, Opaque, Acc) ->
     R = #restore{bup_module = Mod, bup_data = Opaque},
     %% 读取元表
@@ -85,6 +86,7 @@ iterate(Mod, Fun, Opaque, Acc) ->
         {R2, {Header, Schema, Rest}} ->
             case catch iter(R2, Header, Schema, Fun, Acc, Rest) of
                 {ok, R3, Res} ->
+                    %% 遍历整个备份文件成功了，关闭备份文件
                     catch safe_apply(R3, close_read, [R3#restore.bup_data]),
                     {ok, Res};
                 {error, Reason} ->
@@ -171,6 +173,7 @@ read_schema(Mod, Opaque) ->
 %% rewind backup media and leave it open
 %% Returns {R, {Header, Schema}}
 read_schema_section(R) ->
+    %% R是restore结构，里面包含了操作的进行的模块和操作进行的文件
     case catch do_read_schema_section(R) of
         {'EXIT', Reason} ->
             catch safe_apply(R, close_read, [R#restore.bup_data]),
@@ -180,28 +183,38 @@ read_schema_section(R) ->
             {error, Reason};
         {R2, {H, Schema, Rest}} ->
             %% 转化Schema，主要是进行升级
+            %% 将以前的schema升级到当前版本的schema，主要以及说就是backup_log的版本
             Schema2 = convert_schema(H#log_header.log_version, Schema),
             {R2, {H, Schema2, Rest}}
     end.
 %% 读取schema的头
+%% 返回的时候会包含，从备份文件中独处的日志头，所有schema元素，以及剩下的数据
 do_read_schema_section(R) ->
+    %% 首次安装schema的时候，R中的module是mnesia_backup，日志文件只有schema一条纪录
     R2 = safe_apply(R, open_read, [R#restore.bup_data]),
+    %% RawSchema为原始的schema数据
     {R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),
+    %% 继续读日志，并校验日志头是否合法
     do_read_schema_section(R3, verify_header(RawSchema), []).
 %% 读取到了backup的Header和Current的Header
 %% 但是没有读取到Schema的信息
 do_read_schema_section(R, {ok, B, C, []}, Acc) ->
+    %% 继续读取数据
     case safe_apply(R, read, [R#restore.bup_data]) of
         {R2, []} ->
+            %% 没有数据了就返回backup文件中的日志头和Acc
             {R2, {B, Acc, []}};
         {R2, RawSchema} ->
+            %% 如果有数据尝试继续读取
             do_read_schema_section(R2, {ok, B, C, RawSchema}, Acc)
     end;
 
+%% 读取出来的tuple的第一元素是schema的时候，就将head放到acc的最后面
+%% 并继续读取日志
 do_read_schema_section(R, {ok, B, C, [Head | Tail]}, Acc)
         when element(1, Head) =:= schema ->
     do_read_schema_section(R, {ok, B, C, Tail}, Acc ++ [Head]);
-
+%% 如果读取出来的tuple的第一元素不是schema的时候，进行返回
 do_read_schema_section(R, {ok, B, _C, Rest}, Acc) ->
     {R, {B, Acc, Rest}};
 
@@ -216,6 +229,8 @@ verify_header([H | RawSchema]) when is_record(H, log_header) ->
             Versions = ["0.1", "1.1", Current#log_header.log_version],
             case lists:member(H#log_header.log_version, Versions) of
                 true ->
+                    %% 如果是合法的日志头文件
+                    %% 返回读出来的日志头文件，当前日志头和剩余数据
                     {ok, H, Current, RawSchema};
                 false ->
                     {error, {"Bad header version. Cannot be used as backup.", H}}
@@ -315,6 +330,8 @@ schema2bup({schema, Tab, TableDef}) ->
 %% Create schema on the given nodes
 %% Requires that old schemas has been deleted
 %% Returns ok | {error, Reason}
+%% create_schema只是创建了一个FALLBACK.BUP的文件
+%% 真正产生schema.DAT文件是发生在mnesia:start的时候
 create_schema([]) ->
     create_schema([node()]);
 create_schema(Ns) when is_list(Ns) ->
@@ -343,12 +360,14 @@ create_schema(Ns, ok) ->
                 ram ->
                     {error, {has_no_disc, node()}};
                 _ ->
+                    %% 磁盘节点需要先确保相应的路径
                     case mnesia_schema:opt_create_dir(true, mnesia_lib:dir()) of
                         {error, What} ->
                             {error, What};
                         ok ->
                             Mod = mnesia_backup,
                             Str = mk_str(),
+                            %% 先创建一个临时的文件，结尾为.TMP
                             File = mnesia_lib:dir(Str),
                             file:delete(File),
                             case catch make_initial_backup(Ns, File, Mod) of
@@ -356,6 +375,7 @@ create_schema(Ns, ok) ->
                                     %创建成功后，安装备份
                                     case do_install_fallback(File, Mod) of
                                         ok ->
+                                            %% 备份安装成功了，删除临时文件
                                             file:delete(File),
                                             ok;
                                         {error, Reason} ->
@@ -381,15 +401,21 @@ mk_str() ->
 %NS为所有的节点，Opadue是临时文件名
 %Mod是mnesia_backup
 make_initial_backup(Ns, Opaque, Mod) ->
-    %获取最开始的元数据表
+    %%获取最开始的元数据表
+    %%元数据是cstruct的[{key,value}]形式
     Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
+    %% 删除掉storage_properties和majority这两个字段
     Modded = proplists:delete(storage_properties, proplists:delete(majority, Orig)),
+    %% 向schema表中写入表名和cstruct
     Schema = [{schema, schema, Modded}],
     O2 = do_apply(Mod, open_write, [Opaque], Opaque),
-    %写入日志版本
+    %写入日志头
+    %% 包括日志版本，日志类型，mnesia版本，节点名称，生成时间
+    %% 这里日志版本1.2  类型 backup_log
     O3 = do_apply(Mod, write, [O2, [mnesia_log:backup_log_header()]], O2),
-    %写入元数据
+    %写入schema数据
     O4 = do_apply(Mod, write, [O3, Schema], O3),
+    %%生成Opaque所代表的文件
     O5 = do_apply(Mod, commit_write, [O4], O4),
     {ok, O5}.
 
@@ -427,6 +453,7 @@ install_fallback(Opaque, Args) ->
 do_install_fallback(Opaque,  Mod) when is_atom(Mod) ->
     do_install_fallback(Opaque, [{module, Mod}]);
 do_install_fallback(Opaque, Args) when is_list(Args) ->
+    %% 检查参数合法性
     case check_fallback_args(Args, #fallback_args{opaque = Opaque}) of
         {ok, FA} ->
             do_install_fallback(FA);
@@ -476,6 +503,8 @@ atom_list([]) ->
     ok.
 %创建备份安装进程
 do_install_fallback(FA) ->
+    %% 创建一个进程来安装备份
+    %% 防止当前进程崩溃打断安装
     Pid = spawn_link(?MODULE, install_fallback_master, [self(), FA]),
     Res =
         receive
@@ -492,8 +521,12 @@ do_install_fallback(FA) ->
     Res.
 
 install_fallback_master(ClientPid, FA) ->
+    %% 捕获退出异常，关联进程崩溃，但是并不真正捕获
+    %% 而是防止崩溃后引起当前进程退出，打断元数据创建
     process_flag(trap_exit, true),
+    %% 设置状态
     State = {start, FA},
+    %% 拿出日志文件
     Opaque = FA#fallback_args.opaque,
     Mod = FA#fallback_args.module,
     Res = (catch iterate(Mod, fun restore_recs/4, Opaque, State)),
@@ -506,9 +539,11 @@ restore_recs(_, _, _, stop) ->
 %第一个参数是余下的Records
 %第二个参数是Header，用来判断版本
 %第三个参数是schema
+%第四个参数是状态
 restore_recs(Recs, Header, Schema, {start, FA}) ->
     %% No records in backup
     Schema2 = convert_schema(Header#log_header.log_version, Schema),
+    %% 在backup文件中读取出的schema信息找出schema的信息
     CreateList = lookup_schema(schema, Schema2),
     case catch mnesia_schema:list2cs(CreateList) of
         {'EXIT', Reason} ->
@@ -527,6 +562,8 @@ restore_recs(Recs, Header, Schema, {start, FA}) ->
             global:del_lock({{mnesia_table_lock, schema}, self()}, Ns),
             Res
     end;
+%% 第二次进入这个函数的时候，ACC就是远程节点上 fallback_receiver的进程了
+%% 恢复数据的过程中，无视远程节点的返回值
 %没有更多records了，进行swap
 restore_recs([], _Header, _Schema, Pids) ->
     send_fallback(Pids, swap),
@@ -614,6 +651,7 @@ fallback_receiver(Master, FA) ->
                 false ->
                     %如果没有，创建新的backup的临时文件
                     Mod = mnesia_backup,
+                    %% 删除FALLBACK.TMP文件
                     Tmp = FA2#fallback_args.fallback_tmp,
                     R = #restore{mode = replace,
                                  bup_module = Mod,
@@ -635,6 +673,7 @@ local_fallback_error(Master, Reason) ->
     exit(Reason).
 
 check_fallback_dir(Master, FA) ->
+    %% 得到schema所在的位置
     case mnesia:system_info(schema_location) of
         ram ->
             Reason = {has_no_disc, node()},
@@ -671,11 +710,14 @@ fallback_receiver_loop(Master, R, FA, State) ->
         {Master, {start, Header, Schema}} when State =:= schema ->
             Dir = FA#fallback_args.mnesia_dir,
             throw_bad_res(ok, mnesia_schema:opt_create_dir(true, Dir)),
+            %% 创建FALLBACK.TMP文件
             R2 = safe_apply(R, open_write, [R#restore.bup_data]),
             R3 = safe_apply(R2, write, [R2#restore.bup_data, [Header]]),
             BupSchema = [schema2bup(S) || S <- Schema],
             R4 = safe_apply(R3, write, [R3#restore.bup_data, BupSchema]),
             Master ! {self(), ok},
+            %% schema的日志已经写入文件了
+            %% 状态切换到接收records
             fallback_receiver_loop(Master, R4, FA, records);
 
         {Master, {records, Recs}} when State =:= records ->
@@ -688,6 +730,7 @@ fallback_receiver_loop(Master, R, FA, State) ->
             safe_apply(R, commit_write, [R#restore.bup_data]),
             Bup = FA#fallback_args.fallback_bup,
             Tmp = FA#fallback_args.fallback_tmp,
+            %% 立刻重命名文件，将FALLBACK.TMP重命名为FALLBACK.BUP
             throw_bad_res(ok, file:rename(Tmp, Bup)),
             catch mnesia_lib:set(active_fallback, true),
             ?eval_debug_fun({?MODULE, fallback_receiver_loop, post_swap}, []),
@@ -802,7 +845,7 @@ restore_tables(All=[Rec | Recs], Header, Schema, S = {not_local, LocalTabs, Prev
             State = {new, LocalTabs},
             restore_tables(All, Header, Schema, State)
     end;
-%% 第一次执行，会从此处开始    
+%% 第一次执行，会从此处开始
 restore_tables(Recs, Header, Schema, {start, LocalTabs}) ->
     %% 获取mneisa的目录
     Dir = mnesia_lib:dir(),
@@ -838,7 +881,7 @@ init_dat_files(Schema, LocalTabs) ->
                                   record_name  = schema,
                                   opened = false},
             %% 向ets临时表mnesia_local_tables
-            %% 放入schma表的信息                      
+            %% 放入schma表的信息
             ?ets_insert(LocalTabs, LocalTab);
         {error, Reason} ->
             throw({error, {"Cannot open file", schema, Args, Reason}})
@@ -1221,4 +1264,3 @@ filter_foldl(Fun, Acc, [Head|Tail]) ->
     end;
 filter_foldl(_Fun, Acc, []) ->
     {[], Acc}.
-

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -43,19 +43,19 @@
 
 %% It's important that counter is first, since we compare tid's
 
--record(tid, 
+-record(tid,
         {counter,         %% serial no for tid
          pid}).           %%  owner of tid
 
 
--record(tidstore,         
+-record(tidstore,
         {store,           %% current ets table for tid
          up_stores = [],  %% list of upper layer stores for nested trans
          level = 1}).     %% transaction level
 
 -define(unique_cookie, {erlang:now(), node()}).
 %% cstruct,从结构上看是对一个表的细节描述
--record(cstruct, {name,                    % Atom
+-record(cstruct, {name,                    % Atom 表名字
 		  type = set,                      % set | bag
 		  ram_copies = [],                 % [Node]
 		  disc_copies = [],                % [Node]
@@ -66,8 +66,8 @@
 		  index = [],                      % [Integer]
 		  snmp = [],                       % Snmp Ustruct
 		  local_content = false,           % true | false
-		  record_name = {bad_record_name}, % Atom (Default = Name)
-		  attributes = [key, val],         % [Atom]
+		  record_name = {bad_record_name}, % Atom (Default = Name) 表中存放的record的名字
+		  attributes = [key, val],         % [Atom] record中的属性名字
 		  user_properties = [],            % [Record]
 		  frag_properties = [],            % [{Key, Val]
 		  storage_properties = [],         % [{Key, Val]
@@ -75,7 +75,7 @@
           version = {{2, 0}, []}}).        % {{Integer, Integer}, [Node]}
 
 %% Record for the head structure in Mnesia's log files
-%% 
+%%
 %% The definition of this record may *NEVER* be changed
 %% since it may be written to very old backup files.
 %% By holding this record definition stable we can be
@@ -119,5 +119,4 @@
 	    mnesia_lib:eval_debug_fun(I, C, ?FILE, ?LINE)).
 -else.
     -define(eval_debug_fun(I, C), ok).
--endif.    
-
+-endif.

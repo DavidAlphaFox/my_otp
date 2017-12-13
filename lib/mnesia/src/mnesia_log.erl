@@ -196,6 +196,8 @@ dcl_log_header() -> log_header(dcl_log, dcl_version()).
 dcd_log_header() -> log_header(dcd_log, dcd_version()).
 
 log_header(Kind, Version) ->
+		%% 日志头
+		%% 包括日志版本，日志类型，mnesia版本，节点名称，生成时间
     #log_header{log_version=Version,
 		log_kind=Kind,
 		mnesia_version=mnesia:system_info(version),

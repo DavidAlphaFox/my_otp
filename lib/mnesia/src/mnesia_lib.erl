@@ -68,7 +68,7 @@
 	 db_prev_key/3,
 	 db_put/2,
 	 db_put/3,
-	 db_select/2,	 
+	 db_select/2,
 	 db_select/3,
 	 db_select_init/4,
 	 db_select_cont/3,
@@ -87,7 +87,7 @@
 	 dirty_rpc_error_tag/1,
 	 dist_coredump/0,
 	 disk_type/1,
-	 disk_type/2,	 
+	 disk_type/2,
 	 elems/2,
 	 ensure_loaded/1,
 	 error/2,
@@ -166,7 +166,7 @@
 	 eval_debug_fun/4,
 	 scratch_debug_fun/0
 	]).
- 
+
 
 search_delete(Obj, List) ->
     search_delete(Obj, List, [], none).
@@ -186,7 +186,7 @@ key_search_delete(Key, Pos, [H|T], Obj, Ack) ->
 key_search_delete(_, _, [], Obj, Ack) ->
     {Obj, Ack}.
 
-key_search_all(Key, Pos, TupleList) -> 
+key_search_all(Key, Pos, TupleList) ->
     key_search_all(Key, Pos, TupleList, []).
 key_search_all(Key, N, [H|T], Ack) when element(N, H) == Key ->
     key_search_all(Key, N, T, [H|Ack]);
@@ -202,7 +202,7 @@ elems(I, [H|T]) ->
 elems(_, []) ->
     [].
 
-%%  sort_commit see to that checkpoint info is always first in 
+%%  sort_commit see to that checkpoint info is always first in
 %%  commit_work structure the other info don't need to be sorted.
 sort_commit(List) ->
     sort_commit2(List, []).
@@ -212,7 +212,7 @@ sort_commit2([{checkpoints, ChkpL}| Rest], Acc) ->
 sort_commit2([H | R], Acc) ->
     sort_commit2(R, [H | Acc]);
 sort_commit2([], Acc) -> Acc.
-    
+
 is_string([H|T]) ->
     if
 	0 =< H, H < 256, is_integer(H)  -> is_string(T);
@@ -289,7 +289,7 @@ pad_name([], Len, Tail) when Len =< 0 ->
     Tail;
 pad_name([], Len, Tail) ->
     [$ | pad_name([], Len - 1, Tail)].
-    
+
 %% Some utility functions .....
 active_here(Tab) ->
     case val({Tab, where_to_read}) of
@@ -307,7 +307,7 @@ dir() -> mnesia_monitor:get_env(dir).
 dir(Fname) ->
     filename:join([dir(), to_list(Fname)]).
 
-tab2dat(Tab) ->  %% DETS files 
+tab2dat(Tab) ->  %% DETS files
     dir(lists:concat([Tab, ".DAT"])).
 
 tab2tmp(Tab) ->
@@ -382,8 +382,8 @@ search_key(_Key, []) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	_VaLuE_ -> _VaLuE_
     end.
 %% 向mnesia_gvar中设置相关变量
 set(Var, Val) ->
@@ -407,7 +407,7 @@ other_val(Var) ->
     end.
 
 pr_other(Var, Other) ->
-    Why = 
+    Why =
 	case is_running() of
 	    no -> {node_not_running, node()};
 	    _ -> {no_exists, Var}
@@ -453,14 +453,14 @@ lsort_add(Val,List) ->
 	true -> List;
 	false -> ordsets:add_element(Val,List)
     end.
-	    
+
 %% This function is needed due to the fact
 %% that the application_controller enters
 %% a deadlock now and then. ac is implemented
 %% as a rather naive server.
 ensure_loaded(Appl) ->
     case application_controller:get_loaded(Appl) of
-	{true, _} -> 
+	{true, _} ->
 	    ok;
 	false ->
 	    case application:load(Appl) of
@@ -511,12 +511,12 @@ set_remote_where_to_read(Tab) ->
 
 set_remote_where_to_read(Tab, Ignore) ->
     Active = val({Tab, active_replicas}),
-    Valid = 
+    Valid =
 	case mnesia_recover:get_master_nodes(Tab) of
 	    [] ->  Active;
 	    Masters -> mnesia_lib:intersect(Masters, Active)
-	end,    
-    Available = mnesia_lib:intersect(val({current, db_nodes}), Valid -- Ignore),    
+	end,
+    Available = mnesia_lib:intersect(val({current, db_nodes}), Valid -- Ignore),
     DiscOnlyC = val({Tab, disc_only_copies}),
     Prefered  = Available -- DiscOnlyC,
     if
@@ -586,7 +586,7 @@ overload_read(T) ->
         Flag when is_boolean(Flag) ->
             Flag
     end.
- 
+
 dist_coredump() ->
     dist_coredump(all_nodes()).
 dist_coredump(Ns) ->
@@ -614,7 +614,7 @@ core_file() ->
 	_ ->
 	    filename:absname(lists:concat(["MnesiaCore.", node()] ++ List))
     end.
-   
+
 mkcore(CrashInfo) ->
 %   dbg_out("Making a Mnesia core dump...~p~n", [CrashInfo]),
     Nodes = [node() |nodes()],
@@ -645,7 +645,7 @@ mkcore(CrashInfo) ->
 	    {lock_queue, catch mnesia:system_info(lock_queue)},
 	    {load_info, catch mnesia_controller:get_info(2000)},
 	    {trans_info, catch mnesia_tm:get_info(2000)},
-	    	    
+
 	    {schema_file, catch file:read_file(tab2dat(schema))},
 	    {dir_info, catch dir_info()},
 	    {logfile, catch {ok, read_log_files()}}
@@ -725,11 +725,11 @@ workers({workers, Loaders, Senders, Dumper}) ->
 
 locking_procs(LockList) when is_list(LockList) ->
     Tids = [element(3, Lock) || Lock <- LockList],
-    UT = uniq(Tids),    
+    UT = uniq(Tids),
     Info = fun(Tid) ->
 		   Pid = Tid#tid.pid,
 		   case node(Pid) == node() of
-		       true -> 
+		       true ->
 			   {true, {Pid, proc_dbg_info(Pid)}};
 		       _ ->
 			   false
@@ -805,7 +805,7 @@ vcore(Bin) when is_binary(Bin) ->
 		  end
 	  end,
     lists:foreach(Fun, Core);
-    
+
 vcore(File) ->
     show("~n***** Mnesia core: ~p *****~n", [File]),
     case file:read_file(File) of
@@ -923,13 +923,13 @@ report_fatal(Format, Args, Core) ->
 
 %% We sleep longer and longer the more we try
 %% Made some testing and came up with the following constants
-random_time(Retries, _Counter0) ->    
+random_time(Retries, _Counter0) ->
 %    UpperLimit = 2000,
 %    MaxIntv = trunc(UpperLimit * (1-(4/((Retries*Retries)+4)))),
     UpperLimit = 500,
     Dup = Retries * Retries,
     MaxIntv = trunc(UpperLimit * (1-(50/((Dup)+50)))),
-    
+
     case get(random_seed) of
 	undefined ->
 	    {X, Y, Z} = erlang:now(), %% time()
@@ -940,7 +940,7 @@ random_time(Retries, _Counter0) ->
 	_ ->
 	    Time = Dup + random:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time	    
+	    Time
     end.
 
 report_system_event(Event0) ->
@@ -1246,6 +1246,9 @@ dets_sync_open(Tab, Ref, File) ->
 %全局锁，锁定mnesia_table_lock
 %但是实际上，就是用global模块完成在本节点的上的锁定
 lock_table(Tab) ->
+		%% id = {{mnesia_table_lock, Tab}, self()}
+		%% ResourceId = {mnesia_table_lock, Tab} LockRequesterId = self()
+		%% 锁定的资源是mnesia指定的表，请求ID是当前进程的进程号
     global:set_lock({{mnesia_table_lock, Tab}, self()}, [node()], infinity).
 %    dbg_out("dets_sync_open: ~p ~p~n", [T, self()]),
 
@@ -1341,7 +1344,7 @@ eval_debug_fun(FunId, EvalContext, EvalFile, EvalLine) ->
 		     OldContext, EvalContext]),
 	    Fun = Info#debug_info.function,
 	    NewContext = Fun(OldContext, EvalContext),
-	    
+
 	    case catch ?ets_lookup(?DEBUG_TAB, FunId) of
 		[Info] when NewContext /= OldContext ->
 		    NewInfo = Info#debug_info{context = NewContext},
@@ -1349,13 +1352,11 @@ eval_debug_fun(FunId, EvalContext, EvalFile, EvalLine) ->
 		_ ->
 		    ok
 	    end;
-	{'EXIT', _} -> ok    
+	{'EXIT', _} -> ok
     end.
-	
+
 -ifdef(debug).
     is_debug_compiled() -> true.
 -else.
     is_debug_compiled() -> false.
--endif.   
-
-
+-endif.

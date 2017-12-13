@@ -368,8 +368,10 @@ delete_schema2() ->
 ensure_no_schema([H|T]) when is_atom(H) ->
     case rpc:call(H, ?MODULE, remote_read_schema, []) of
         {badrpc, Reason} ->
+            %% 返回建表失败
             {H, {"All nodes not running", H, Reason}};
         {ok,Source, _} when Source /= default ->
+            %% 返回的source是非default的时候，就代表已经存在了schema表
             {H, {already_exists, H}};
         _ ->
             ensure_no_schema(T)
@@ -384,6 +386,7 @@ remote_read_schema() ->
     %% directory. This function may not be called
     %% during startup since it will cause the
     %% application_controller to get into deadlock
+    %% 确保我们已经加载mnesia的应用
     case mnesia_lib:ensure_loaded(?APPLICATION) of
 	ok ->
 	    case mnesia_monitor:get_env(schema_location) of
@@ -454,6 +457,7 @@ read_schema(Keep) ->
 %% Source may be: default | ram | disc | fallback
 
 read_schema(Keep, IgnoreFallback) ->
+    %% 锁住元表
     lock_schema(),
     Res =
         case mnesia:system_info(is_running) of
