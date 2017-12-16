@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -36,7 +36,7 @@ start() ->
 init([]) ->
     ProcLib = [mnesia_monitor, proc_lib],
     Flags = {one_for_all, 0, timer:hours(24)}, % Trust the top supervisor
-    %% 最新启动的是mnesia_monitor
+    %% 最先启动的是mnesia_monitor
     %% mnesia_monitor持有mnesia_gvar和mnesia_stats两张ets表
     %% mnesia的全局变量全都保存在此处
     Workers = [worker_spec(mnesia_monitor, timer:seconds(3), [gen_server]),
@@ -58,11 +58,9 @@ worker_spec(Name, KillAfter, Modules) ->
 supervisor_spec(Name) ->
     {Name, {Name, start, []}, permanent, infinity, supervisor,
      [Name, supervisor]}.
-    
+
 -ifdef(debug_shutdown).
 supervisor_timeout(_KillAfter) -> timer:hours(24).
 -else.
 supervisor_timeout(KillAfter) -> KillAfter.
--endif.    
-
-    
+-endif.

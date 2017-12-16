@@ -500,7 +500,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
     return need;
 }
 
-
+// 构建UTF8字符串
 static Eterm do_build_utf8(Process *p, Eterm ioterm, int *left, int latin1,
 			   byte *target, int *pos, Uint *characters, int *err,
 			   byte *leftover, int *num_leftovers)
