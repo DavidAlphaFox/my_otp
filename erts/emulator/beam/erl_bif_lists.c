@@ -43,28 +43,44 @@ static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
     Eterm* hp;
     int i;
 
+    //  列表长度小于0
     if ((i = erts_list_length(A)) < 0) {
-	BIF_ERROR(p, BADARG);
+      BIF_ERROR(p, BADARG);
     }
     if (i == 0) {
-	BIF_RET(B);
+	    BIF_RET(B);
     } else if (is_nil(B)) {
-	BIF_RET(A);
+	    BIF_RET(A);
     }
-
+    // 先分配 2 ＊ i个大小
     need = 2*i;
     hp = HAlloc(p, need);
     list = A;
+    /*
+    #define CONS(hp, car, cdr) \
+            (CAR(hp)=(car), CDR(hp)=(cdr), make_list(hp))
+
+    #define CAR(x)  ((x)[0])
+    #define CDR(x)  ((x)[1])
+    */
+    /*
+      hp[0] = list[0];
+      hp[1] = (hp[2] + TAG_PRIMARY_LIST);
+      copy = last = (hp + TAG_PRIMARY_LIST);
+      list = list[1];
+    */
     copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
     list = CDR(list_val(list));
     hp += 2;
     i--;
+    // 将A的元素全部都复制一遍
     while(i--) {
-	Eterm* listp = list_val(list);
-	last = CONS(hp, CAR(listp), make_list(hp+2));
-	list = CDR(listp);
-	hp += 2;
+	    Eterm* listp = list_val(list);
+	    last = CONS(hp, CAR(listp), make_list(hp+2));
+	    list = CDR(listp);
+	    hp += 2;
     }
+    // 将复制后的一个元素直接指向B
     CDR(list_val(last)) = B;
     BIF_RET(copy);
 }
@@ -101,25 +117,25 @@ static Eterm subtract(Process* p, Eterm A, Eterm B)
     int     i;
     int     n;
     int     m;
-    
+
     if ((n = erts_list_length(A)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
     if ((m = erts_list_length(B)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
-    
+
     if (n == 0)
 	BIF_RET(NIL);
     if (m == 0)
 	BIF_RET(A);
-    
+
     /* allocate element vector */
     if (n <= SMALL_VEC_SIZE)
 	vec_p = small_vec;
     else
 	vec_p = (Eterm*) erts_alloc(ERTS_ALC_T_TMP, n * sizeof(Eterm));
-    
+
     /* PUT ALL ELEMENTS IN VP */
     vp = vec_p;
     list = A;
@@ -129,7 +145,7 @@ static Eterm subtract(Process* p, Eterm A, Eterm B)
 	*vp++ = CAR(listp);
 	list = CDR(listp);
     }
-    
+
     /* UNMARK ALL DELETED CELLS */
     list = B;
     m = 0;  /* number of deleted elements */
@@ -148,7 +164,7 @@ static Eterm subtract(Process* p, Eterm A, Eterm B)
 	}
 	list = CDR(listp);
     }
-    
+
     if (m == n)      /* All deleted ? */
 	res = NIL;
     else if (m == 0)  /* None deleted ? */
@@ -194,7 +210,7 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
     } else if (is_not_list(BIF_ARG_2)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    
+
     term = BIF_ARG_1;
     non_immed_key = is_not_immed(term);
     list = BIF_ARG_2;
@@ -223,7 +239,7 @@ BIF_RETTYPE lists_reverse_2(BIF_ALIST_2)
     Eterm* hp;
     Uint n;
     int max_iter;
-    
+
     /*
      * Handle legal and illegal non-lists quickly.
      */
@@ -304,7 +320,7 @@ BIF_RETTYPE
 lists_keysearch_3(BIF_ALIST_3)
 {
     Eterm res;
-    
+
     res = keyfind(BIF_lists_keysearch_3, BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_non_value(res) || is_not_tuple(res)) {

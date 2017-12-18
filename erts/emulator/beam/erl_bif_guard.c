@@ -99,7 +99,7 @@ BIF_RETTYPE float_1(BIF_ALIST_1)
     Eterm res;
     Eterm* hp;
     FloatDef f;
-     
+
     /* check args */
     if (is_not_integer(BIF_ARG_1)) {
 	if (is_float(BIF_ARG_1))  {
@@ -125,10 +125,10 @@ BIF_RETTYPE trunc_1(BIF_ALIST_1)
 {
     Eterm res;
     FloatDef f;
-     
+
     /* check arg */
     if (is_not_float(BIF_ARG_1)) {
-	if (is_integer(BIF_ARG_1)) 
+	if (is_integer(BIF_ARG_1))
 	    BIF_RET(BIF_ARG_1);
 	BIF_ERROR(BIF_P, BADARG);
     }
@@ -144,14 +144,14 @@ BIF_RETTYPE round_1(BIF_ALIST_1)
 {
     Eterm res;
     FloatDef f;
-     
-    /* check arg */ 
+
+    /* check arg */
     if (is_not_float(BIF_ARG_1)) {
-	if (is_integer(BIF_ARG_1)) 
+	if (is_integer(BIF_ARG_1))
 	    BIF_RET(BIF_ARG_1);
 	BIF_ERROR(BIF_P, BADARG);
     }
-     
+
     /* get the float */
     GET_DOUBLE(BIF_ARG_1, f);
 
@@ -164,20 +164,20 @@ BIF_RETTYPE length_1(BIF_ALIST_1)
 {
     Eterm list;
     Uint i;
-     
-    if (is_nil(BIF_ARG_1)) 
-	BIF_RET(SMALL_ZERO);
+
+    if (is_nil(BIF_ARG_1))
+	    BIF_RET(SMALL_ZERO);
     if (is_not_list(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
+	    BIF_ERROR(BIF_P, BADARG);
     }
     list = BIF_ARG_1;
     i = 0;
     while (is_list(list)) {
-	i++;
-	list = CDR(list_val(list));
+	    i++;
+	    list = CDR(list_val(list));
     }
     if (is_not_nil(list))  {
-	BIF_ERROR(BIF_P, BADARG);
+	     BIF_ERROR(BIF_P, BADARG);
     }
     BIF_RET(make_small(i));
 }
@@ -356,7 +356,7 @@ Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live)
     Eterm list = reg[live];
     int i;
 
-    if (is_nil(list)) 
+    if (is_nil(list))
 	return SMALL_ZERO;
     i = 0;
     while (is_list(list)) {
@@ -406,7 +406,7 @@ Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live)
 	    if (IS_USMALL(0,low_bits)) {
 		return make_small(low_bits);
 	    } else {
-		Eterm* hp; 
+		Eterm* hp;
 		if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
 		    erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
 		}
@@ -552,7 +552,7 @@ Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live)
     Eterm res;
     Eterm* hp;
     FloatDef f;
-     
+
     /* check args */
     arg = reg[live];
     if (is_not_integer(arg)) {
@@ -584,7 +584,7 @@ Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg;
     FloatDef f;
-     
+
     arg = reg[live];
     if (is_not_float(arg)) {
 	if (is_integer(arg))  {
@@ -602,7 +602,7 @@ Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg;
     FloatDef f;
-     
+
     arg = reg[live];
     if (is_not_float(arg)) {
 	if (is_integer(arg))  {

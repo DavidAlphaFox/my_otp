@@ -66,11 +66,11 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 
 #if ET_DEBUG
-#define _ET_DECLARE_CHECKED(TF,F,TX) extern TF checked_##F(TX,const char*,unsigned);
-#define _ET_APPLY(F,X)	checked_##F(X,__FILE__,__LINE__)
+  #define _ET_DECLARE_CHECKED(TF,F,TX) extern TF checked_##F(TX,const char*,unsigned);
+  #define _ET_APPLY(F,X)	checked_##F(X,__FILE__,__LINE__)
 #else
-#define _ET_DECLARE_CHECKED(TF,F,TX)
-#define _ET_APPLY(F,X)	_unchecked_##F(X)
+  #define _ET_DECLARE_CHECKED(TF,F,TX)
+  #define _ET_APPLY(F,X)	_unchecked_##F(X)
 #endif
 
 #define _TAG_PRIMARY_SIZE	2
@@ -128,7 +128,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  * XXX: globally replace XXX_SUBTAG with TAG_HEADER_XXX
  */
 #define ARITYVAL_SUBTAG		(0x0 << _TAG_PRIMARY_SIZE) /* TUPLE */
-#define BIN_MATCHSTATE_SUBTAG	(0x1 << _TAG_PRIMARY_SIZE) 
+#define BIN_MATCHSTATE_SUBTAG	(0x1 << _TAG_PRIMARY_SIZE)
 #define POS_BIG_SUBTAG		(0x2 << _TAG_PRIMARY_SIZE) /* BIG: tags 2&3 */
 #define NEG_BIG_SUBTAG		(0x3 << _TAG_PRIMARY_SIZE) /* BIG: tags 2&3 */
 #define _BIG_SIGN_BIT		(0x1 << _TAG_PRIMARY_SIZE)
@@ -190,30 +190,32 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 /* boxed object access methods */
 #if HALFWORD_HEAP
-#define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
-#define _boxed_precond(x)        (is_boxed(x))
+  #define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
+  #define _boxed_precond(x)        (is_boxed(x))
 #else
-#define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
-#define  _boxed_precond(x)       (is_boxed(x))
+  #define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
+  #define  _boxed_precond(x)       (is_boxed(x))
 #endif
+
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
 //默认term的box方式
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
-#define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
-#define _unchecked_is_boxed(x)	(!_is_not_boxed((x)))
-_ET_DECLARE_CHECKED(int,is_boxed,Eterm)
-#define is_boxed(x)		_ET_APPLY(is_boxed,(x))
+  #define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
+  #define _unchecked_is_boxed(x)	(!_is_not_boxed((x)))
+  _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
+  #define is_boxed(x)		_ET_APPLY(is_boxed,(x))
 #else
-#define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
+  #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
 #define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
+// 设定当前指针为List
 #define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
 _ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
@@ -552,7 +554,7 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
         make_tuple(t))
 
 /* This macro get Size bits starting at low order position Pos
-   and adjusts the bits to the right 
+   and adjusts the bits to the right
    bits are numbered from 0 - (sizeof(Uint)*8-1) */
 
 #define _GETBITS(X,Pos,Size) (((X) >> (Pos)) & ~(~((Uint) 0) << (Size)))
@@ -616,7 +618,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
 
 #define internal_pid_data_words(x) (1)
 
-/* 
+/*
  *  PORT layout (internal ports):
  *
  *  |3 3 2 2 2 2 2 2|2 2 2 2 1 1 1 1|1 1 1 1 1 1    |               |
@@ -852,7 +854,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *
  *  External refs layout:
  *    External refs has the same layout for the data words as in the internal
- *    ref. 
+ *    ref.
  *
  */
 
@@ -1195,4 +1197,3 @@ ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
 #endif
 
 #endif	/* __ERL_TERM_H */
-
