@@ -706,6 +706,7 @@ wread(Oid) ->
 
 read(Tab, Key, LockKind) ->
     case get(mnesia_activity_state) of
+			%% 已经在事务内，使用默认的mnesia来进行操作
 	{?DEFAULT_ACCESS, Tid, Ts} ->
 	    read(Tid, Ts, Tab, Key, LockKind);
 	{Mod, Tid, Ts} ->

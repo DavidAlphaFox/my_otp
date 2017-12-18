@@ -761,18 +761,23 @@ throw_bad_res(_Expected, Actual) -> throw({error, Actual}).
                     opened}).
 
 tm_fallback_start(IgnoreFallback) ->
-    %锁定元数据表
+    %% 锁定元数据表
+    %% 从mnesia_tm的init进到此处的时候
+    %% 申请加锁的进程是新建立的mnesia_tm进程
     mnesia_schema:lock_schema(),
     %% 检查是否有fallback文件，FALLBACK.BUP
+    %% 并从fallback.BUP中进行数据恢复
     Res = do_fallback_start(fallback_exists(), IgnoreFallback),
     mnesia_schema:unlock_schema(),
     case Res of
         ok -> ok;
         {error, Reason} -> exit(Reason)
     end.
-
+%% 不存在FALLBACk.BUP的时候，就直接返回
 do_fallback_start(false, _IgnoreFallback) ->
     ok;
+%% 存在FALLBACk.BUP的时候，并强制忽略
+%% 但是会设置active_fallback标记为true
 do_fallback_start(true, true) ->
     verbose("Ignoring fallback at startup, but leaving it active...~n", []),
     mnesia_lib:set(active_fallback, true),
@@ -780,23 +785,29 @@ do_fallback_start(true, true) ->
 %执行回滚操作
 do_fallback_start(true, false) ->
     verbose("Starting from fallback...~n", []),
-%拿到备份文件
+    %拿到备份文件
     BupFile = fallback_bup(),
     Mod = mnesia_backup,
-%创建一个ets
+    %创建一个ets，用来保存本地表
     LocalTabs = ?ets_new_table(mnesia_local_tables, [set, public, {keypos, 2}]),
     case catch iterate(Mod, fun restore_tables/4, BupFile, {start, LocalTabs}) of
         {ok, _Res} ->
+            %%  让dets关闭掉schema
             catch dets:close(schema),
+            %% 设置临时的文件为schema.TMP
             TmpSchema = mnesia_lib:tab2tmp(schema),
+            %% 设置数据文件为schema.DAT
             DatSchema = mnesia_lib:tab2dat(schema),
-	    AllLT  = ?ets_match_object(LocalTabs, '_'),
-        %关闭ets
-	    ?ets_delete_table(LocalTabs),
+            %% 得到所有本地表
+	          AllLT  = ?ets_match_object(LocalTabs, '_'),
+            %关闭ets
+	          ?ets_delete_table(LocalTabs),
+            %% schema.TMP重命名为schema.DAT
             case file:rename(TmpSchema, DatSchema) of
                 ok ->
-		          [(LT#local_tab.swap)(LT#local_tab.name, LT) ||
-			         LT <- AllLT, LT#local_tab.name =/= schema],
+                    %% 除了schema表外，全部进行swap操作
+		                [(LT#local_tab.swap)(LT#local_tab.name, LT) ||
+			                 LT <- AllLT, LT#local_tab.name =/= schema],
                     file:delete(BupFile),
                     ok;
                 {error, Reason} ->
@@ -808,7 +819,7 @@ do_fallback_start(true, false) ->
         {'EXIT', Reason} ->
             {error, {"Cannot start from fallback", Reason}}
     end.
-%% 对表进行恢复
+%% 对表进行数据恢复
 restore_tables(All=[Rec | Recs], Header, Schema, State={local, LocalTabs, LT}) ->
     Tab = element(1, Rec),
     if
@@ -822,20 +833,23 @@ restore_tables(All=[Rec | Recs], Header, Schema, State={local, LocalTabs, LT}) -
     end;
 restore_tables(All=[Rec | Recs], Header, Schema, {new, LocalTabs}) ->
     Tab = element(1, Rec),
+    %% 根据record的名字去查找表
     case ?ets_lookup(LocalTabs, Tab) of
         [] ->
-            State = {not_local, LocalTabs, Tab},
-            restore_tables(Recs, Header, Schema, State);
+          State = {not_local, LocalTabs, Tab},
+          restore_tables(Recs, Header, Schema, State);
         [LT] when is_record(LT, local_tab) ->
-	    State = {local, LocalTabs, LT},
-	    case LT#local_tab.opened of
-		true ->  ignore;
-		false ->
-		    (LT#local_tab.open)(Tab, LT),
-		    ?ets_insert(LocalTabs,LT#local_tab{opened=true})
-	    end,
-            restore_tables(All, Header, Schema, State)
+	        State = {local, LocalTabs, LT},
+	        case LT#local_tab.opened of
+		        true ->  ignore;
+		        false ->
+		          (LT#local_tab.open)(Tab, LT),
+		          ?ets_insert(LocalTabs,LT#local_tab{opened=true})
+	        end,
+          %% 打开表，并进行数据恢复
+          restore_tables(All, Header, Schema, State)
     end;
+%% 忽略掉所有不在mnesia_local_tables中的数据元素
 restore_tables(All=[Rec | Recs], Header, Schema, S = {not_local, LocalTabs, PrevTab}) ->
     Tab = element(1, Rec),
     if
@@ -852,9 +866,12 @@ restore_tables(Recs, Header, Schema, {start, LocalTabs}) ->
     OldDir = filename:join([Dir, "OLD_DIR"]),
     %% 删除OLD_DIR下的数据
     mnesia_schema:purge_dir(OldDir, []),
-    %% 删除Mnesia目录下除FALLBACK.DUP文件的所有其它文件
+    %% 删除Mnesia目录下除FALLBACK.BUP文件的所有其它文件
     mnesia_schema:purge_dir(Dir, [fallback_name()]),
-    %% 初始化本DAT文件
+    %% 初始化本DAT文件，Schema为FALLBCK.BUP中的Schema数据
+    %% 将Schema全都写入schema.DAT中
+    %% 为每个Table创建.DAT,.DCL,.DCD和.TMP文件
+    %% 为每个Table创建local_tab的record,并保存到mnesia_local_tables中
     init_dat_files(Schema, LocalTabs),
     State = {new, LocalTabs},
     %% 更改状态，开始创建表
@@ -870,8 +887,11 @@ init_dat_files(Schema, LocalTabs) ->
     %% 创建schma的tmp文件
     TmpFile = mnesia_lib:tab2tmp(schema),
     Args = [{file, TmpFile}, {keypos, 2}, {type, set}],
+    %% dets 打开文件
     case dets:open_file(schema, Args) of % Assume schema lock
         {ok, _} ->
+            %% 遍历Schema这个列表
+            %% 创建缺失文件，并将{schema,Tab,TabDef}数据写入schema.DAT中
             create_dat_files(Schema, LocalTabs),
             ok = dets:close(schema),
             LocalTab = #local_tab{name         = schema,
@@ -895,6 +915,9 @@ create_dat_files([{schema, schema, TabDef} | Tail], LocalTabs) ->
 create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
     TmpFile = mnesia_lib:tab2tmp(Tab),
     DatFile = mnesia_lib:tab2dat(Tab),
+    %% 创建日志文件.DCL和.DCD
+    %% mneisa会将操作写入.DCL中
+    %% 当DCL太大了会压缩成.DCD文件
     DclFile = mnesia_lib:tab2dcl(Tab),
     DcdFile = mnesia_lib:tab2dcd(Tab),
     Expunge = fun() ->
@@ -906,67 +929,67 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
     mnesia_lib:dets_sync_close(Tab),
     file:delete(TmpFile),
     Cs = mnesia_schema:list2cs(TabDef),
+    %% 会在schema的dets文件中插入表定义
     ok = dets:insert(schema, {schema, Tab, TabDef}),
     RecName = Cs#cstruct.record_name,
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     if
-	Storage =:= unknown ->
-            ok = dets:delete(schema, {schema, Tab}),
-            create_dat_files(Tail, LocalTabs);
-        Storage =:= disc_only_copies ->
-            Args = [{file, TmpFile}, {keypos, 2},
-                    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}],
-            Open = fun(T, LT) when T =:= LT#local_tab.name ->
-                           case mnesia_lib:dets_sync_open(T, Args) of
-                               {ok, _} ->
-                                   ok;
-                               {error, Reason} ->
-                                   throw({error, {"Cannot open file", T, Args, Reason}})
-                           end
-                   end,
-            Add = fun(T, Key, Rec, LT) when T =:= LT#local_tab.name ->
-                          case Rec of
-                              {_T, Key} ->
-                                  ok = dets:delete(T, Key);
-                              (Rec) when T =:= RecName ->
-                                  ok = dets:insert(Tab, Rec);
-                              (Rec) ->
-                                  Rec2 = setelement(1, Rec, RecName),
-                                  ok = dets:insert(T, Rec2)
-                          end
-                  end,
-            Close = fun(T, LT) when T =:= LT#local_tab.name ->
-                            mnesia_lib:dets_sync_close(T)
-                    end,
-	    Swap = fun(T, LT) when T =:= LT#local_tab.name ->
-			   Expunge(),
-			   case LT#local_tab.opened of
-			       true ->
-				   Close(T,LT);
-			       false ->
-				   Open(T,LT),
-				   Close(T,LT)
-			   end,
-			   case file:rename(TmpFile, DatFile) of
-			       ok ->
-				   ok;
-			       {error, Reason} ->
-				   mnesia_lib:fatal("Cannot rename file ~p -> ~p: ~p~n",
-						    [TmpFile, DatFile, Reason])
-			   end
-		   end,
-            LocalTab = #local_tab{name         = Tab,
+	    Storage =:= unknown ->
+        ok = dets:delete(schema, {schema, Tab}),
+        create_dat_files(Tail, LocalTabs);
+      Storage =:= disc_only_copies ->
+        Args = [{file, TmpFile}, {keypos, 2},
+                type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}],
+        %% disc_only模式下打开函数
+        Open = fun(T, LT) when T =:= LT#local_tab.name ->
+                  case mnesia_lib:dets_sync_open(T, Args) of
+                    {ok, _} -> ok;
+                    {error, Reason} -> throw({error, {"Cannot open file", T, Args, Reason}})
+                  end
+                end,
+        %% disc_only模式下添加数据函数
+        Add = fun(T, Key, Rec, LT) when T =:= LT#local_tab.name ->
+                  case Rec of
+                    {_T, Key} -> ok = dets:delete(T, Key);
+                    (Rec) when T =:= RecName -> ok = dets:insert(Tab, Rec);
+                    (Rec) ->
+                        Rec2 = setelement(1, Rec, RecName),
+                        ok = dets:insert(T, Rec2)
+                  end
+              end,
+        %% disc_only模式下关闭函数
+        Close = fun(T, LT) when T =:= LT#local_tab.name ->
+                    mnesia_lib:dets_sync_close(T)
+                end,
+	      Swap = fun(T, LT) when T =:= LT#local_tab.name ->
+                  Expunge(),
+                  case LT#local_tab.opened of
+			              true -> Close(T,LT);
+			              false ->
+                      Open(T,LT),
+				              Close(T,LT)
+			            end,
+                  %% 临时文件变成正式文件
+			            case file:rename(TmpFile, DatFile) of
+                    ok -> ok;
+			              {error, Reason} ->
+                      mnesia_lib:fatal("Cannot rename file ~p -> ~p: ~p~n",
+						          [TmpFile, DatFile, Reason])
+			            end
+		            end,
+        LocalTab = #local_tab{name         = Tab,
                                   storage_type = Storage,
                                   open         = Open,
                                   add          = Add,
                                   close        = Close,
-				  swap         = Swap,
+				                          swap         = Swap,
                                   record_name  = RecName,
                                   opened       = false},
+            %% 保存到localTab中
             ?ets_insert(LocalTabs, LocalTab),
-	    create_dat_files(Tail, LocalTabs);
-        Storage =:= ram_copies; Storage =:= disc_copies ->
-	    Open = fun(T, LT) when T =:= LT#local_tab.name ->
+	          create_dat_files(Tail, LocalTabs);
+      Storage =:= ram_copies; Storage =:= disc_copies ->
+	      Open = fun(T, LT) when T =:= LT#local_tab.name ->
 			   mnesia_log:open_log({?MODULE, T},
 					       mnesia_log:dcl_log_header(),
 					       TmpFile,
