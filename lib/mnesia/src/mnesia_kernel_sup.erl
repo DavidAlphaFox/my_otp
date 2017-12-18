@@ -40,9 +40,14 @@ init([]) ->
     %% mnesia_monitor持有mnesia_gvar和mnesia_stats两张ets表
     %% mnesia的全局变量全都保存在此处
     Workers = [worker_spec(mnesia_monitor, timer:seconds(3), [gen_server]),
+        %% mnesia_subscr 创建订阅管理进程
+        %% 自动将mnesia_event加入到系统订阅表中
 	       worker_spec(mnesia_subscr, timer:seconds(3), [gen_server]),
+        %% mnesia的锁管理进程
 	       worker_spec(mnesia_locker, timer:seconds(3), ProcLib),
+         %% mnesia恢复进程
 	       worker_spec(mnesia_recover, timer:minutes(3), [gen_server]),
+         %% mnesia事务进程
 	       worker_spec(mnesia_tm, timer:seconds(30), ProcLib),
 	       supervisor_spec(mnesia_checkpoint_sup),
 	       supervisor_spec(mnesia_snmp_sup),

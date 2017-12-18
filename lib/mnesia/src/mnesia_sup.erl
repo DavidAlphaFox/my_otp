@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -35,13 +35,15 @@ start(normal, Args) ->
     case supervisor:start_link(SupName, ?MODULE, [Args]) of
 	{ok, Pid} ->
 	    {ok, Pid, {normal, Args}};
-	Error -> 
+	Error ->
 	    Error
     end;
 start(_, _) ->
     {error, badarg}.
 
 start() ->
+    %% 默认用mnesia_sup做名字启动supervisor
+    %% 这个supervisor是Mnesia所有进程基础supervisor
     SupName = {local,?MODULE},
     supervisor:start_link(SupName, ?MODULE, []).
 
@@ -54,11 +56,12 @@ init([[]]) -> % Application
     init();
 init(BadArg) ->
     {error, {badarg, BadArg}}.
-%初始化mneisa的supervisor树    
+%初始化mneisa的supervisor树
 init() ->
     Flags = {one_for_all, 0, 3600}, % Should be rest_for_one policy
-
+    %% 事件监控进程
     Event = event_procs(),
+    %% 核心进程
     Kernel = kernel_procs(),
 
     {ok, {Flags, Event ++ Kernel}}.
@@ -81,7 +84,7 @@ start_event() ->
     case gen_event:start_link({local, mnesia_event}) of
 	{ok, Pid} ->
 	    case add_event_handler() of
-		ok -> 
+		ok ->
 		    {ok, Pid};
 		Error ->
 		    Error
@@ -94,7 +97,7 @@ add_event_handler() ->
 %默认的event_handler是mnesia_event
     Handler = mnesia_monitor:get_env(event_module),
     gen_event:add_handler(mnesia_event, Handler, []).
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% debug functions
 
@@ -118,4 +121,3 @@ ensure_dead(Name) ->
 	    timer:sleep(10),
 	    ensure_dead(Name)
     end.
-

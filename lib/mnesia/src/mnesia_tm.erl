@@ -83,6 +83,7 @@ init(Parent) ->
     %进行事务失败回滚
     %% 此时mnesia的is_running是no
     mnesia_bup:tm_fallback_start(IgnoreFallback),
+		%% 进程schema初始化
     mnesia_schema:init(IgnoreFallback),
 
     %% Handshake and initialize transaction recovery
@@ -1108,7 +1109,7 @@ dirty(Protocol, Item) ->
 	    %% Send commit records to the other involved nodes,
 	    %% but do only wait for one node to complete.
 	    %% Preferrably, the local node if possible.
-		
+
 	    ReadNode = val({Tab, where_to_read}),
 	    {WaitFor, FirstRes} = async_send_dirty(Tid, CR, Tab, ReadNode),
 	    rec_dirty(WaitFor, FirstRes);

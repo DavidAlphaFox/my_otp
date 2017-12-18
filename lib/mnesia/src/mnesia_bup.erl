@@ -761,7 +761,7 @@ throw_bad_res(_Expected, Actual) -> throw({error, Actual}).
                     opened}).
 
 tm_fallback_start(IgnoreFallback) ->
-%锁定元数据表
+    %锁定元数据表
     mnesia_schema:lock_schema(),
     %% 检查是否有fallback文件，FALLBACK.BUP
     Res = do_fallback_start(fallback_exists(), IgnoreFallback),
@@ -854,8 +854,10 @@ restore_tables(Recs, Header, Schema, {start, LocalTabs}) ->
     mnesia_schema:purge_dir(OldDir, []),
     %% 删除Mnesia目录下除FALLBACK.DUP文件的所有其它文件
     mnesia_schema:purge_dir(Dir, [fallback_name()]),
+    %% 初始化本DAT文件
     init_dat_files(Schema, LocalTabs),
     State = {new, LocalTabs},
+    %% 更改状态，开始创建表
     restore_tables(Recs, Header, Schema, State);
 restore_tables([], _Header, _Schema, State) ->
     State.

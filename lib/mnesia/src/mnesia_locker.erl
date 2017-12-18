@@ -85,7 +85,7 @@ init(Parent) ->
     register(?MODULE, self()),
     %% 跟踪退出
     process_flag(trap_exit, true),
-    %% 创建锁相关的etc表
+    %% 创建锁相关的ets表
     ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_tid_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),
@@ -95,9 +95,9 @@ init(Parent) ->
     proc_lib:init_ack(Parent, {ok, self()}),
     %% pid_sort_order的排序方案？
     case ?catch_val(pid_sort_order) of
-	r9b_plain -> put(pid_sort_order, r9b_plain);
-	standard ->  put(pid_sort_order, standard);
-	_ -> ignore
+			r9b_plain -> put(pid_sort_order, r9b_plain);
+			standard ->  put(pid_sort_order, standard);
+			_ -> ignore
     end,
     loop(#state{supervisor = Parent}).
 
@@ -1285,4 +1285,3 @@ bytes2int(N3, N2, N1, N0) when 0 =< N3, N3 =< 255,
 			       0 =< N1, N1 =< 255,
 			       0 =< N0, N0 =< 255 ->
     (N3 bsl 24) bor (N2 bsl 16) bor (N1 bsl 8) bor N0.
-
