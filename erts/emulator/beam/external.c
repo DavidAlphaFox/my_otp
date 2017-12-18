@@ -1037,7 +1037,7 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
 
     BIF_ERROR(BIF_P, BADARG);
 }
-
+// csp ?
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
 {
     Eterm *tp = tuple_val(BIF_ARG_1);
@@ -1046,8 +1046,8 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
     Binary *bin = ((ProcBin *) binary_val(bt))->val;
     Eterm res = erts_term_to_binary_int(BIF_P, Term, 0, 0,bin);
     if (is_tuple(res)) {
-	ASSERT(BIF_P->flags & F_DISABLE_GC);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+			ASSERT(BIF_P->flags & F_DISABLE_GC);
+			BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
         if (erts_set_gc_state(BIF_P, 1)
             || MSO(BIF_P).overhead > BIN_VHEAP_SZ(BIF_P))
@@ -1061,13 +1061,16 @@ HIPE_WRAPPER_BIF_DISABLE_GC(term_to_binary, 1)
 
 BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
+		// 进行转化
     Eterm res = erts_term_to_binary_int(BIF_P, BIF_ARG_1, 0, TERM_TO_BINARY_DFLAGS, NULL);
+		// 如果返回的是tuple需要进行GC？
     if (is_tuple(res)) {
-	erts_set_gc_state(BIF_P, 0);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+			erts_set_gc_state(BIF_P, 0);
+			BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
-	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
-	BIF_RET(res);
+			ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+			//  其它情况就直接返回
+			BIF_RET(res);
     }
 }
 
@@ -1868,7 +1871,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	context->s.sc.flags = flags;
 	context->s.sc.level = level;
     } else {
-	context = ERTS_MAGIC_BIN_DATA(context_b);
+			context = ERTS_MAGIC_BIN_DATA(context_b);
     }
     /* Initialization done, now we will go through the states */
     for (;;) {
