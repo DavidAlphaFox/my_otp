@@ -623,11 +623,13 @@ init([Parent]) ->
 
     %% Handshake and initialize transaction recovery
     %% for new nodes detected in the schema
+		%% 得到所有节点
     All = mnesia_lib:all_nodes(),
     Diff = All -- [node() | val(original_nodes)],
     mnesia_lib:unset(original_nodes),
+		%% 连接全新的节点
     mnesia_recover:connect_nodes(Diff),
-
+		%% 开启dumper进程
     Ref = next_async_dump_log(),
     mnesia_dumper:start_regulator(),
 

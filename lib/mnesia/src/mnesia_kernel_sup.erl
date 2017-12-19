@@ -49,9 +49,13 @@ init([]) ->
 	       worker_spec(mnesia_recover, timer:minutes(3), [gen_server]),
          %% mnesia事务进程
 	       worker_spec(mnesia_tm, timer:seconds(30), ProcLib),
+         %% 检察点监控者进程
 	       supervisor_spec(mnesia_checkpoint_sup),
+         %% snmp监控者进程
 	       supervisor_spec(mnesia_snmp_sup),
+         %% mnesia主控进程
 	       worker_spec(mnesia_controller, timer:seconds(3), [gen_server]),
+         %% mnesia数据加载进程
 	       worker_spec(mnesia_late_loader, timer:seconds(3), ProcLib)
 	      ],
     {ok, {Flags, Workers}}.

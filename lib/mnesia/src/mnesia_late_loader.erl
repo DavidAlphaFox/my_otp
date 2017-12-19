@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -55,8 +55,11 @@ init(Parent) ->
     %% Trap exit omitted intentionally
     register(?SERVER_NAME, self()),
     link(whereis(mnesia_controller)),  %% We may not hang
+		%% 同步schema表
     mnesia_controller:merge_schema(),
     unlink(whereis(mnesia_controller)),
+		%% 成功后设置mnesia_status为running
+		%% 只有这步骤成功才代表mnesia启动成功
     mnesia_lib:set(mnesia_status, running),
     proc_lib:init_ack(Parent, {ok, self()}),
     loop(#state{supervisor = Parent}).
@@ -69,10 +72,10 @@ loop(State) ->
 
 	{_From, {maybe_async_late_disc_load, Tabs, Reason}} ->
 	    CheckMaster =
-		fun(Tab, Good) ->			
+		fun(Tab, Good) ->
 			case mnesia_recover:get_master_nodes(Tab) of
 			    [] -> [Tab|Good];
-			    Masters -> 
+			    Masters ->
 				case lists:member(node(),Masters) of
 				    true -> [Tab|Good];
 				    false -> Good
@@ -88,7 +91,7 @@ loop(State) ->
 			       [?SERVER_NAME, From, Msg]),
 	    Parent = State#state.supervisor,
 	    sys:handle_system_msg(Msg, From, Parent, ?MODULE, [], State);
-	    
+
 	Msg ->
 	    mnesia_lib:error("~p got unexpected message: ~p~n",
 			     [?SERVER_NAME, Msg]),

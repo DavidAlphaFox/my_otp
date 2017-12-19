@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2013
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -134,7 +134,7 @@ tm_enter_pending([Tab | Tabs], Pending) ->
 tm_exit_pending(Tid) ->
     Pids = val(pending_checkpoint_pids),
     tm_exit_pending(Pids, Tid).
-    
+
 tm_exit_pending([], Tid) ->
     Tid;
 tm_exit_pending([Pid | Pids], Tid) ->
@@ -153,10 +153,10 @@ tm_retain(Tid, Tab, Key, Op) ->
     case val({Tab, commit_work}) of
 	[{checkpoints, Checkpoints} | _ ] ->
 	    tm_retain(Tid, Tab, Key, Op, Checkpoints);
-	_ -> 
+	_ ->
 	    undefined
     end.
-    
+
 tm_retain(Tid, Tab, Key, Op, Checkpoints) ->
     case Op of
 	clear_table ->
@@ -190,20 +190,20 @@ send_retain([Name | Names], Msg) ->
     send_retain(Names, Msg);
 send_retain([], _Msg) ->
     ok.
-    
+
 tm_add_copy(Tab, Node) when Node /= node() ->
     case val({Tab, commit_work}) of
 	[{checkpoints, Checkpoints} | _ ] ->
 	    Fun = fun(Name) -> call(Name, {add_copy, Tab, Node}) end,
 	    map_call(Fun, Checkpoints, ok);
-	_  -> 
+	_  ->
 	    ok
     end.
 
 tm_del_copy(Tab, Node) when Node == node() ->
     mnesia_subscr:unsubscribe_table(Tab),
     case val({Tab, commit_work}) of
-	[{checkpoints, Checkpoints} | _ ] ->	    
+	[{checkpoints, Checkpoints} | _ ] ->
 	    Fun = fun(Name) -> call(Name, {del_copy, Tab, Node}) end,
 	    map_call(Fun, Checkpoints, ok);
 	_ ->
@@ -215,7 +215,7 @@ tm_change_table_copy_type(Tab, From, To) ->
 	[{checkpoints, Checkpoints} | _ ] ->
 	    Fun = fun(Name) -> call(Name, {change_copy, Tab, From, To}) end,
 	    map_call(Fun, Checkpoints, ok);
-	_ -> 
+	_ ->
 	    ok
     end.
 
@@ -265,9 +265,9 @@ tables_and_cookie(Name) ->
 
 most_local_node(Name, Tab) ->
     case ?catch_val({Tab, {retainer, Name}}) of
-	{'EXIT', _} -> 
+	{'EXIT', _} ->
 	    {error, {"No retainer attached to table", [Tab, Name]}};
-	R -> 	    
+	R ->
 	    Writers = R#retainer.writers,
 	    LocalWriter = lists:member(node(), Writers),
 	    if
@@ -283,7 +283,7 @@ most_local_node(Name, Tab) ->
 really_retain(Name, Tab) ->
     R = val({Tab, {retainer, Name}}),
     R#retainer.really_retain.
- 
+
 %% Activate a checkpoint.
 %%
 %% A checkpoint is a transaction consistent state that may be used to
@@ -427,7 +427,7 @@ check_tables(Cp) ->
 
 arrange_retainers(Cp, Overriders, AllTabs) ->
     R = #retainer{cp_name = Cp#checkpoint_args.name},
-    case catch [R#retainer{tab_name = Tab, 
+    case catch [R#retainer{tab_name = Tab,
 			   writers = select_writers(Cp, Tab)}
 		|| Tab <- AllTabs] of
 	{'EXIT', Reason} ->
@@ -461,7 +461,7 @@ filter_remote(_Cp, Writers) ->
 	true -> [This];
 	false  -> []
     end.
-	
+
 writers(Retainers) ->
     Fun = fun(R, Acc) -> R#retainer.writers ++ Acc end,
     Writers = lists:foldl(Fun, [], Retainers),
@@ -477,7 +477,7 @@ do_activate(Cp) ->
 	    {error, {"Cannot prepare checkpoint (bad nodes)",
 		     [Name, BadNodes]}}
     end.
-	
+
 check_prep([{ok, Name, IgnoreNew, _Node} | Replies], Name, Nodes, IgnoreNew) ->
     check_prep(Replies, Name, Nodes, IgnoreNew);
 check_prep([{error, Reason} | _Replies], Name, _Nodes, _IgnoreNew) ->
@@ -532,7 +532,7 @@ add_pending_node([], _Tid, _UnionTab) ->
     ok.
 
 send_activate([Node | Nodes], AllNodes, Name, UnionTab, IgnoreNew) ->
-    Pending = [Tid || {_, Tid} <- ?ets_lookup(UnionTab, Node), 
+    Pending = [Tid || {_, Tid} <- ?ets_lookup(UnionTab, Node),
 		      not lists:member(Tid, IgnoreNew)],
     case rpc:call(Node, ?MODULE, call, [Name, {activate, Pending}]) of
 	activated ->
@@ -557,7 +557,7 @@ cast(Name, Msg) ->
     case ?catch_val({checkpoint, Name}) of
 	{'EXIT', _} ->
 	    {error, {no_exists, Name}};
-	
+
 	Pid when is_pid(Pid) ->
 	    Pid ! {self(), Msg},
 	    {ok, Pid}
@@ -608,6 +608,8 @@ start_retainer(Cp) ->
 start(Cp) ->
     Name = Cp#checkpoint_args.name,
     Args = [Cp#checkpoint_args{supervisor = self()}],
+		%% 使用mnesia_monitor封装的proc_lib
+		%% 如果进程无法正常启动会产生相应的报告
     mnesia_monitor:start_proc({?MODULE, Name}, ?MODULE, init, Args).
 
 init(Cp) ->
@@ -633,7 +635,7 @@ init(Cp) ->
 	    Error = {error, {system_limit, Name, Msg, Reason}},
 	    proc_lib:init_ack(Cp#checkpoint_args.supervisor, Error)
     end.
-    
+
 prepare_tab(Cp, R) ->
     Tab = R#retainer.tab_name,
     prepare_tab(Cp, R, val({Tab, storage_type})).
@@ -645,8 +647,8 @@ prepare_tab(Cp, R, Storage) ->
 	true ->
 	    R2 = retainer_create(Cp, R, Tab, Name, Storage),
 	    set({Tab, {retainer, Name}}, R2),
-	    %% Keep checkpoint info for table_info & mnesia_session 
-	    add({Tab, checkpoints}, Name), 
+	    %% Keep checkpoint info for table_info & mnesia_session
+	    add({Tab, checkpoints}, Name),
 	    add_chkp_info(Tab, Name),
 	    R2;
 	false ->
@@ -657,10 +659,10 @@ prepare_tab(Cp, R, Storage) ->
 add_chkp_info(Tab, Name) ->
     case val({Tab, commit_work}) of
 	[{checkpoints, OldList} | CommitList] ->
-	    case lists:member(Name, OldList) of 
-		true -> 
+	    case lists:member(Name, OldList) of
+		true ->
 		    ok;
-		false -> 
+		false ->
 		    NewC = [{checkpoints, [Name | OldList]} | CommitList],
 		    mnesia_lib:set({Tab, commit_work}, NewC)
 	    end;
@@ -697,11 +699,11 @@ retainer_create(Cp, R, Tab, Name, Storage) ->
 prepare_ram_tab(Tab, T, ram_copies, true, false) ->
     Fname = mnesia_lib:tab2dcd(Tab),
     case mnesia_lib:exists(Fname) of
-	true -> 
-	    Log = mnesia_log:open_log(prepare_ram_tab, 
-				      mnesia_log:dcd_log_header(), 
-				      Fname, true, 
-				      mnesia_monitor:get_env(auto_repair), 
+	true ->
+	    Log = mnesia_log:open_log(prepare_ram_tab,
+				      mnesia_log:dcd_log_header(),
+				      Fname, true,
+				      mnesia_monitor:get_env(auto_repair),
 				      read_only),
 	    Add = fun(Rec) ->
 			  Key = element(2, Rec),
@@ -722,13 +724,13 @@ prepare_ram_tab(Tab, T, ram_copies, true, false) ->
 prepare_ram_tab(_, _, _, ReallyRetain, _) ->
     ReallyRetain.
 
-traverse_dcd({Cont, [LogH | Rest]}, Log, Fun) 
-  when is_record(LogH, log_header),  
-       LogH#log_header.log_kind == dcd_log, 
-       LogH#log_header.log_version >= "1.0" ->    
+traverse_dcd({Cont, [LogH | Rest]}, Log, Fun)
+  when is_record(LogH, log_header),
+       LogH#log_header.log_kind == dcd_log,
+       LogH#log_header.log_version >= "1.0" ->
     traverse_dcd({Cont, Rest}, Log, Fun);   %% BUGBUG Error handling repaired files
-traverse_dcd({Cont, Recs}, Log, Fun) ->     %% trashed data?? 
-    lists:foreach(Fun, Recs), 
+traverse_dcd({Cont, Recs}, Log, Fun) ->     %% trashed data??
+    lists:foreach(Fun, Recs),
     traverse_dcd(mnesia_log:chunk_log(Log, Cont), Log, Fun);
 traverse_dcd(eof, _Log, _Fun) ->
     ok.
@@ -741,7 +743,7 @@ retainer_put({dets, Store}, Val) -> dets:insert(Store, Val).
 
 retainer_first({ets, Store}) -> ?ets_first(Store);
 retainer_first({dets, Store}) -> dets:first(Store).
- 
+
 retainer_next({ets, Store}, Key) -> ?ets_next(Store, Key);
 retainer_next({dets, Store}, Key) -> dets:next(Store, Key).
 
@@ -754,7 +756,7 @@ retainer_next({dets, Store}, Key) -> dets:next(Store, Key).
 %% 	   Recs when is_list(Recs) ->
 %% 	       {Pos, Recs}
 %%     end.
-%% 
+%%
 %% retainer_slot({ets, Store}, Pos) -> ?ets_next(Store, Pos);
 %% retainer_slot({dets, Store}, Pos) -> dets:slot(Store, Pos).
 
@@ -963,20 +965,20 @@ deactivate_tab(R) ->
 		ignore
 	end,
 	unset({Tab, {retainer, Name}}),
-	del({Tab, checkpoints}, Name),   %% Keep checkpoint info for table_info & mnesia_session 
+	del({Tab, checkpoints}, Name),   %% Keep checkpoint info for table_info & mnesia_session
 	del_chkp_info(Tab, Name)
     catch _:_ -> ignore
     end.
 
-del_chkp_info(Tab, Name) ->   
+del_chkp_info(Tab, Name) ->
     case val({Tab, commit_work}) of
-	[{checkpoints, ChkList} | Rest] -> 
+	[{checkpoints, ChkList} | Rest] ->
 	    case lists:delete(Name, ChkList) of
-		[] -> 
+		[] ->
 		    %% The only checkpoint was deleted
 		    mnesia_lib:set({Tab, commit_work}, Rest);
 		NewList ->
-		    mnesia_lib:set({Tab, commit_work}, 
+		    mnesia_lib:set({Tab, commit_work},
 				   [{checkpoints, NewList} | Rest])
 	    end;
 	_  -> ignore
@@ -999,7 +1001,7 @@ do_del_retainer2(Cp, R, Node) ->
 	Node == node() ->
 	    deactivate_tab(R), % Avoids unnecessary tm_retain accesses
 	    set({R2#retainer.tab_name, {retainer, R2#retainer.cp_name}}, R2),
-	    R2; 
+	    R2;
 	true ->
 	    R2
     end.
@@ -1054,22 +1056,22 @@ do_add_copy(Cp, Tab, Node) when Node /= node()->
 
 tm_remote_prepare(Node, Cp) ->
     rpc:call(Node, ?MODULE, tm_prepare, [Cp]).
-  
+
 do_add_retainer(Cp, R0, Node) ->
     Writers = R0#retainer.writers,
-    {R, Rest} = find_retainer(R0, Cp#checkpoint_args.retainers, []),    
-    NewRet = 
-	if 
+    {R, Rest} = find_retainer(R0, Cp#checkpoint_args.retainers, []),
+    NewRet =
+	if
 	    Node == node() ->
 		prepare_tab(Cp, R#retainer{writers = Writers});
-	    true -> 
+	    true ->
 		R#retainer{writers = Writers}
 	end,
     Rs = [NewRet | Rest],
     set({NewRet#retainer.tab_name, {retainer, NewRet#retainer.cp_name}}, NewRet),
     Cp#checkpoint_args{retainers = Rs, nodes = writers(Rs)}.
 
-find_retainer(#retainer{cp_name = CP, tab_name = Tab}, 
+find_retainer(#retainer{cp_name = CP, tab_name = Tab},
 	      [Ret = #retainer{cp_name = CP, tab_name = Tab} | R], Acc) ->
     {Ret, R ++ Acc};
 find_retainer(Ret, [H|R], Acc) ->
@@ -1246,7 +1248,6 @@ system_code_change(Cp, _Module, _OldVsn, _Extra) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	_VaLuE_ -> _VaLuE_
     end.
-

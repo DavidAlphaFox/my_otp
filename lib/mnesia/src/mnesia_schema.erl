@@ -132,17 +132,20 @@
 %% in a table called schema !!
 %初始化mnesia的schema
 init(IgnoreFallback) ->
-    %% 需要保存元表
+    %% 从磁盘上读取schema表
     Res = read_schema(true, IgnoreFallback),
     {ok, Source, _CreateList} = exit_on_error(Res),
     verbose("Schema initiated from: ~p~n", [Source]),
     set({schema, tables}, []),
     set({schema, local_tables}, []),
+    %% 将schema中各个表相关数据保存在进程字典中
     Tabs = set_schema(?ets_first(schema)),
+    %% 清理掉各个表的事务相关的进程字典信息
     lists:foreach(fun(Tab) -> clear_whereabouts(Tab) end, Tabs),
     set({schema, where_to_read}, node()),
     set({schema, load_node}, node()),
     set({schema, load_reason}, initial),
+    %% 要求mnesia主控进程，将schema加入活跃复制
     mnesia_controller:add_active_replica(schema, node()).
 
 exit_on_error({error, Reason}) ->
