@@ -90,6 +90,7 @@
 		    now}).
 
 %% Commit records stored in the transaction log
+%% 提交日志
 -record(commit, {node,
 		 decision, % presume_commit | Decision
 		 ram_copies = [],
@@ -98,7 +99,7 @@
 		 snmp = [],
 		 schema_ops = []
 		}).
-
+%% 决议日志
 -record(decision, {tid,
 		   outcome, % presume_abort | committed
 		   disc_nodes,

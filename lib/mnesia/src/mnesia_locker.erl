@@ -85,7 +85,7 @@ init(Parent) ->
     register(?MODULE, self()),
     %% 跟踪退出
     process_flag(trap_exit, true),
-    %% 创建锁相关的ets表
+    %% 创建锁相关的ets表，这些表都是私有的
     ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_tid_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),

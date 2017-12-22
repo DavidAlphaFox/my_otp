@@ -266,18 +266,19 @@ init([Parent]) ->
     ?ets_new_table(mnesia_stats, [set, public, named_table]),
 %用来保存订阅者
     set(subscribers, []),
-%%用来保存互动订阅者    
+%%用来保存互动订阅者
     set(activity_subscribers, []),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
 %%得到mnesia的版本
+%%去查mnesia_gvar，然后再从Application中获得
     Version = mnesia:system_info(version),
     %% 保存版本
     set(version, Version),
     dbg_out("Version: ~p~n", [Version]),
-
+		%% 将Mnesia所有的env中的信息都放入的mnesia_gvar中
     case catch process_config_args(env()) of
 	ok ->
-		%向mnesia_gvar的ets表中添加一个表项
+		%% 向mnesia_gvar的ets表中添加一个表项
 	    mnesia_lib:set({'$$$_report', current_pos}, 0),
 	    Level = mnesia_lib:val(debug),
 	    mnesia_lib:verbose("Mnesia debug level set to ~p\n", [Level]),

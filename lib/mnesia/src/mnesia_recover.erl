@@ -135,11 +135,11 @@ allow_garb() ->
 %% transaction log only may contain commit records which refers to
 %% transactions noted in the last two of the 'Prev' tables. All other
 %% tables may now be garbed by 'garb_decisions' (after 2 minutes).
-%% Max 10 tables are kept. 
+%% Max 10 tables are kept.
 do_allow_garb() ->
     %% The order of the following stuff is important!
     Curr = val(latest_transient_decision),
-    %% Don't garb small tables, they are created on every 
+    %% Don't garb small tables, they are created on every
     %% dump_log and may be small (empty) for schema transactions
     %% which are dumped twice
     case ets:info(Curr, size) > 20 of
@@ -153,7 +153,7 @@ do_allow_garb() ->
 	false ->
 	    ignore
     end.
-    
+
 sublist([H|R], N, Acc) when N > 0 ->
     sublist(R, N-1, [H| Acc]);
 sublist(List, _N, Acc) ->
@@ -224,10 +224,10 @@ note_decision(Tid, Outcome) ->
 
 note_up(Node, _Date, _Time) ->
     ?ets_delete(mnesia_decision, Node).
-%记录节点当机    
+%记录节点当机
 note_down(Node, Date, Time) ->
     ?ets_insert(mnesia_decision, {mnesia_down, Node, Date, Time}).
-    
+
 note_master_nodes(Tab, []) ->
     ?ets_delete(mnesia_decision, Tab);
 note_master_nodes(Tab, Nodes) when is_list(Nodes) ->
@@ -279,7 +279,7 @@ tell_im_certain([], _D) ->
     ignore;
 tell_im_certain(Nodes, D) ->
     Msg = {im_certain, node(), D},
-  %%  mnesia_lib:verbose("~w: tell: ~w~n", [Msg, Nodes]), 
+  %%  mnesia_lib:verbose("~w: tell: ~w~n", [Msg, Nodes]),
     abcast(Nodes, Msg).
 
 sync() ->
@@ -306,7 +306,7 @@ has_mnesia_down(Node) ->
 	[] ->
 	    false
     end.
-    
+
 mnesia_down(Node) ->
     case ?catch_val(recover_nodes) of
 	{'EXIT', _} ->
@@ -348,7 +348,7 @@ log_master_nodes(Args, UseDir, IsRunning) ->
     end.
 
 log_master_nodes2([{Tab, Nodes} | Tail], UseDir, IsRunning, WorstRes) ->
-    Res = 
+    Res =
 	case IsRunning of
 	    yes ->
 		R = call({log_master_nodes, Tab, Nodes, UseDir, IsRunning}),
@@ -394,7 +394,7 @@ get_master_nodes(Tab) ->
 
 %% Determine what has happened to the transaction
 what_happened(Tid, Protocol, Nodes) ->
-    Default = 
+    Default =
 	case Protocol of
 	    asym_trans -> aborted;
 	    _ -> unclear  %% sym_trans and sync_sym_trans
@@ -448,16 +448,16 @@ wait_for_decision(presume_commit, _InitBy) ->
 
 wait_for_decision(D, InitBy) when D#decision.outcome == presume_abort ->
     wait_for_decision(D, InitBy, 0).
-    
-wait_for_decision(D, InitBy, N) -> 
+
+wait_for_decision(D, InitBy, N) ->
     %% asym_trans
     Tid = D#decision.tid,
     Max = 10,
     Outcome = outcome(Tid, D#decision.outcome),
-    if 
+    if
 	Outcome =:= committed -> {Tid, committed};
 	Outcome =:= aborted   -> {Tid, aborted};
-	Outcome =:= presume_abort -> 
+	Outcome =:= presume_abort ->
 	    case N > Max of
 		true -> {Tid, aborted};
 		false -> % busy loop for ets decision moving
@@ -467,7 +467,7 @@ wait_for_decision(D, InitBy, N) ->
 	InitBy /= startup ->
 	    %% Wait a while for active transactions
 	    %% to end and try again
-	    timer:sleep(100), 
+	    timer:sleep(100),
 	    wait_for_decision(D, InitBy, N);
 	InitBy == startup ->
 	    {ok, Res} = call({wait_for_decision, D}),
@@ -501,7 +501,7 @@ load_decision_tab(Cont, InitBy) ->
 %% Dumps DECISION.LOG and PDECISION.LOG and removes them.
 %% From now on all decisions are logged in the transaction log file
 convert_old() ->
-    HasOldStuff = 
+    HasOldStuff =
 	mnesia_lib:exists(mnesia_log:previous_decision_log_file()) or
 	mnesia_lib:exists(mnesia_log:decision_log_file()),
     case HasOldStuff of
@@ -548,13 +548,15 @@ note_log_decisions([What | Tail], InitBy) ->
     note_log_decisions(Tail, InitBy);
 note_log_decisions([], _InitBy) ->
     ok.
-%记录决议
+%% 日志决议
 note_log_decision(NewD, InitBy) when NewD#decision.outcome == pre_commit ->
     note_log_decision(NewD#decision{outcome = unclear}, InitBy);
 
 note_log_decision(NewD, _InitBy) when is_record(NewD, decision) ->
     Tid = NewD#decision.tid,
+		%% 同步事务ID
     sync_trans_tid_serial(Tid),
+		%% 写入决议表，如果当前节点是磁盘节点，写入最终决议表中
     note_outcome(NewD);
 note_log_decision({trans_tid, serial, _Serial}, startup) ->
     ignore;
@@ -567,16 +569,17 @@ note_log_decision({mnesia_down, Node, Date, Time}, _InitBy) ->
 note_log_decision({master_nodes, Tab, Nodes}, _InitBy) ->
     note_master_nodes(Tab, Nodes);
 note_log_decision(H, _InitBy) when H#log_header.log_kind == decision_log ->
+		%% 获取决议版本
     V = mnesia_log:decision_log_version(),
     if
-	H#log_header.log_version == V->
-	    ok;
-	H#log_header.log_version == "2.0" ->
-	    verbose("Accepting an old version format of decision log: ~p~n",
-		    [V]),
-	    ok;
-	true ->
-	    fatal("Bad version of decision log: ~p~n", [H])
+			H#log_header.log_version == V->
+	    	ok;
+			H#log_header.log_version == "2.0" ->
+	    	verbose("Accepting an old version format of decision log: ~p~n",
+		    	[V]),
+	    	ok;
+			true ->
+	    	fatal("Bad version of decision log: ~p~n", [H])
     end;
 note_log_decision(H, _InitBy) when H#log_header.log_kind == decision_tab ->
     V = mnesia_log:decision_tab_version(),
@@ -626,7 +629,7 @@ init([Parent]) ->
     process_flag(trap_exit, true),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
     %最后一次的事务决策
-    %使用ets来保存决策
+    %使用ets来保存最后决策，非命名表
     set(latest_transient_decision, create_transient_decision()),
     %前一次的事务决策
     set(previous_transient_decisions, []),
@@ -646,22 +649,27 @@ create_transient_decision() ->
 %%          {noreply, State, Timeout}      |
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%----------------------------------------------------------------------
-%事务开始的时候，申请初始化
+%% mnesia_tm在init的过程中会调用，进行初始化
 handle_call(init, From, State) when State#state.initiated == false ->
     Args = [{keypos, 2}, set, public, named_table],
+		%% 获取mnesia目录成功
     case mnesia_monitor:use_dir() of
 	true ->
+			%% 建立决策表，命名公开
 	    ?ets_new_table(mnesia_decision, Args),
+			%% 设置事务ID为0
 	    set_trans_tid_serial(0),
+			%% 得到决策表日志DECISION_TAB.LOG
 	    TabFile = mnesia_log:decision_tab_file(),
 	    case mnesia_lib:exists(TabFile) of
-		true ->
-		    load_decision_tab();
-		false ->
-		    ignore
-	    end,
-	    convert_old(),
-	    mnesia_dumper:opt_dump_log(scan_decisions);
+				true ->
+					%% 如果日志存在
+		    	load_decision_tab();
+				false ->
+		    	ignore
+	    	end,
+	    	convert_old(),
+	    	mnesia_dumper:opt_dump_log(scan_decisions);
 	false ->
 	    ?ets_new_table(mnesia_decision, Args),
 	    set_trans_tid_serial(0)
@@ -684,8 +692,8 @@ handle_call({connect_nodes, Ns}, From, State) ->
     {_, Nodes} = mnesia_lib:search_delete(node(), Ns),
     Check = Nodes -- AlreadyConnected,
     case mnesia_monitor:negotiate_protocol(Check) of
-	busy -> 
-	    %% monitor is disconnecting some nodes retry 
+	busy ->
+	    %% monitor is disconnecting some nodes retry
 	    %% the req (to avoid deadlock).
 	    erlang:send_after(2, self(), {connect_nodes,Ns,From}),
 	    {noreply, State};
@@ -700,7 +708,7 @@ handle_call({connect_nodes, Ns}, From, State) ->
 	    %% and we may use them when we recover transactions
 	    mnesia_lib:add_list(recover_nodes, GoodNodes),
 	    cast({announce_all, GoodNodes}),
-	    case get_master_nodes(schema) of 
+	    case get_master_nodes(schema) of
 		[] ->
 			%检查脑裂问题
 		    Context = starting_partitioned_network,
@@ -789,7 +797,7 @@ do_log_mnesia_down(Node) ->
 
 do_log_master_nodes(Tab, Nodes, UseDir, IsRunning) ->
     Master = {master_nodes, Tab, Nodes},
-    Res = 
+    Res =
 	case UseDir of
 	    true ->
 		LogRes = mnesia_log:append(latest_log, Master),
@@ -820,7 +828,7 @@ handle_cast(Msg, State) when State#state.initiated == false ->
 
 handle_cast({im_certain, Node, NewD}, State) ->
     OldD = decision(NewD#decision.tid),
-    MergedD = merge_decisions(Node, OldD, NewD),    
+    MergedD = merge_decisions(Node, OldD, NewD),
     do_log_decision(MergedD, false, undefined),
     {noreply, State};
 
@@ -840,7 +848,7 @@ handle_cast({decisions, Node, Decisions}, State) ->
 handle_cast({what_decision, Node, OtherD}, State) ->
     Tid = OtherD#decision.tid,
     sync_trans_tid_serial(Tid),
-    Decision = 
+    Decision =
 	case decision(Tid) of
 	    no_decision -> OtherD;
 	    MyD when is_record(MyD, decision) -> MyD
@@ -905,7 +913,7 @@ handle_info(garb_decisions, State) ->
 handle_info({force_decision, Tid}, State) ->
     %% Enforce a transaction recovery decision,
     %% if we still are waiting for the outcome
-    
+
     case State#state.unclear_decision of
 	U when U#decision.tid == Tid ->
 	    verbose("Decided to abort transaction ~p since "
@@ -976,14 +984,14 @@ do_handle_early_msgs([Msg | Msgs], State) ->
 %%         {stop, Reason, Reply, State2} ->
 %% 	    {stop, Reason, Reply, State2};
         {stop, Reason, State2} ->
-	    {stop, Reason, State2};
-	{noreply, State2} ->
-	    handle_early_msg(Msg, State2)
+	    		{stop, Reason, State2};
+				{noreply, State2} ->
+	    		handle_early_msg(Msg, State2)
     end;
 
 do_handle_early_msgs([], State) ->
     {noreply, State}.
-    
+
 handle_early_msg({call, Msg, From}, State) ->
     case handle_call(Msg, From, State) of
 	{reply, R, S} ->
@@ -1036,7 +1044,8 @@ outcome(Tid, Default, [Tab | Tabs]) ->
     end;
 outcome(_Tid, Default, []) ->
     Default.
-
+%% pre_commit会被重置为unclear
+%% presume_abort会被重置为aborted
 filter_outcome(Val) ->
     case Val of
 	unclear -> unclear;
@@ -1050,7 +1059,7 @@ filter_aborted(D) when D#decision.outcome == presume_abort ->
     D#decision{outcome = aborted};
 filter_aborted(D) ->
     D.
-  
+
 %% Merge old decision D with new (probably remote) decision
 merge_decisions(Node, D, NewD0) ->
     NewD = filter_aborted(NewD0),
@@ -1063,7 +1072,7 @@ merge_decisions(Node, D, NewD0) ->
 	is_record(D, decision) ->
 	    DiscNs = D#decision.disc_nodes -- ([node(), Node]),
 	    OldD = filter_aborted(D#decision{disc_nodes = DiscNs}),
-%%	    mnesia_lib:dbg_out("merge ~w: NewD = ~w~n D = ~w~n OldD = ~w~n", 
+%%	    mnesia_lib:dbg_out("merge ~w: NewD = ~w~n D = ~w~n OldD = ~w~n",
 %%			       [Node, NewD, D, OldD]),
 	    if
 		OldD#decision.outcome == unclear,
@@ -1079,7 +1088,7 @@ merge_decisions(Node, D, NewD0) ->
 		    %% Interesting! We have already committed,
 		    %% but someone else has aborted. Now we
 		    %% have a nice little inconcistency. The
-		    %% other guy (or some one else) has 
+		    %% other guy (or some one else) has
 		    %% enforced a recovery decision when
 		    %% max_wait_for_decision was exceeded.
 		    %% We will pretend that we have obeyed
@@ -1171,7 +1180,7 @@ add_remote_decision(Node, NewD, State) ->
 		Outcome == unclear, WaitFor == [] ->
 		    %% Everybody are uncertain, lets abort
 		    NewOutcome = aborted,
-		    CertainD = D#decision{outcome = NewOutcome, 
+		    CertainD = D#decision{outcome = NewOutcome,
 					  disc_nodes = [],
 					  ram_nodes = []},
 		    tell_im_certain(D#decision.disc_nodes, CertainD),
@@ -1203,7 +1212,7 @@ announce_all([]) ->
 announce_all(ToNodes) ->
     Tid = trans_tid_serial(),
     announce(ToNodes, [{trans_tid,serial,Tid}], [], false).
-    
+
 announce(ToNodes, [Head | Tail], Acc, ForceSend) ->
     Acc2 = arrange(ToNodes, Head, Acc, ForceSend),
     announce(ToNodes, Tail, Acc2, ForceSend);
@@ -1244,4 +1253,3 @@ add_decision(Node, Decision, [Head | Tail]) ->
     [Head | add_decision(Node, Decision, Tail)];
 add_decision(Node, Decision, []) ->
     [{Node, [Decision]}].
-

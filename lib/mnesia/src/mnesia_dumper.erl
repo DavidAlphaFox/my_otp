@@ -91,11 +91,12 @@ adjust_log_writes(DoCast) ->
 
 %% Returns 'ok' or exits
 opt_dump_log(InitBy) ->
-    Reg = case whereis(?REGULATOR_NAME) of
+    Reg =
+			case whereis(?REGULATOR_NAME) of
 	      undefined ->
-		  nopid;
+		  		nopid;
 	      Pid when is_pid(Pid) ->
-		  Pid
+		  		Pid
 	  end,
     perform_dump(InitBy, Reg).
 
@@ -104,7 +105,9 @@ perform_dump(InitBy, Regulator) when InitBy == scan_decisions ->
     ?eval_debug_fun({?MODULE, perform_dump}, [InitBy]),
 
     dbg_out("Transaction log dump initiated by ~w~n", [InitBy]),
+		%% 扫描前次日志 PREVIOUS.LOG
     scan_decisions(mnesia_log:previous_log_file(), InitBy, Regulator),
+		%% 扫描最终日志 LATEST.LOG
     scan_decisions(mnesia_log:latest_log_file(), InitBy, Regulator);
 
 %% Propagate the log into the DAT-files
@@ -154,37 +157,36 @@ perform_dump(InitBy, Regulator) ->
 scan_decisions(Fname, InitBy, Regulator) ->
     Exists = mnesia_lib:exists(Fname),
     case Exists of
-	false ->
-	    ok;
-	true ->
-	    Header = mnesia_log:trans_log_header(),
-	    Name = previous_log,
-	    mnesia_log:open_log(Name, Header, Fname, Exists,
+			false -> ok;
+			true ->
+	    	Header = mnesia_log:trans_log_header(),
+	    	Name = previous_log,
+	    	mnesia_log:open_log(Name, Header, Fname, Exists,
 				mnesia_monitor:get_env(auto_repair), read_only),
-	    Cont = start,
-	    Res = (catch do_perform_dump(Cont, false, InitBy, Regulator, undefined)),
-	    mnesia_log:close_log(Name),
-	    case Res of
-		ok -> ok;
-		{'EXIT', Reason} -> {error, Reason}
-	    end
+	    	Cont = start,
+	    	Res = (catch do_perform_dump(Cont, false, InitBy, Regulator, undefined)),
+	    	mnesia_log:close_log(Name),
+	    	case Res of
+					ok -> ok;
+					{'EXIT', Reason} -> {error, Reason}
+	    	end
     end.
 
 do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
     case mnesia_log:chunk_log(Cont) of
-	{C2, Recs} ->
-	    case catch insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
-		{'EXIT', R} ->
-		    Reason = {"Transaction log dump error: ~p~n", [R]},
-		    close_files(InPlace, {error, Reason}, InitBy),
-		    exit(Reason);
-		Version ->
-		    do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
-	    end;
-	eof ->
-	    close_files(InPlace, ok, InitBy),
-	    erase(mnesia_dumper_dets),
-	    ok
+			{C2, Recs} ->
+	    	case catch insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
+					{'EXIT', R} ->
+		    		Reason = {"Transaction log dump error: ~p~n", [R]},
+		    		close_files(InPlace, {error, Reason}, InitBy),
+		    		exit(Reason);
+					Version ->
+		    		do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
+	    	end;
+			eof ->
+	    	close_files(InPlace, ok, InitBy),
+	    	erase(mnesia_dumper_dets),
+	    	ok
     end.
 
 insert_recs([Rec | Recs], InPlace, InitBy, Regulator, LogV) ->
@@ -611,7 +613,7 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
 	    end
     end,
     StorageProps = Cs#cstruct.storage_properties,
-    
+
     %% And create new ones..
     if
 	(InitBy == startup) or (Storage == unknown) ->
@@ -636,7 +638,7 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
 	    Args = [{file, mnesia_lib:tab2dat(Tab)},
 		    {type, mnesia_lib:disk_type(Tab, Type)},
 		    {keypos, 2},
-		    {repair, mnesia_monitor:get_env(auto_repair)} 
+		    {repair, mnesia_monitor:get_env(auto_repair)}
 		    | DetsProps ],
 	    mnesia_monitor:open_dets(Tab, Args)
     end,
@@ -674,7 +676,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 		    Args = [{file, mnesia_lib:tab2dat(Tab)},
 			    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)},
 			    {keypos, 2},
-			    {repair, mnesia_monitor:get_env(auto_repair)} 
+			    {repair, mnesia_monitor:get_env(auto_repair)}
 			    | DetsProps ],
 		    case mnesia_monitor:open_dets(Tab, Args) of
 			{ok, _} ->
@@ -687,7 +689,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 	    Copies = mnesia_lib:copy_holders(Cs),
 	    Active = mnesia_lib:intersect(Copies, val({current, db_nodes})),
 	    [mnesia_controller:add_active_replica(Tab, N, Cs) || N <- Active],
-	    
+
 	    case Storage of
 		unknown ->
 		    mnesia_lib:unset({Tab, create_table}),
@@ -966,7 +968,7 @@ open_files(Tab, Storage, UpdateInPlace, InitBy)
 			    Args = [{file, Fname},
 				    {keypos, 2},
 				    {repair, mnesia_monitor:get_env(auto_repair)},
-				    {type, mnesia_lib:disk_type(Tab, Type)} 
+				    {type, mnesia_lib:disk_type(Tab, Type)}
 				    | DetsProps],
 			    {ok, _} = mnesia_monitor:open_dets(Tab, Args),
 			    put({?MODULE, Tab}, {opened_dumper, dat}),
