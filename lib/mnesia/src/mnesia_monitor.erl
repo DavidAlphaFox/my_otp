@@ -141,32 +141,36 @@ negotiate_protocol(Nodes) ->
     call({negotiate_protocol, Nodes}).
 %协议协商
 negotiate_protocol_impl(Nodes, Requester) ->
-    Version    = mnesia:system_info(version),
-    Protocols  = acceptable_protocol_versions(),
-    MonitorPid = whereis(?MODULE),
-    Msg = {negotiate_protocol, MonitorPid, Version, Protocols},
-    {Replies, _BadNodes} = multicall(Nodes, Msg),
-    Res = check_protocol(Replies, Protocols),
-    ?MODULE ! {protocol_negotiated,Requester,Res},
-    unlink(whereis(?MODULE)),
-    ok.
+	%% 得到自己的版本
+  Version    = mnesia:system_info(version),
+	%% 兼容的协议版本
+  Protocols  = acceptable_protocol_versions(),
+	%% 获取mnesia_monitor进程
+  MonitorPid = whereis(?MODULE),
+  Msg = {negotiate_protocol, MonitorPid, Version, Protocols},
+	%% 向所有的节点发送消息
+  {Replies, _BadNodes} = multicall(Nodes, Msg),
+  Res = check_protocol(Replies, Protocols),
+  ?MODULE ! {protocol_negotiated,Requester,Res},
+  unlink(whereis(?MODULE)),
+	ok.
 
 check_protocol([{Node, {accept, Mon, Version, Protocol}} | Tail], Protocols) ->
     case lists:member(Protocol, Protocols) of
-	true ->
-	    case Protocol == protocol_version() of
-		true ->
-		    set({protocol, Node}, {Protocol, false});
-		false ->
-		    set({protocol, Node}, {Protocol, true})
-	    end,
-	    [node(Mon) | check_protocol(Tail, Protocols)];
-	false  ->
-	    verbose("Failed to connect with ~p. ~p protocols rejected. "
-		    "expected version = ~p, expected protocol = ~p~n",
-		    [Node, Protocols, Version, Protocol]),
-	    unlink(Mon), % Get rid of unneccessary link
-	    check_protocol(Tail, Protocols)
+			true ->
+	    	case Protocol == protocol_version() of
+					true ->
+		    		set({protocol, Node}, {Protocol, false});
+					false ->
+		    		set({protocol, Node}, {Protocol, true})
+	    	end,
+	    	[node(Mon) | check_protocol(Tail, Protocols)];
+			false  ->
+	    	verbose("Failed to connect with ~p. ~p protocols rejected. "
+		    	"expected version = ~p, expected protocol = ~p~n",
+		    	[Node, Protocols, Version, Protocol]),
+	    	unlink(Mon), % Get rid of unneccessary link
+	    	check_protocol(Tail, Protocols)
     end;
 check_protocol([{Node, {reject, _Mon, Version, Protocol}} | Tail], Protocols) ->
     verbose("Failed to connect with ~p. ~p protocols rejected. "
@@ -425,25 +429,26 @@ handle_call({negotiate_protocol, Mon, _Version, _Protocols}, _From, State)
     {reply, {node(), {reject, self(), uninitialized, uninitialized}}, State2};
 
 %% From remote monitor..
+%% 远程节点发来请求
 handle_call({negotiate_protocol, Mon, Version, Protocols}, From, State)
   when node(Mon) /= node() ->
     Protocol = protocol_version(),
     MyVersion = mnesia:system_info(version),
     case lists:member(Protocol, Protocols) of
-	true ->
-	    accept_protocol(Mon, MyVersion, Protocol, From, State);
-	false ->
-	    %% in this release we should be able to handle the previous
-	    %% protocol
+			true ->
+	    	accept_protocol(Mon, MyVersion, Protocol, From, State);
+			false ->
+	    	%% in this release we should be able to handle the previous
+	    	%% protocol
 	    case hd(Protocols) of
-		?previous_protocol_version ->
-		    accept_protocol(Mon, MyVersion, ?previous_protocol_version, From, State);
-		{7,6} ->
-		    accept_protocol(Mon, MyVersion, {7,6}, From, State);
-		_ ->
-		    verbose("Connection with ~p rejected. "
-			    "version = ~p, protocols = ~p, "
-			    "expected version = ~p, expected protocol = ~p~n",
+				?previous_protocol_version ->
+		    	accept_protocol(Mon, MyVersion, ?previous_protocol_version, From, State);
+				{7,6} ->
+		    	accept_protocol(Mon, MyVersion, {7,6}, From, State);
+				_ ->
+		    	verbose("Connection with ~p rejected. "
+			    	"version = ~p, protocols = ~p, "
+			    	"expected version = ~p, expected protocol = ~p~n",
 			    [node(Mon), Version, Protocols, MyVersion, Protocol]),
 		    {reply, {node(), {reject, self(), MyVersion, Protocol}}, State}
 	    end
@@ -451,17 +456,21 @@ handle_call({negotiate_protocol, Mon, Version, Protocols}, From, State)
 
 %% Local request to negotiate with other monitors (nodes).
 handle_call({negotiate_protocol, Nodes}, From, State) ->
-    case mnesia_lib:intersect(State#state.going_down, Nodes) of
-	[] ->
+	%% 先删除掉已经离线的节点
+  case mnesia_lib:intersect(State#state.going_down, Nodes) of
+		[] ->
 	    spawn_link(?MODULE, negotiate_protocol_impl, [Nodes, From]),
 	    {noreply, State#state{connecting={From,Nodes}}};
-	_ ->  %% Cannot connect now, still processing mnesia down
+		_ ->  %% Cannot connect now, still processing mnesia down
 	    {reply, busy, State}
     end;
 
 handle_call(init, _From, State) ->
+		%% 使用net_kernel来订阅node上下线信息
     _ = net_kernel:monitor_nodes(true),
+		%% 早先连接的节点
     EarlyNodes = State#state.early_connects,
+		%% 标记mnesia_tm已经启动了
     State2 = State#state{tm_started = true},
     {reply, EarlyNodes, State2};
 

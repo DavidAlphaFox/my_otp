@@ -89,20 +89,23 @@ init(Parent) ->
     %% Handshake and initialize transaction recovery
     mnesia_recover:init(),
     Early = mnesia_monitor:init(),
+		%% 去掉出了自身之外所有的节点
     AllOthers = mnesia_lib:uniq(Early ++ mnesia_lib:all_nodes()) -- [node()],
     set(original_nodes, AllOthers),
+		%% 通知mnesia_recover去连接所有的节点
+		%% 并合通过merge_decisions来合并决议
     mnesia_recover:connect_nodes(AllOthers),
 
     %% Recover transactions, may wait for decision
     case mnesia_monitor:use_dir() of
-	true ->
-	    P = mnesia_dumper:opt_dump_log(startup), % previous log
-	    L = mnesia_dumper:opt_dump_log(startup), % latest log
-	    Msg = "Initial dump of log during startup: ~p~n",
-	    mnesia_lib:verbose(Msg, [[P, L]]),
-	    mnesia_log:init();
-	false ->
-	    ignore
+			true ->
+	    	P = mnesia_dumper:opt_dump_log(startup), % previous log
+	    	L = mnesia_dumper:opt_dump_log(startup), % latest log
+	    	Msg = "Initial dump of log during startup: ~p~n",
+	    	mnesia_lib:verbose(Msg, [[P, L]]),
+	    	mnesia_log:init();
+			false ->
+	    	ignore
     end,
 
     mnesia_schema:purge_tmp_files(),
@@ -112,10 +115,10 @@ init(Parent) ->
     ?eval_debug_fun({?MODULE, init},  [{nodes, AllOthers}]),
 
     case val(debug) of
-	Debug when Debug /= debug, Debug /= trace ->
-	    ignore;
-	_ ->
-	    mnesia_subscr:subscribe(whereis(mnesia_event), {table, schema})
+			Debug when Debug /= debug, Debug /= trace ->
+	    	ignore;
+			_ ->
+	    	mnesia_subscr:subscribe(whereis(mnesia_event), {table, schema})
     end,
     proc_lib:init_ack(Parent, {ok, self()}),
     doit_loop(#state{supervisor = Parent}).
@@ -1576,6 +1579,7 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     Pending = mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
     ?ets_insert(Store, Pending),
     {WaitFor, Local} = ask_commit(asym_trans, Tid, CR2, DiscNs, RamNs),
+		%% 准备
     SchemaPrep = (catch mnesia_schema:prepare_commit(Tid, Local, {coord, WaitFor})),
     {Votes, Pids} = rec_all(WaitFor, Tid, do_commit, []),
 

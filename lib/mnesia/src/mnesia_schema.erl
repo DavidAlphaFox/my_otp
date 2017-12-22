@@ -598,17 +598,17 @@ schema_transaction(Fun) ->
 %%尝试得到mnesia_activity_state状态
 
     case get(mnesia_activity_state) of
-	undefined ->
+	    undefined ->
         %% 需要确保mnesia_controller进程已经启动
-	    Args = [self(), Fun, whereis(mnesia_controller)],
-			%% 创建事务协调者进程
-	    Pid = spawn_link(?MODULE, schema_coordinator, Args),
-	    receive
-		{transaction_done, Res, Pid} -> Res;
-		{'EXIT', Pid, R} -> {aborted, {transaction_crashed, R}}
-	    end;
-	_ ->
-            {aborted, nested_transaction}
+	      Args = [self(), Fun, whereis(mnesia_controller)],
+			  %% 创建事务协调者进程
+	      Pid = spawn_link(?MODULE, schema_coordinator, Args),
+	      receive
+		      {transaction_done, Res, Pid} -> Res;
+		      {'EXIT', Pid, R} -> {aborted, {transaction_crashed, R}}
+	      end;
+	    _ ->
+        {aborted, nested_transaction}
     end.
 
 %% This process may dump the transaction log, and should
@@ -620,18 +620,18 @@ schema_coordinator(Client, _Fun, undefined) ->
     unlink(Client);
 
 schema_coordinator(Client, Fun, Controller) when is_pid(Controller) ->
-    %% Do not trap exit in order to automatically die
-    %% when the controller dies
+  %% Do not trap exit in order to automatically die
+  %% when the controller dies
 	%% 和controller进行关联
-    link(Controller),
-    unlink(Client),
+  link(Controller),
+  unlink(Client),
 
-    %% Fulfull the transaction even if the client dies
-    Res = mnesia:transaction(Fun),
-    Client ! {transaction_done, Res, self()},
-    unlink(Controller),         % Avoids spurious exit message
-    unlink(whereis(mnesia_tm)), % Avoids spurious exit message
-    exit(normal).
+  %% Fulfull the transaction even if the client dies
+  Res = mnesia:transaction(Fun),
+  Client ! {transaction_done, Res, self()},
+  unlink(Controller),         % Avoids spurious exit message
+  unlink(whereis(mnesia_tm)), % Avoids spurious exit message
+  exit(normal).
 
 %% The make* rotines return a list of ops, this function
 %% inserts em all in the Store and maintains the local order
@@ -2544,6 +2544,7 @@ purge_tmp_files() ->
 		false ->
 		    %% Interrupted change of storage type
 		    %% for schema table
+        %% 如果schema.DAT不存在，直接将目录全部清理掉
 		    Suffixes = known_suffixes(),
 		    purge_dir(Dir, KeepFiles, Suffixes),
 		    mnesia_lib:set(use_dir, false)
@@ -2843,57 +2844,55 @@ do_merge_schema(LockTabs0) ->
     %% Verify that all nodes are locked that might not be the
     %% case, if this trans where queued when new nodes where added.
     case Running -- ets:lookup_element(Store, nodes, 2) of
-	[] -> ok; %% All known nodes are locked
-	Miss -> %% Abort! We don't want the sideeffects below to be executed
-	    mnesia:abort({bad_commit, {missing_lock, Miss}})
+	    [] -> ok; %% All known nodes are locked
+	    Miss -> %% Abort! We don't want the sideeffects below to be executed
+	       mnesia:abort({bad_commit, {missing_lock, Miss}})
     end,
     case Connected -- Running of
-	[Node | _] = OtherNodes ->
-	    %% Time for a schema merging party!
-	    mnesia_locker:wlock_no_exist(Tid, Store, schema, [Node]),
-            [mnesia_locker:wlock_no_exist(
+	     [Node | _] = OtherNodes ->
+	        %% Time for a schema merging party!
+	        mnesia_locker:wlock_no_exist(Tid, Store, schema, [Node]),
+          [mnesia_locker:wlock_no_exist(
                Tid, Store, T, mnesia_lib:intersect(Ns, OtherNodes))
              || {T,Ns} <- LockTabs],
-	    case fetch_cstructs(Node) of
-		{cstructs, Cstructs, RemoteRunning1} ->
-		    LockedAlready = Running ++ [Node],
-		    {New, Old} = mnesia_recover:connect_nodes(RemoteRunning1),
-		    RemoteRunning = mnesia_lib:intersect(New ++ Old, RemoteRunning1),
-		    if
-			RemoteRunning /= RemoteRunning1 ->
-			    mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n",
-					     [node(), RemoteRunning1 -- RemoteRunning]),
-			    mnesia:abort({node_not_running, RemoteRunning1 -- RemoteRunning});
-			true -> ok
-		    end,
-		    NeedsLock = RemoteRunning -- LockedAlready,
-		    mnesia_locker:wlock_no_exist(Tid, Store, schema, NeedsLock),
+	        case fetch_cstructs(Node) of
+		          {cstructs, Cstructs, RemoteRunning1} ->
+		            LockedAlready = Running ++ [Node],
+		            {New, Old} = mnesia_recover:connect_nodes(RemoteRunning1),
+		            RemoteRunning = mnesia_lib:intersect(New ++ Old, RemoteRunning1),
+		            if
+                  RemoteRunning /= RemoteRunning1 ->
+			              mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n",
+					          [node(), RemoteRunning1 -- RemoteRunning]),
+			              mnesia:abort({node_not_running, RemoteRunning1 -- RemoteRunning});
+			            true -> ok
+		            end,
+		            NeedsLock = RemoteRunning -- LockedAlready,
+		            mnesia_locker:wlock_no_exist(Tid, Store, schema, NeedsLock),
                     [mnesia_locker:wlock_no_exist(Tid, Store, T,
                                                   mnesia_lib:intersect(Ns,NeedsLock))
                      || {T,Ns} <- LockTabs],
 
-		    NeedsConversion = need_old_cstructs(NeedsLock ++ LockedAlready),
-		    {value, SchemaCs} = lists:keysearch(schema, #cstruct.name, Cstructs),
-		    SchemaDef = cs2list(NeedsConversion, SchemaCs),
-		    %% Announce that Node is running
-		    A = [{op, announce_im_running, node(), SchemaDef, Running, RemoteRunning}],
-		    do_insert_schema_ops(Store, A),
+		            NeedsConversion = need_old_cstructs(NeedsLock ++ LockedAlready),
+		            {value, SchemaCs} = lists:keysearch(schema, #cstruct.name, Cstructs),
+		            SchemaDef = cs2list(NeedsConversion, SchemaCs),
+		            %% Announce that Node is running
+		            A = [{op, announce_im_running, node(), SchemaDef, Running, RemoteRunning}],
+		            do_insert_schema_ops(Store, A),
+                %% Introduce remote tables to local node
+		            do_insert_schema_ops(Store, make_merge_schema(Node, NeedsConversion, Cstructs)),
 
-		    %% Introduce remote tables to local node
-		    do_insert_schema_ops(Store, make_merge_schema(Node, NeedsConversion, Cstructs)),
+		            %% Introduce local tables to remote nodes
+		            Tabs = val({schema, tables}),
+		            Ops = [{op, merge_schema, get_create_list(T)}
+			             || T <- Tabs,not lists:keymember(T, #cstruct.name, Cstructs)],
+		            do_insert_schema_ops(Store, Ops),
 
-		    %% Introduce local tables to remote nodes
-		    Tabs = val({schema, tables}),
-		    Ops = [{op, merge_schema, get_create_list(T)}
-			   || T <- Tabs,
-			      not lists:keymember(T, #cstruct.name, Cstructs)],
-		    do_insert_schema_ops(Store, Ops),
-
-		    %% Ensure that the txn will be committed on all nodes
-		    NewNodes = RemoteRunning -- Running,
-		    mnesia_lib:set(prepare_op, {announce_im_running,NewNodes}),
-		    announce_im_running(NewNodes, SchemaCs),
-		    {merged, Running, RemoteRunning};
+		            %% Ensure that the txn will be committed on all nodes
+		            NewNodes = RemoteRunning -- Running,
+		            mnesia_lib:set(prepare_op, {announce_im_running,NewNodes}),
+		            announce_im_running(NewNodes, SchemaCs),
+		            {merged, Running, RemoteRunning};
 		{error, Reason} ->
 		    {"Cannot get cstructs", Node, Reason};
 		{badrpc, Reason} ->
@@ -3238,10 +3237,10 @@ verify_merge(RemoteCs) ->
 announce_im_running([N | Ns], SchemaCs) ->
     {L1, L2} = mnesia_recover:connect_nodes([N]),
     case lists:member(N, L1) or lists:member(N, L2) of
-	true ->
-	    mnesia_lib:add({current, db_nodes}, N),
-	    mnesia_controller:add_active_replica(schema, N, SchemaCs);
-	false ->
+	    true ->
+	        mnesia_lib:add({current, db_nodes}, N),
+	        mnesia_controller:add_active_replica(schema, N, SchemaCs);
+	    false ->
 	    mnesia_lib:error("Mnesia on ~p could not connect to node ~p~n",
 			     [node(), N]),
 	    mnesia:abort({node_not_running, N})

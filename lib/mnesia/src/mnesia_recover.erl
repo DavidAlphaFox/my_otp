@@ -92,10 +92,12 @@ start() ->
 init() ->
     call(init).
 
+%% 每2分钟就对决议进行垃圾回收
 next_garb() ->
     Pid = whereis(mnesia_recover),
     erlang:send_after(timer:minutes(2), Pid, garb_decisions).
 
+%% 每10秒钟进行一次过载检查
 next_check_overload() ->
     Pid = whereis(mnesia_recover),
     erlang:send_after(timer:seconds(10), Pid, check_overload).
@@ -689,35 +691,37 @@ handle_call({disconnect, Node}, _From, State) ->
 handle_call({connect_nodes, Ns}, From, State) ->
     %% Determine which nodes we should try to connect
     AlreadyConnected = val(recover_nodes),
+		%% 确保删除自身节点
     {_, Nodes} = mnesia_lib:search_delete(node(), Ns),
+		%% 去掉已经连接的节点
     Check = Nodes -- AlreadyConnected,
     case mnesia_monitor:negotiate_protocol(Check) of
-	busy ->
-	    %% monitor is disconnecting some nodes retry
-	    %% the req (to avoid deadlock).
-	    erlang:send_after(2, self(), {connect_nodes,Ns,From}),
-	    {noreply, State};
-	[] ->
-	    %% No good noodes to connect to!
-	    %% We can't use reply here because this function can be
-	    %% called from handle_info
-	    gen_server:reply(From, {[], AlreadyConnected}),
-	    {noreply, State};
-	GoodNodes ->
-	    %% Now we have agreed upon a protocol with some new nodes
-	    %% and we may use them when we recover transactions
-	    mnesia_lib:add_list(recover_nodes, GoodNodes),
-	    cast({announce_all, GoodNodes}),
-	    case get_master_nodes(schema) of
-		[] ->
-			%检查脑裂问题
-		    Context = starting_partitioned_network,
-		    mnesia_monitor:detect_inconcistency(GoodNodes, Context);
-		_ -> %% If master_nodes is set ignore old inconsistencies
-		    ignore
-	    end,
-	    gen_server:reply(From, {GoodNodes, AlreadyConnected}),
-	    {noreply,State}
+			busy ->
+	    	%% monitor is disconnecting some nodes retry
+	    	%% the req (to avoid deadlock).
+	    	erlang:send_after(2, self(), {connect_nodes,Ns,From}),
+	    	{noreply, State};
+			[] ->
+	    	%% No good noodes to connect to!
+	    	%% We can't use reply here because this function can be
+	    	%% called from handle_info
+	    	gen_server:reply(From, {[], AlreadyConnected}),
+	    	{noreply, State};
+			GoodNodes ->
+	    	%% Now we have agreed upon a protocol with some new nodes
+	    	%% and we may use them when we recover transactions
+	    	mnesia_lib:add_list(recover_nodes, GoodNodes),
+	    	cast({announce_all, GoodNodes}),
+	    	case get_master_nodes(schema) of
+					[] ->
+						%检查脑裂问题
+		    		Context = starting_partitioned_network,
+		    		mnesia_monitor:detect_inconcistency(GoodNodes, Context);
+					_ -> %% If master_nodes is set ignore old inconsistencies
+		    		ignore
+	    	end,
+	    	gen_server:reply(From, {GoodNodes, AlreadyConnected}),
+	    	{noreply,State}
     end;
 
 handle_call({what_happened, Default, Tid}, _From, State) ->
@@ -841,7 +845,9 @@ handle_cast(allow_garb, State) ->
     {noreply, State};
 
 handle_cast({decisions, Node, Decisions}, State) ->
+		%% 增加recover_nodes
     mnesia_lib:add(recover_nodes, Node),
+		%% 增加远程决议
     State2 = add_remote_decisions(Node, Decisions, State),
     {noreply, State2};
 
@@ -1237,6 +1243,7 @@ arrange([To | ToNodes], D, Acc, ForceSend) when is_record(D, decision) ->
 	false ->
 	    arrange(ToNodes, D, Acc, ForceSend)
     end;
+
 
 arrange([To | ToNodes], {trans_tid, serial, Serial}, Acc, ForceSend) ->
     %% Do the lamport thing plus release the others
