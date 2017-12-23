@@ -151,13 +151,14 @@
  * count fields are interesting outside the emulator proper).
  */
 
+// erlang的指令
 typedef struct op_entry {
-   char* name;			/* Name of instruction. */
-   Uint32 mask[3];		/* Signature mask. */
-   int sz;			/* Number of loaded words. */
-   char* pack;			/* Instructions for packing engine. */
-   char* sign;			/* Signature string. */
-   unsigned count;		/* Number of times executed. */
+   char* name;			/* Name of instruction. 指令名称 */ 
+   Uint32 mask[3];		/* Signature mask. 签名 */
+   int sz;			/* Number of loaded words. 参数大小？ */
+   char* pack;			/* Instructions for packing engine. 打包引擎类型 */
+   char* sign;			/* Signature string. 签名字符串 */
+   unsigned count;		/* Number of times executed. 执行次数 */
 } OpEntry;
 
 extern OpEntry opc[];		/* Description of all instructions. */

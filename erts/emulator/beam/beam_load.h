@@ -28,7 +28,7 @@ Eterm beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks,
 
 // 定义操作码，数据结构
 typedef struct gen_op_entry {
-   char* name;
+   char* name; // 名称
    int arity;
    int specific;
    int num_specific;
