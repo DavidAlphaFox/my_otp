@@ -890,8 +890,9 @@ struct process {
     Eterm* arg_reg;		/* Pointer to argument registers. */
     unsigned max_arg_reg;	/* Maximum number of argument registers available. */
     Eterm def_arg_reg[6];	/* Default array for argument registers. */
-
+    // 接续指令
     BeamInstr* cp;		/* (untagged) Continuation pointer (for threaded code). */
+    // 指令
     BeamInstr* i;		/* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
     Sint fcalls;		/*
@@ -970,6 +971,7 @@ struct process {
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
     ErlHeapFragment* mbuf;	/* Pointer to message buffer list */
     Uint mbuf_sz;		/* Size of all message buffers */
+    // 进程自定义属性，内部是一个指针数组
     ErtsPSD *psd;		/* Rarely used process specific data */
 
     Uint64 bin_vheap_sz;	/* Virtual heap block size for binaries */
@@ -1774,8 +1776,9 @@ erts_psd_get(Process *p, int ix)
 			   || erts_thr_progress_is_blocking());
     }
 #endif
-    ASSERT(0 <= ix && ix < ERTS_PSD_SIZE);
-    return p->psd ? p->psd->data[ix] : NULL;
+  //进程的psd部分的
+  ASSERT(0 <= ix && ix < ERTS_PSD_SIZE);
+  return p->psd ? p->psd->data[ix] : NULL;
 }
 
 

@@ -127,7 +127,7 @@ perform_dump(InitBy, Regulator) ->
 	    Cont = mnesia_log:init_log_dump(),
 	    mnesia_recover:sync(),
 	    case catch do_perform_dump(Cont, U, InitBy, Regulator, undefined) of
-		ok ->
+			ok ->
 		    ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 		    case mnesia_monitor:use_dir() of
 			true ->
@@ -780,7 +780,7 @@ insert_op(Tid, _, {op, clear_table, TabDef}, InPlace, InitBy) ->
 insert_op(Tid, _, {op, merge_schema, TabDef}, InPlace, InitBy) ->
     Cs = mnesia_schema:list2cs(TabDef),
     case Cs#cstruct.name of
-	schema ->
+			schema ->
 	    %% If we bootstrap an empty (diskless) mnesia from another node
 	    %% we might have changed the storage_type of schema.
 	    %% I think this is a good place to do it.
@@ -1149,15 +1149,15 @@ temp_set_master_nodes() ->
 %% Raw dump of table. Dumper must have unique access to the ets table.
 
 raw_named_dump_table(Tab, Ftype) ->
-    case mnesia_monitor:use_dir() of
-	true ->
+  case mnesia_monitor:use_dir() of
+		true ->
 	    mnesia_lib:lock_table(Tab),
 	    TmpFname = mnesia_lib:tab2tmp(Tab),
 	    Fname =
-		case Ftype of
-		    dat -> mnesia_lib:tab2dat(Tab);
-		    dmp -> mnesia_lib:tab2dmp(Tab)
-		end,
+				case Ftype of
+		    	dat -> mnesia_lib:tab2dat(Tab);
+		    	dmp -> mnesia_lib:tab2dmp(Tab)
+				end,
 	    file:delete(TmpFname),
 	    file:delete(Fname),
 	    TabSize = ?ets_info(Tab, size),

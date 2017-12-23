@@ -6300,7 +6300,7 @@ resume_process(Process *p, ErtsProcLocks locks)
 					 &state,
 					 &enq_prio,
 					 locks);
-    //如果符合入队要求，将进程重新加入调度         
+    //如果符合入队要求，将进程重新加入调度
     if (enqueue)
 	   add2runq(enqueue > 0 ? p : make_proxy_proc(NULL, p, enq_prio),
 		   state,enq_prio);
@@ -8948,7 +8948,7 @@ erts_set_process_priority(Process *p, Eterm value)
  * We reschedule low prio processes a certain number of times
  * so that normal processes get to run more frequently.
  */
-
+// 首次执行schedule的时候，P是NULL
 Process *schedule(Process *p, int calls)
 {
     Process *proxy_p = NULL;
@@ -8988,12 +8988,12 @@ Process *schedule(Process *p, int calls)
      * Clean up after the process being scheduled out.
      */
     if (!p) {	/* NULL in the very first schedule() call */
-		 esdp = erts_get_scheduler_data();
-		 rq = erts_get_runq_current(esdp);
-		 ASSERT(esdp);
-		 fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
-		 actual_reds = reds = 0;
-		 erts_smp_runq_lock(rq);
+		  esdp = erts_get_scheduler_data();
+		  rq = erts_get_runq_current(esdp);
+		  ASSERT(esdp);
+		  fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
+		  actual_reds = reds = 0;
+		  erts_smp_runq_lock(rq);
     } else {
     sched_out_proc:
 
@@ -9094,7 +9094,7 @@ Process *schedule(Process *p, int calls)
 	}
 	BM_STOP_TIMER(system);
 
-    }
+}// 至此为p非空的情况
 
     ERTS_SMP_LC_ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp)
 		       || !erts_thr_progress_is_blocking());
@@ -9113,7 +9113,7 @@ Process *schedule(Process *p, int calls)
 	    handle_pending_exiters(pnd_xtrs);
 	    erts_smp_runq_lock(rq);
 	}
-
+  // 脏调度
 	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	    if (rq->check_balance_reds <= 0)
 		check_balance(rq);
@@ -10583,13 +10583,14 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #ifdef BM_COUNTERS
     processes_busy++;
 #endif
+    // 计数器
     BM_COUNT(processes_spawned);
 
     BM_SWAP_TIMER(system,size);
     arg_size = size_object(args);
     BM_SWAP_TIMER(size,system);
     heap_need = arg_size;
-
+    // 进程标志符
     p->flags = erts_default_process_flags;
 
     if (so->flags & SPO_USE_ARGS) {
@@ -10603,7 +10604,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     }
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
-
+    // 进程初始化的函数入口
     p->initial[INITIAL_MOD] = mod;
     p->initial[INITIAL_FUN] = func;
     p->initial[INITIAL_ARI] = (Uint) arity;
@@ -10611,6 +10612,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     /*
      * Must initialize binary lists here before copying binaries to process.
      */
+    // 非堆栈链表
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
 
@@ -10629,11 +10631,15 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     hipe_init_process_smp(&p->hipe_smp);
 #endif
 #endif
+    // 分配堆
     p->heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
     p->old_hend = p->old_htop = p->old_heap = NULL;
+    // 水位线
     p->high_water = p->heap;
     p->gen_gcs = 0;
+    //栈顶
     p->stop = p->hend = p->heap + sz;
+    // 堆顶
     p->htop = p->heap;
     p->heap_sz = sz;
     p->catches = 0;
@@ -10650,7 +10656,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->current = p->initial+INITIAL_MOD;
 //设置当前的指令
     p->i = (BeamInstr *) beam_apply;
+// 设置接续指令
     p->cp = (BeamInstr *) beam_apply+1;
+/**
+  * beam_apply[0]             = (BeamInstr) OpCode(i_apply);
+  * beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
+  */
 //默认先指向def_arg_reg
 //def_arg_reg是预先定义好的数组
 //默认大小为6
@@ -10712,7 +10723,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->u.bif_timers = NULL;
     p->mbuf = NULL;
     p->mbuf_sz = 0;
+    // 进程特有设置为空
     p->psd = NULL;
+    // 进程字典设置为空
     p->dictionary = NULL;
     p->seq_trace_lastcnt = 0;
     p->seq_trace_clock = 0;
@@ -12135,8 +12148,9 @@ erts_continue_exit_process(Process *p)
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
 
-    if (nif_export)
-	erts_destroy_nif_export(nif_export);
+    if (nif_export) {
+      erts_destroy_nif_export(nif_export);
+    }
 
     delete_process(p);
 

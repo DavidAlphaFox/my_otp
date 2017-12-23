@@ -108,7 +108,7 @@ do {                                     \
 	CHECK_TERM(x(i_));               \
   }                                      \
 } while (0)
-    
+
 #else
 #  define CHECK_TERM(T) ASSERT(!is_CP(T))
 #  define CHECK_ARGS(T)
@@ -1147,12 +1147,14 @@ void process_main(void)
     /*
      * Top of heap (next free location); grows upwards.
      */
+    //堆是向上生长的
     register Eterm* HTOP REG_htop = NULL;
 
     /* Stack pointer.  Grows downwards; points
      * to last item pushed (normally a saved
      * continuation pointer).
      */
+     // 栈是向下生长的
     register Eterm* E REG_stop = NULL;
 
     /*
@@ -1230,7 +1232,8 @@ void process_main(void)
 
     c_p = NULL;
     reds_used = 0;
-
+    // 因为虚拟CPU首次执行的时候
+    // 并没有进程存在，所以不能计算reds
     goto do_schedule1;
 
  do_schedule:
@@ -1409,7 +1412,7 @@ void process_main(void)
 	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
 	    goto find_func_info;
 	}
-	    
+
  OpCase(i_plus_jId):
  {
      Eterm result;
@@ -1421,7 +1424,7 @@ void process_main(void)
 							 result = make_small(i);
 							 STORE_ARITH_RESULT(result);
 					}
-     
+
      }
      arith_func = ARITH_FUNC(mixed_plus);
      goto do_big_arith2;
@@ -1967,7 +1970,7 @@ void process_main(void)
 	     if (DT_UTAG_FLAGS(c_p) & DT_UTAG_PERMANENT) {
 		 SEQ_TRACE_TOKEN(c_p) = am_have_dt_utag;
 #ifdef DTRACE_TAG_HARDDEBUG
-		 if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) 
+		 if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING)
 		     erts_fprintf(stderr,
 				  "Dtrace -> (%T) stop spreading "
 				  "tag %T with message %T\r\n",
@@ -2018,7 +2021,7 @@ void process_main(void)
 		 c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
 	     }
 	     msg = ERL_MESSAGE_TERM(msgp);
-	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
+	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE,
 			      c_p->common.id, c_p);
 #ifdef USE_VM_PROBES
 	 }
@@ -2286,7 +2289,7 @@ void process_main(void)
  OpCase(i_select_val_yfI):
      select_val = yb(Arg(0));
      goto do_binary_search;
-     
+
  OpCase(i_select_val_rfI):
      select_val = r(0);
      I--;
@@ -2342,7 +2345,7 @@ void process_main(void)
 
  {
      Eterm jump_on_val_zero_index;
-     
+
  OpCase(i_jump_on_val_zero_yfI):
      jump_on_val_zero_index = yb(Arg(0));
      goto do_jump_on_val_zero_index;
@@ -2370,7 +2373,7 @@ void process_main(void)
  {
      Eterm jump_on_val_index;
 
- 
+
  OpCase(i_jump_on_val_yfII):
      jump_on_val_index = yb(Arg(0));
      goto do_jump_on_val_index;
@@ -3040,7 +3043,7 @@ get_map_elements_fail:
 	     goto do_bsl;
 	}
      goto badarith;
-     
+
      OpCase(i_bsl_jId):
  do_bsl:
 	 if (is_small(tmp_arg2)) {
@@ -3049,7 +3052,7 @@ get_map_elements_fail:
 	     if (is_small(tmp_arg1)) {
 	     small_shift:
 		 ires = signed_val(tmp_arg1);
-	     
+
 		 if (i == 0 || ires == 0) {
 		     StoreBifResult(2, tmp_arg1);
 		 } else if (i < 0)  { /* Right shift */
@@ -3083,7 +3086,7 @@ get_map_elements_fail:
 		     ires = BIG_NEED_SIZE(ires+1);
 		     /*
 		      * Slightly conservative check the size to avoid
-		      * allocating huge amounts of memory for bignums that 
+		      * allocating huge amounts of memory for bignums that
 		      * clearly would overflow the arity in the header
 		      * word.
 		      */
@@ -3401,7 +3404,7 @@ get_map_elements_fail:
       */
 
      reds_used = REDS_IN(c_p) - FCALLS + 1;
-     
+
      /*
       * Save the argument registers and everything else.
       */
@@ -3424,7 +3427,7 @@ get_map_elements_fail:
      Eterm tuple;
      BeamInstr *next;
      Eterm* p;
-     
+
      PreFetch(3, next);
      GetArg2(0, element, tuple);
      ASSERT(is_tuple(tuple));
@@ -3597,7 +3600,7 @@ get_map_elements_fail:
 	    BifFunction vbf;
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
+	    c_p->current = I-3; /* current and vbf set to please handle_error */
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -3610,7 +3613,7 @@ get_map_elements_fail:
 					 NifF* fp = vbf = (NifF*) I[1];
 					 struct enif_environment_t env;
 					 // 从此处可以看出，env是个局部变量
-					 // 在nif的函数中，是不应当保存env的，因为每次调用，里面的信息都会发生变化 
+					 // 在nif的函数中，是不应当保存env的，因为每次调用，里面的信息都会发生变化
 					 erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
 					 reg[0] = r(0);
 					 nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
@@ -3622,7 +3625,7 @@ get_map_elements_fail:
 
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    goto apply_bif_or_nif_epilogue;
-	 
+
 	OpCase(apply_bif):
 	    /*
 	     * At this point, I points to the code[3] in the export entry for
@@ -3760,7 +3763,7 @@ get_map_elements_fail:
 	 I++;
 	 goto do_bs_init_bits_known;
      }
-     
+
      OpCase(i_bs_init_bits_IId): {
 	 num_bits = Arg(0);
 	 alloc = 0;
@@ -3972,7 +3975,7 @@ get_map_elements_fail:
 
 	 erts_bin_offset = 0;
 	 erts_writable_bin = 0;
-	 TestBinVHeap(tmp_arg1 / sizeof(Eterm), 
+	 TestBinVHeap(tmp_arg1 / sizeof(Eterm),
 	 	      tmp_arg2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, Arg(1));
 
 	 /*
@@ -3997,7 +4000,7 @@ get_map_elements_fail:
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
-	 
+
 	 OH_OVERHEAD(&(MSO(c_p)), tmp_arg1 / sizeof(Eterm));
 
 	 StoreBifResult(2, make_binary(pb));
@@ -4101,7 +4104,7 @@ get_map_elements_fail:
 	 /*
 	  * The arguments are now correct and stored in a and b.
 	  */
-	 
+
 	 BsSafeMul(b, Unit, goto system_limit, c);
 	 tmp_arg1 = a + c;
 	 if (tmp_arg1 < a) {
@@ -4261,7 +4264,7 @@ get_map_elements_fail:
  }
 
  /*
-  * Only used for validating a value matched out. 
+  * Only used for validating a value matched out.
   *
   * tmp_arg1 = Integer to validate
   * tmp_arg2 = Match context
@@ -4358,7 +4361,7 @@ get_map_elements_fail:
  OpCase(bs_test_zero_tail2_fr): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
-     
+
      PreFetch(1, next);
      _mb = (ErlBinMatchBuffer*) ms_matchbuffer(r(0));
      if (_mb->size != _mb->offset) {
@@ -4370,7 +4373,7 @@ get_map_elements_fail:
  OpCase(bs_test_zero_tail2_fx): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
-     
+
      PreFetch(2, next);
      _mb = (ErlBinMatchBuffer*) ms_matchbuffer(xb(Arg(1)));
      if (_mb->size != _mb->offset) {
@@ -4489,7 +4492,7 @@ get_map_elements_fail:
 	 Eterm _result;
 	 _mb = ms_matchbuffer(bs_get_integer_16_context);
 	 if (_mb->size - _mb->offset < 16) {
-	     ClauseFail(); 
+	     ClauseFail();
 	 }
 	 if (BIT_OFFSET(_mb->offset) != 0) {
 	     _result = erts_bs_get_integer_2(c_p, 16, 0, _mb);
@@ -4508,7 +4511,7 @@ get_map_elements_fail:
      bs_get_integer_32_context = r(0);
      goto do_bs_get_integer_32;
 
-     
+
  OpCase(i_bs_get_integer_32_xfId):
      bs_get_integer_32_context = xb(Arg(0));
      I++;
@@ -4589,7 +4592,7 @@ get_map_elements_fail:
      /* Operands: Fail Flags Dst */
      goto do_bs_get_integer_imm;
  }
- 
+
  /*
   * tmp_arg1 = match context
   * tmp_arg2 = size of field
@@ -4729,7 +4732,7 @@ get_map_elements_fail:
 
      OpCase(bs_context_to_binary_x): {
 	 context_to_binary_context = xb(Arg(0));
-     
+
      do_context_to_binary0:
 	 I--;
      }
@@ -4877,7 +4880,7 @@ get_map_elements_fail:
 
  OpCase(return_trace): {
      BeamInstr* code = (BeamInstr *) (UWord) E[0];
-     
+
      SWAPOUT;		/* Needed for shared heap */
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_trace_return(c_p, code, r(0), E+1/*Process tracer*/);
@@ -5173,7 +5176,7 @@ get_map_elements_fail:
 
  OpCase(i_yield):
  {
-     /* This is safe as long as REDS_IN(c_p) is never stored 
+     /* This is safe as long as REDS_IN(c_p) is never stored
       * in c_p->arg_reg[0]. It is currently stored in c_p->def_arg_reg[5],
       * which may be c_p->arg_reg[5], which is close, but no banana.
       */
@@ -5259,7 +5262,7 @@ get_map_elements_fail:
 	 beam_ops = opcodes;
      }
 #endif /* NO_JUMP_TABLE */
-     
+
      em_call_error_handler = OpCode(call_error_handler);
      em_apply_bif = OpCode(apply_bif);
      em_call_nif = OpCode(call_nif);
@@ -5558,14 +5561,14 @@ next_catch(Process* c_p, Eterm *reg) {
 		 }
     }
     return NULL;
-    
+
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
     if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_ptr) {
 	/* The stackframe closest to the catch contained an
 	 * return_to_trace entry, so since the execution now
-	 * continues after the catch, a return_to trace message 
+	 * continues after the catch, a return_to trace message
 	 * would be appropriate.
 	 */
 		 erts_trace_return_to(c_p, cp_val(*return_to_trace_ptr));
@@ -5720,7 +5723,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	    }
 	}
 	if (i >= BIF_SIZE) {
-	    /* 
+	    /*
 	     * The Bif does not really exist (no BIF entry).  It is a
 	     * TRAP and traps are called through apply_bif, which also
 	     * sets c_p->current (luckily).
@@ -5745,7 +5748,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
     } else {
 	s->current = c_p->current;
-        /* 
+        /*
 	 * For a function_clause error, the arguments are in the beam
 	 * registers, c_p->cp is valid, and c_p->current is set.
 	 */
@@ -5794,7 +5797,7 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 	/*
 	 * Traverse the stack backwards and add all unique continuation
 	 * pointers to the buffer, up to the maximum stack trace size.
-	 * 
+	 *
 	 * Skip trace stack frames.
 	 */
 	ptr = p->stop;
@@ -6038,7 +6041,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 	Uint sz = 2*arity;
 	Eterm* hp;
 	Eterm args = NIL;
-	
+
 	/*
 	 * Always copy args from registers to a new list; this ensures
 	 * that we have the same behaviour whether or not this was
@@ -6082,7 +6085,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	 */
     error:
 		 p->freason = BADARG;
-		 
+
     error2:
 		 reg[0] = module;
 		 reg[1] = function;
@@ -6097,7 +6100,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     if (is_not_atom(module)) {
 		 Eterm* tp;
 
-		 if (is_not_tuple(module)){ 
+		 if (is_not_tuple(module)){
 			  goto error;
 		 }
 		 tp = tuple_val(module);
@@ -6110,7 +6113,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 			  goto error;
 		 }
     }
-    
+
     /*
      * Walk down the 3rd parameter of apply (the argument list) and copy
      * the parameters to the x registers (reg[]). If the module argument
@@ -6193,7 +6196,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
         if (is_not_atom(module)) goto error;
         ++arity;
     }
-    
+
     /*
      * Get the index into the export table, or failing that the export
      * entry for the error handler module.
@@ -6287,7 +6290,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 
     /*
      * If there are no waiting messages, garbage collect and
-     * shrink the heap. 
+     * shrink the heap.
      */
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
@@ -6409,7 +6412,7 @@ call_fun(Process* p,		/* Current process. */
 		     */
 		    goto badfun;
 		}
-		
+
 		/*
 		 * No current code for this module. Call the error_handler module
 		 * to attempt loading the module.
@@ -6442,7 +6445,7 @@ call_fun(Process* p,		/* Current process. */
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
-	     */  
+	     */
 
 	    if (is_non_value(args)) {
 		args = NIL;

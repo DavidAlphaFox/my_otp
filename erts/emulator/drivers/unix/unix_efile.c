@@ -457,7 +457,7 @@ efile_closefile(int fd)
 {
     close(fd);
 }
-%% 请求文件同步到磁盘上
+// 请求文件同步到磁盘上
 int
 efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync data. */
