@@ -207,24 +207,26 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a,ErtsCodeIndex code_ix);
 
 Export*
 erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
-{
+{   
+    // 计算export出来的entry的hash值
     HashValue hval = EXPORT_HASH((BeamInstr) m, (BeamInstr) f, (BeamInstr) a);
     int ix;
     HashBucket* b;
-
+    // 计算到处表hash桶的位置
     ix = hval % export_tables[code_ix].htable.size;
+    // 拿出对应的hash桶
     b = export_tables[code_ix].htable.bucket[ix];
 
     /*
      * Note: We have inlined the code from hash.c for speed.
      */
-	
+	// 从hash桶中遍历所有的Export项
     while (b != (HashBucket*) 0) {
-	Export* ep = ((struct export_entry*) b)->ep;
-	if (ep->code[0] == m && ep->code[1] == f && ep->code[2] == a) {
-	    return ep;
-	}
-	b = b->next;
+	    Export* ep = ((struct export_entry*) b)->ep;
+	    if (ep->code[0] == m && ep->code[1] == f && ep->code[2] == a) {
+	        return ep;
+    	}
+	    b = b->next;
     }
     return NULL;
 }

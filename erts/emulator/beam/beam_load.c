@@ -601,7 +601,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
 {
     Eterm retval = am_badfile;
     LoaderState* stp;
-
+	
     stp = ERTS_MAGIC_BIN_DATA(magic);
     stp->module = *modp;
     stp->group_leader = group_leader;

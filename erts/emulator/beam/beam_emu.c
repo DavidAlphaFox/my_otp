@@ -508,7 +508,7 @@ extern int count_instructions;
 	goto context_switch_fun;		\
      }						\
  } while (0)
-
+// 将I指令设置称外部函数的地址
 #define DispatchMacrox()					\
   do {								\
      if (FCALLS > 0) {						\
@@ -1585,6 +1585,7 @@ void process_main(void)
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
+    //设置退栈返回地址为
     SET_CP(c_p, I+2);
 #ifdef USE_VM_CALL_PROBES
     if (DTRACE_ENABLED(global_function_entry)) {
@@ -6073,12 +6074,13 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     int arity;
     Export* ep;
     Eterm tmp, this;
-
+    // 检查参数
     /*
      * Check the arguments which should be of the form apply(Module,
      * Function, Arguments) where Function is an atom and
      * Arguments is an arity long list of terms.
      */
+
     if (is_not_atom(function)) {
 	/*
 	 * No need to test args here -- done below.
@@ -6147,7 +6149,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
      */
 
     if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-//没有export的函数，直接进入handle_error的流程
+        // 没有export的函数，直接进入handle_error的流程
 		 if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) {
 			  goto error;
 		 }

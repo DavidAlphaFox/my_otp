@@ -54,6 +54,7 @@ void erts_code_ix_init(void)
      * single threaded with active and staging set both to zero.
      * Preloading is finished by a commit that will set things straight.
      */
+    // 默认active_code_index是0  
     erts_smp_atomic32_init_nob(&the_active_code_index, 0);
     erts_smp_atomic32_init_nob(&the_staging_code_index, 0);
     erts_smp_mtx_init(&code_write_permission_mtx, "code_write_permission");

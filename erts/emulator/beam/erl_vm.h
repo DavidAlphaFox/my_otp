@@ -155,7 +155,7 @@
 typedef struct op_entry {
    char* name;			/* Name of instruction. 指令名称 */ 
    Uint32 mask[3];		/* Signature mask. 签名 */
-   int sz;			/* Number of loaded words. 参数大小？ */
+   int sz;			/* Number of loaded words. 指令占多少字节 */
    char* pack;			/* Instructions for packing engine. 打包引擎类型 */
    char* sign;			/* Signature string. 签名字符串 */
    unsigned count;		/* Number of times executed. 执行次数 */
