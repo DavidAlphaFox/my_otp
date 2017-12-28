@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2001-2013. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dets_v9).
@@ -34,7 +34,7 @@
 -export([cache_segps/3]).
 
 -compile({inline, [{max_objsize,1},{maxobjsize,1}]}).
--compile({inline, [{write_segment_file,6}]}). 
+-compile({inline, [{write_segment_file,6}]}).
 -compile({inline, [{sz2pos,1},{adjsz,1}]}).
 -compile({inline, [{skip_bytes,6},{make_object,4}]}).
 -compile({inline, [{segp_cache,2},{get_segp,1},{get_arrpart,1}]}).
@@ -112,7 +112,7 @@
 %%    4     Size of the area allocated for the collection (8+Sz)
 %%    4     Status  (FREE or ACTIVE). These two are the Object Header.
 %%    Sz    A binary containing the objects per key, sorted on key.
-%% 
+%%
 %%  When repairing or converting a file, the status field is used.
 %%
 %%  The binary containing the objects per key of a table of type 'set'
@@ -125,7 +125,7 @@
 %%    ...
 %%    4     Size of the object of the ith key (4+OSzi)
 %%    OSzi  The object of the ith key
-%% 
+%%
 %%  The binary containing the objects per key of a table of type 'bag'
 %%  or 'duplicate_bag' has the following layout:
 %%
@@ -196,7 +196,7 @@
 
 -define(HEADSZ, 56+?COLL_CNTRS  % The size of the file header, in bytes,
             +?MD5SZ+?FL_BASE).  % not including the reserved part.
--define(HEADEND, (?HEADSZ+?RESERVED)). 
+-define(HEADEND, (?HEADSZ+?RESERVED)).
                                % End of header and reserved area.
 -define(SEGSZ, 512).           % Size of a segment, in words. SZOBJP*SEGSZP.
 -define(SEGSZP, 256).          % Size of a segment, in number of pointers.
@@ -227,7 +227,7 @@
 
 %%% Dets file versions up to 8 are handled in dets_v8. This module
 %%% handles version 9, introduced in R8.
-%%% 
+%%%
 %%% Version 9(a) tables have 256 reserved bytes in the file header,
 %%% all initialized to zero.
 %%% Version 9(b) tables use the first 112 of these bytes for storing
@@ -265,8 +265,8 @@
 -define(BCHUNK_FORMAT_VERSION, 1).
 
 -record(?HASH_PARMS, {
-	   file_format_version, 
-	   bchunk_format_version, 
+	   file_format_version,
+	   bchunk_format_version,
 	   file, type, keypos, hash_method,
 	   n,m,next,
 	   min,max,
@@ -292,15 +292,15 @@ mark_dirty(Head) ->
 %% -> {ok, head()} | throw(Error) | throw(badarg)
 prep_table_copy(Fd, Tab, Fname, Type, Kp, Ram, CacheSz, Auto, Parms) ->
     case Parms of
-	#?HASH_PARMS{file_format_version = ?FILE_FORMAT_VERSION, 
+	#?HASH_PARMS{file_format_version = ?FILE_FORMAT_VERSION,
 		     bchunk_format_version = ?BCHUNK_FORMAT_VERSION,
 		     n = N, m = M, next = Next,
 		     min = Min, max = Max,
 		     hash_method = HashMethodCode,
-		     no_objects = NoObjects, no_keys = NoKeys, 
-		     no_colls = _NoColls} 
-	        when is_integer(N), is_integer(M), is_integer(Next), 
-		     is_integer(Min), is_integer(Max), 
+		     no_objects = NoObjects, no_keys = NoKeys,
+		     no_colls = _NoColls}
+	        when is_integer(N), is_integer(M), is_integer(Next),
+		     is_integer(Min), is_integer(Max),
 		     is_integer(NoObjects), is_integer(NoKeys),
 		     NoObjects >= NoKeys ->
             HashMethod = code_to_hash_method(HashMethodCode),
@@ -308,7 +308,7 @@ prep_table_copy(Fd, Tab, Fname, Type, Kp, Ram, CacheSz, Auto, Parms) ->
 		false ->
 		    throw(badarg);
 		true ->
-		    init_file(Fd, Tab, Fname, Type, Kp, Min, Max, Ram, 
+		    init_file(Fd, Tab, Fname, Type, Kp, Min, Max, Ram,
 			      CacheSz, Auto, false, M, N, Next, HashMethod,
 			      NoObjects, NoKeys)
 	    end;
@@ -322,7 +322,7 @@ prep_table_copy(Fd, Tab, Fname, Type, Kp, Ram, CacheSz, Auto, Parms) ->
 %% initialized on file unless DoInitSegments is 'true'. (When
 %% initializing a file by calling init_table, some time is saved by
 %% not writing the segments twice.)
-initiate_file(Fd, Tab, Fname, Type, Kp, MinSlots0, MaxSlots0, 
+initiate_file(Fd, Tab, Fname, Type, Kp, MinSlots0, MaxSlots0,
 	      Ram, CacheSz, Auto, DoInitSegments) ->
     MaxSlots1 = erlang:min(MaxSlots0, ?MAXSLOTS),
     MinSlots1 = erlang:min(MinSlots0, MaxSlots1),
@@ -356,9 +356,9 @@ init_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, Ram, CacheSz,
       keypos = Kp,
       min_no_slots = MinSlots,
       max_no_slots = MaxSlots,
-      
-      ram_file = Ram, 
-      filename = Fname, 
+
+      ram_file = Ram,
+      filename = Fname,
       name = Tab,
       cache = dets_utils:new_cache(CacheSz),
       version = ?FILE_FORMAT_VERSION,
@@ -369,7 +369,7 @@ init_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, Ram, CacheSz,
 
     FreeListsPointer = 0,
     NoColls = <<0:?COLL_CNTRS/unit:8>>, %% Buddy system counters.
-    FileHeader = file_header(Head0, FreeListsPointer, 
+    FileHeader = file_header(Head0, FreeListsPointer,
                              ?NOT_PROPERLY_CLOSED, NoColls),
     W0 = {0, [FileHeader |
               <<0:(4*?SEGARRSZ)/unit:8>>]},  %% SegmentArray Pointers
@@ -379,7 +379,7 @@ init_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, Ram, CacheSz,
 		     ({K,V}) -> put(K, V)
 		  end, erase()),
 
-    %% Initialize array parts. 
+    %% Initialize array parts.
     %% All parts before segments, for the sake of repair and initialization.
     Zero = seg_zero(),
     {Head1, Ws1} = init_parts(Head0, 0, no_parts(Next), Zero, []),
@@ -412,7 +412,7 @@ init_parts(Head, PartNo, NoParts, Zero, Ws) when PartNo < NoParts ->
 init_parts(Head, _PartNo, _NoParts, _Zero, Ws) ->
     {Head, Ws}.
 
-%% -> {Head, SegInitList, OtherList}; 
+%% -> {Head, SegInitList, OtherList};
 %% SegPtrList = SegInitList = pwrite_list().
 init_segments(Head, SegNo, NoSegs, SegZero, WsP, WsI) when SegNo < NoSegs ->
     {NewHead, WI, Ws} = allocate_segment(Head, SegZero, SegNo),
@@ -426,7 +426,7 @@ allocate_segment(Head, SegZero, SegNo) ->
     case get_arrpart(PartPos) of
 	undefined ->
 	    %% may throw error:
-	    {Head1, [InitArrPart, ArrPartPointer], Part} = 
+	    {Head1, [InitArrPart, ArrPartPointer], Part} =
 		alloc_part(Head, SegZero, PartPos),
 	    {NewHead, InitSegment, [SegPointer]} =
                 alloc_seg(Head1, SegZero, SegNo, Part),
@@ -445,7 +445,7 @@ alloc_part(Head, PartZero, PartPos) ->
 
 alloc_seg(Head, SegZero, SegNo, Part) ->
     %% may throw error:
-    {NewHead, Segment, _} = dets_utils:alloc(Head, adjsz(4 * ?SEGSZ)), 
+    {NewHead, Segment, _} = dets_utils:alloc(Head, adjsz(4 * ?SEGSZ)),
     InitSegment = {Segment, SegZero},
     Pos = ?SEGPARTADDR(Part, SegNo),
     segp_cache(Pos, Segment),
@@ -453,31 +453,32 @@ alloc_seg(Head, SegZero, SegNo, Part) ->
     SegPointer = {Pos, <<Segment:32>>},
     {NewHead, InitSegment, [SegPointer]}.
 
-%% Read free lists (using a Buddy System) from file. 
+%% Read free lists (using a Buddy System) from file.
 init_freelist(Head, true) ->
     Pos = Head#head.freelists_p,
     free_lists_from_file(Head, Pos).
 
 %% -> {ok, Fd, fileheader()} | throw(Error)
+%% 2GB limit come from here
 read_file_header(Fd, FileName) ->
     {ok, Bin} = dets_utils:pread_close(Fd, FileName, 0, ?HEADSZ),
     <<FreeList:32,   Cookie:32,  CP:32,         Type2:32,
       Version:32,    M:32,       Next:32,       Kp:32,
       NoObjects:32,  NoKeys:32,  MinNoSlots:32, MaxNoSlots:32,
-      HashMethod:32, N:32, NoCollsB:?COLL_CNTRS/binary, 
+      HashMethod:32, N:32, NoCollsB:?COLL_CNTRS/binary,
       MD5:?MD5SZ/binary, FlBase:32>> = Bin,
     <<_:12/binary,MD5DigestedPart:(?HEADSZ-?MD5SZ-?FL_BASE-12)/binary,
       _/binary>> = Bin,
     {ok, EOF} = dets_utils:position_close(Fd, FileName, eof),
     {ok, <<FileSize:32>>} = dets_utils:pread_close(Fd, FileName, EOF-4, 4),
-    {CL, <<>>} = lists:foldl(fun(LSz, {Acc,<<NN:32,R/binary>>}) -> 
-				     if 
+    {CL, <<>>} = lists:foldl(fun(LSz, {Acc,<<NN:32,R/binary>>}) ->
+				     if
 					 NN =:= 0 -> {Acc, R};
 					 true -> {[{LSz,NN} | Acc], R}
 				     end
 			     end, {[], NoCollsB}, lists:seq(4, ?MAXBUD-1)),
-    NoColls = 
-	if 
+    NoColls =
+	if
 	    CL =:= [], NoObjects > 0 -> % Version 9(a)
 		undefined;
 	    true ->
@@ -515,15 +516,15 @@ read_file_header(Fd, FileName) ->
 %% ExtraInfo = true
 check_file_header(FH, Fd) ->
     HashBif = code_to_hash_method(FH#fileheader.hash_method),
-    Test = 
+    Test =
 	if
 	    FH#fileheader.cookie =/= ?MAGIC ->
 		{error, not_a_dets_file};
 	    FH#fileheader.type =:= badtype ->
 		{error, invalid_type_code};
-	    FH#fileheader.version =/= ?FILE_FORMAT_VERSION -> 
+	    FH#fileheader.version =/= ?FILE_FORMAT_VERSION ->
                 {error, bad_version};
-            FH#fileheader.has_md5, 
+            FH#fileheader.has_md5,
             FH#fileheader.read_md5 =/= FH#fileheader.md5 ->
                 {error, not_a_dets_file}; % harsh but fair
 	    FH#fileheader.trailer =/= FH#fileheader.eof ->
@@ -590,8 +591,8 @@ cache_segps(Fd, FileName, M) ->
 
 cache_arrparts(<<ArrPartPos:32, B/binary>>, Pos, Fd, FileName) ->
     arrpart_cache(Pos, ArrPartPos),
-    {ok, ArrPartBin} = dets_utils:pread_close(Fd, FileName, 
-                                              ArrPartPos, 
+    {ok, ArrPartBin} = dets_utils:pread_close(Fd, FileName,
+                                              ArrPartPos,
                                               ?SEGPARTSZ*4),
     cache_segps1(Fd, ArrPartBin, ArrPartPos),
     cache_arrparts(B, Pos+4, Fd, FileName);
@@ -631,7 +632,7 @@ bulk_input(Head, InitFun, Ref, Seq) ->
 	    case catch {Ref, InitFun(read)} of
 		{Ref, end_of_input} ->
 		    end_of_input;
-		{Ref, {L0, NewInitFun}} when is_list(L0), 
+		{Ref, {L0, NewInitFun}} when is_list(L0),
                                              is_function(NewInitFun) ->
 		    Kp = Head#head.keypos,
 		    case catch bulk_objects(L0, Head, Kp, Seq, []) of
@@ -661,7 +662,7 @@ bulk_objects([], _Head, Kp, Seq, L) when is_integer(Kp), is_integer(Seq) ->
 -define(VEMPTY, {}).
 -define(VSET(I, V, E), setelement(I, V, E)).
 -define(VGET(I, V), element(I, V)).
--define(VEXT(S, V, T), 
+-define(VEXT(S, V, T),
      list_to_tuple(tuple_to_list(V) ++ lists:duplicate(S-tuple_size(V), T))).
 
 %% Number of bytes that will be handled before the cache is written to
@@ -709,7 +710,7 @@ output_objs2(E, Acc, OldV, Head, Cache, SizeT, SlotNums, 0) ->
     output_objs2(E, Acc, OldV, Head, NCache, SizeT, SlotNums, Max);
 output_objs2(E, Acc, OldV, Head, Cache, SizeT, SlotNums, ChunkI) ->
     fun(close) ->
-            {_, [], Cache1} = 
+            {_, [], Cache1} =
                  if
 		     Acc =:= [] -> {foo, [], Cache};
 		     true -> output_slot(Acc, Head, Cache, [], SizeT, 0, 0)
@@ -727,7 +728,7 @@ output_objs2(E, Acc, OldV, Head, Cache, SizeT, SlotNums, ChunkI) ->
 	    %% collections can be calculated.
             segment_file(SizeT, NewHead, NL, SegEnd),
 	    {MinSlots, EstNoSlots, MaxSlots} = SlotNums,
-	    if 
+	    if
 		EstNoSlots =:= bulk_init ->
 		    {ok, 0, NewHead};
 		true ->
@@ -736,7 +737,7 @@ output_objs2(E, Acc, OldV, Head, Cache, SizeT, SlotNums, ChunkI) ->
 		    MaxNoSegs = no_segs(MaxSlots),
 		    NoSegs = no_segs(NoKeys),
 		    Diff = abs(NoSegs - EstNoSegs),
-		    if 
+		    if
 			Diff > 5, NoSegs =< MaxNoSegs, NoSegs >= MinNoSegs  ->
 			    {try_again, NoKeys};
 			true ->
@@ -745,26 +746,26 @@ output_objs2(E, Acc, OldV, Head, Cache, SizeT, SlotNums, ChunkI) ->
 	    end;
        (L) ->
 	    Es = bin2term(L, OldV, Head#head.keypos),
-	    {NE, NAcc, NCache} = 
+	    {NE, NAcc, NCache} =
 		output_slots(E, Es, Acc, Head, Cache, SizeT, 0, 0),
 	    output_objs2(NE, NAcc, OldV, Head, NCache, SizeT, SlotNums,
 			 ChunkI-1)
     end.
 
-%%% Compaction. 
+%%% Compaction.
 
 compact_init(ReadHead, WriteHead, TableParameters) ->
     SizeT = ets:new(dets_compact, []),
     #head{no_keys = NoKeys, no_objects = NoObjects} = ReadHead,
 
     NoObjsPerSize = TableParameters#?HASH_PARMS.no_colls,
-    {NewWriteHead, Bases, SegAddr, SegEnd} = 
+    {NewWriteHead, Bases, SegAddr, SegEnd} =
 	prepare_file_init(NoObjects, NoKeys, NoObjsPerSize, SizeT, WriteHead),
 
     Input = compact_input(ReadHead, NewWriteHead, SizeT, tuple_size(Bases)),
     Output = fast_output(NewWriteHead, SizeT, Bases, SegAddr, SegEnd),
     TmpDir = filename:dirname(NewWriteHead#head.filename),
-    Reply = (catch file_sorter:sort(Input, Output, 
+    Reply = (catch file_sorter:sort(Input, Output,
 				    [{format, binary},{tmpdir, TmpDir},
 				     {header, 1}])), % compact_objs/9: 13 bytes
     ets:delete(SizeT),
@@ -785,7 +786,7 @@ compact_input(Head, WHead, SizeT, Cache, L) ->
 compact_read(_Head, WHead, SizeT, Cache, [], _Min, [], _ASz) ->
     _ = fast_write_all_sizes(Cache, SizeT, WHead),
     end_of_input;
-compact_read(Head, WHead, SizeT, Cache, L, Min, SegBs, ASz) 
+compact_read(Head, WHead, SizeT, Cache, L, Min, SegBs, ASz)
             when ASz + Min >= ?CACHE_SIZE, ASz > 0 ->
     NCache = fast_write_all_sizes(Cache, SizeT, WHead),
     {SegBs, compact_input(Head, WHead, SizeT, NCache, L)};
@@ -802,17 +803,17 @@ compact_read(Head, WHead, SizeT, Cache, [[From | To] | L], Min, SegBs, ASz) ->
                     %% The last object may not be padded.
                     Pad = Min - byte_size(Bin1),
                     NewBin = <<Bin1/binary, 0:Pad/unit:8>>,
-                        compact_objs(Head, WHead, SizeT, NewBin, L, 
+                        compact_objs(Head, WHead, SizeT, NewBin, L,
                                      From, To, SegBs, Cache, ASz);
                 NewBin ->
-                    compact_objs(Head, WHead, SizeT, NewBin, L, 
+                    compact_objs(Head, WHead, SizeT, NewBin, L,
                                  From, To, SegBs, Cache, ASz)
             end;
         false ->
             not_ok % try a proper repair
     end.
-    
-compact_objs(Head, WHead, SizeT, Bin, L, From, To, SegBs, Cache, ASz) 
+
+compact_objs(Head, WHead, SizeT, Bin, L, From, To, SegBs, Cache, ASz)
                             when From =:= To ->
     case L of
 	[] ->
@@ -821,13 +822,13 @@ compact_objs(Head, WHead, SizeT, Bin, L, From, To, SegBs, Cache, ASz)
 	    Skip1 = From1 - From,
 	    case Bin of
 		<<_:Skip1/binary,NewBin/binary>> ->
-		    compact_objs(Head, WHead, SizeT, NewBin, L1, From1, To1, 
+		    compact_objs(Head, WHead, SizeT, NewBin, L1, From1, To1,
 				 SegBs, Cache, ASz);
 		_ when byte_size(Bin) < Skip1 ->
 		    compact_read(Head, WHead, SizeT, Cache, L, 0, SegBs, ASz)
 	    end
     end;
-compact_objs(Head, WHead, SizeT, <<Size:32, St:32, _Sz:32, KO/binary>> = Bin, 
+compact_objs(Head, WHead, SizeT, <<Size:32, St:32, _Sz:32, KO/binary>> = Bin,
 	     L, From, To, SegBs, Cache, ASz) when St =:= ?ACTIVE ->
     LSize = sz2pos(Size),
     Size2 = ?POW(LSize-1),
@@ -851,19 +852,19 @@ compact_objs(Head, WHead, SizeT, <<Size:32, St:32, _Sz:32, KO/binary>> = Bin,
 	    compact_objs(Head, WHead, SizeT, NewBin, L, From1,
 			 To, NSegBs, NCache, NASz);
 	true ->
-	    compact_read(Head, WHead, SizeT, Cache, [[From|To] | L], 
+	    compact_read(Head, WHead, SizeT, Cache, [[From|To] | L],
 			 Size2, SegBs, ASz)
     end;
-compact_objs(Head, WHead, SizeT, <<_:32, _St:32, _:32, _/binary>> = Bin, 
+compact_objs(Head, WHead, SizeT, <<_:32, _St:32, _:32, _/binary>> = Bin,
 	     L, From, To, SegBs, Cache, ASz)
               when byte_size(Bin) >= ?ACTUAL_SEG_SIZE -> % , _St =/= ?ACTIVE
     <<_:?ACTUAL_SEG_SIZE/binary, NewBin/binary>> = Bin,
     compact_objs(Head, WHead, SizeT, NewBin, L, From + ?ACTUAL_SEG_SIZE,
 		 To, SegBs, Cache, ASz);
-compact_objs(Head, WHead, SizeT, <<_:32, _St:32, _:32, _/binary>> = Bin, 
+compact_objs(Head, WHead, SizeT, <<_:32, _St:32, _:32, _/binary>> = Bin,
 	     L, From, To, SegBs, Cache, ASz)
               when byte_size(Bin) < ?ACTUAL_SEG_SIZE -> % , _St =/= ?ACTIVE
-    compact_read(Head, WHead, SizeT, Cache, [[From|To] | L], 
+    compact_read(Head, WHead, SizeT, Cache, [[From|To] | L],
 		 ?ACTUAL_SEG_SIZE, SegBs, ASz);
 compact_objs(Head, WHead, SizeT, _Bin, L, From, To, SegBs, Cache, ASz) ->
     compact_read(Head, WHead, SizeT, Cache, [[From|To] | L], 0, SegBs, ASz).
@@ -875,7 +876,7 @@ compact_objs(Head, WHead, SizeT, _Bin, L, From, To, SegBs, Cache, ASz) ->
 read_bchunks(Head, L) ->
     read_bchunks(Head, L, 0, [], 0).
 
-read_bchunks(_Head, L, Min, Bs, ASz) when ASz + Min >= 4*?CHUNK_SIZE, 
+read_bchunks(_Head, L, Min, Bs, ASz) when ASz + Min >= 4*?CHUNK_SIZE,
 					  Bs =/= [] ->
     {lists:reverse(Bs), L};
 read_bchunks(Head, {From, To, L}, Min, Bs, ASz) ->
@@ -888,8 +889,8 @@ read_bchunks(Head, {From, To, L}, Min, Bs, ASz) ->
                     {error, premature_eof};
                 NewBin when byte_size(NewBin) >= Min ->
                     bchunks(Head, L, NewBin, Bs, ASz, From, To);
-                Bin1 when To - From =:= Min, L =:= <<>> -> 
-                    %% when byte_size(Bin1) < Min. 
+                Bin1 when To - From =:= Min, L =:= <<>> ->
+                    %% when byte_size(Bin1) < Min.
                     %% The last object may not be padded.
                     Pad = Min - byte_size(Bin1),
                     NewBin = <<Bin1/binary, 0:Pad/unit:8>>,
@@ -900,12 +901,12 @@ read_bchunks(Head, {From, To, L}, Min, Bs, ASz) ->
         false ->
             {error, dets_utils:bad_object(bad_object, {read_bchunks, Max})}
     end.
-    
+
 bchunks(Head, L, Bin, Bs, ASz, From, To) when From =:= To ->
-    if 
+    if
 	L =:= <<>> ->
 	    {finished, lists:reverse(Bs)};
-	true -> 
+	true ->
 	    <<From1:32, To1:32, L1/binary>> = L,
 	    Skip1 = From1 - From,
 	    case Bin of
@@ -915,7 +916,7 @@ bchunks(Head, L, Bin, Bs, ASz, From, To) when From =:= To ->
 		    read_bchunks(Head, {From1,To1,L1}, 0, Bs, ASz)
 	    end
     end;
-bchunks(Head, L, <<Size:32, St:32, _Sz:32, KO/binary>> = Bin, Bs, ASz, 
+bchunks(Head, L, <<Size:32, St:32, _Sz:32, KO/binary>> = Bin, Bs, ASz,
 	  From, To) when St =:= ?ACTIVE; St =:= ?FREE ->
     LSize = sz2pos(Size),
     Size2 = ?POW(LSize-1),
@@ -953,35 +954,35 @@ bchunks(Head, L, _Bin, Bs, ASz, From, To) ->
 
 %% -> {ok, NewHead} | throw(Error) | Error
 bchunk_init(Head, InitFun) ->
-    Ref = make_ref(), 
+    Ref = make_ref(),
     %% The non-empty list of data begins with the table parameters.
     case catch {Ref, InitFun(read)} of
 	{Ref, end_of_input} ->
 	    {error, {init_fun, end_of_input}};
 	{Ref, {[], NInitFun}} when is_function(NInitFun) ->
 	    bchunk_init(Head, NInitFun);
-	{Ref, {[ParmsBin | L], NInitFun}} 
+	{Ref, {[ParmsBin | L], NInitFun}}
 	                when is_list(L), is_function(NInitFun) ->
-	    #head{fptr = Fd, type = Type, keypos = Kp, 
-		  auto_save = Auto, cache = Cache, 
+	    #head{fptr = Fd, type = Type, keypos = Kp,
+		  auto_save = Auto, cache = Cache,
 		  filename = Fname, ram_file = Ram,
 		  name = Tab} = Head,
             case try_bchunk_header(ParmsBin, Head) of
                 {ok, Parms} ->
-		    #?HASH_PARMS{no_objects = NoObjects, 
-				 no_keys = NoKeys, 
+		    #?HASH_PARMS{no_objects = NoObjects,
+				 no_keys = NoKeys,
 				 no_colls = NoObjsPerSize} = Parms,
 		    CacheSz = dets_utils:cache_size(Cache),
-		    {ok, Head1} = 
-			prep_table_copy(Fd, Tab, Fname, Type, 
-					Kp, Ram, CacheSz, 
+		    {ok, Head1} =
+			prep_table_copy(Fd, Tab, Fname, Type,
+					Kp, Ram, CacheSz,
 					Auto, Parms),
 		    SizeT = ets:new(dets_init, []),
-		    {NewHead, Bases, SegAddr, SegEnd} = 
-			prepare_file_init(NoObjects, NoKeys, 
+		    {NewHead, Bases, SegAddr, SegEnd} =
+			prepare_file_init(NoObjects, NoKeys,
 					  NoObjsPerSize, SizeT, Head1),
 		    ECache = ?VEXT(tuple_size(Bases), ?VEMPTY, [0 | []]),
-		    Input = 
+		    Input =
 			fun(close) ->
 				_ = (catch NInitFun(close));
 			   (read) ->
@@ -990,7 +991,7 @@ bchunk_init(Head, InitFun) ->
 			end,
 		    Output = fast_output(NewHead, SizeT, Bases, SegAddr,SegEnd),
 		    TmpDir = filename:dirname(Head#head.filename),
-		    Reply = (catch file_sorter:sort(Input, Output, 
+		    Reply = (catch file_sorter:sort(Input, Output,
 						    [{format, binary},
 						     {tmpdir, TmpDir},
 						     {header, 1}])),
@@ -1029,7 +1030,7 @@ bchunk_input(InitFun, SizeT, Head, Ref, Cache, ASz) ->
 		    _ = fast_write_all_sizes(Cache, SizeT, Head),
 		    end_of_input;
 		{Ref, {L, NInitFun}} when is_list(L), is_function(NInitFun) ->
-		    do_make_slots(L, Cache, SizeT, Head, Ref, ASz, 
+		    do_make_slots(L, Cache, SizeT, Head, Ref, ASz,
 				  NInitFun);
 		{Ref, Value} ->
 		    {error, {init_fun, Value}};
@@ -1052,9 +1053,9 @@ do_make_slots(L, Cache, SizeT, Head, Ref, ASz, InitFun) ->
 	    {SegBs, F}
     end.
 
-make_slots([{LSize,Slot,<<Size:32, St:32, Sz:32, KO/binary>> = Bin0} | Bins], 
+make_slots([{LSize,Slot,<<Size:32, St:32, Sz:32, KO/binary>> = Bin0} | Bins],
 	   Cache, SegBs, ASz) ->
-    Bin = if 
+    Bin = if
 	      St =:= ?ACTIVE ->
 		  Bin0;
 	      St =:= ?FREE ->
@@ -1076,9 +1077,9 @@ fast_output(Head, SizeT, Bases, SegAddr, SegEnd) ->
        (L) ->
 	    case file:position(Head#head.fptr, SegAddr) of
 		{ok, SegAddr} ->
-		    NewSegAddr = write_segment_file(L, Bases, Head, [], 
+		    NewSegAddr = write_segment_file(L, Bases, Head, [],
 						    SegAddr, SegAddr),
-		    fast_output2(Head, SizeT, Bases, NewSegAddr, 
+		    fast_output2(Head, SizeT, Bases, NewSegAddr,
 				 SegAddr, SegEnd);
 		Error ->
 		    catch dets_utils:file_error(Error, Head#head.filename)
@@ -1096,38 +1097,38 @@ fast_output2(Head, SizeT, Bases, SegAddr, SS, SegEnd) ->
     end.
 
 fast_output_end(Head, SizeT) ->
-    case ets:foldl(fun({_Sz,_Pos,Cnt,NoC}, Acc) -> (Cnt =:= NoC) and Acc end, 
+    case ets:foldl(fun({_Sz,_Pos,Cnt,NoC}, Acc) -> (Cnt =:= NoC) and Acc end,
 		   true, SizeT) of
 	true -> {ok, Head};
 	false -> {error, invalid_objects_list}
     end.
-    
+
 %% Inlined.
-write_segment_file([<<Slot:32,BSize:32,AddrToBe:32,LSize:8>> | Bins], 
+write_segment_file([<<Slot:32,BSize:32,AddrToBe:32,LSize:8>> | Bins],
 		   Bases, Head, Ws, SegAddr, SS) ->
     %% Should call slot_position/1, but since all segments are
     %% allocated in a sequence, the position of a slot can be
     %% calculated faster.
     Pos = SS + ?SZOBJP*4 * Slot, % Same as Pos = slot_position(Slot).
-    write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, 
+    write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos,
 		       BSize, AddrToBe, LSize);
 write_segment_file([], _Bases, Head, Ws, SegAddr, _SS) ->
     dets_utils:write(Head, Ws),
     SegAddr.
 
-write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, BSize, 
+write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, BSize,
 		   AddrToBe, LSize) when Pos =:= SegAddr ->
     Addr = AddrToBe + element(LSize, Bases),
     NWs = [Ws | <<BSize:32,Addr:32>>],
     write_segment_file(Bins, Bases, Head, NWs, SegAddr + ?SZOBJP*4, SS);
-write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, BSize, 
+write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, BSize,
 		   AddrToBe, LSize) when Pos - SegAddr < 100 ->
     Addr = AddrToBe + element(LSize, Bases),
     NoZeros = Pos - SegAddr,
     NWs = [Ws | <<0:NoZeros/unit:8,BSize:32,Addr:32>>],
     NSegAddr = SegAddr + NoZeros + ?SZOBJP*4,
     write_segment_file(Bins, Bases, Head, NWs, NSegAddr, SS);
-write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, BSize, 
+write_segment_file(Bins, Bases, Head, Ws, SegAddr, SS, Pos, BSize,
 		   AddrToBe, LSize) ->
     Addr = AddrToBe + element(LSize, Bases),
     NoZeros = Pos - SegAddr,
@@ -1163,7 +1164,7 @@ prepare_file_init(NoObjects, NoKeys, NoObjsPerSize, SizeT, Head) ->
     {_, SegEnd, _} = dets_utils:alloc(Head, adjsz(SegSz)),
     Head1 = Head#head{no_objects = NoObjects, no_keys = NoKeys},
     true = ets:insert(SizeT, {?FSCK_SEGMENT,0,[],0}),
-    lists:foreach(fun({LogSz,NoColls}) -> 
+    lists:foreach(fun({LogSz,NoColls}) ->
 			  true = ets:insert(SizeT, {LogSz+1,0,0,NoColls})
 		  end, NoObjsPerSize),
     {NewHead, NL0, MaxSz, EndOfFile} = allocate_all_objects(Head1, SizeT),
@@ -1272,7 +1273,7 @@ write_all_sizes(Cache, SizeT, Head, More) ->
 	      _ ->
 		  write_sizes(CacheL, Sz, SizeT, Head)
 	  end,
-    list_to_tuple(NCL).    
+    list_to_tuple(NCL).
 
 all_sizes([]=CL, _Sz, _SizeT) ->
     CL;
@@ -1289,7 +1290,7 @@ write_sizes([]=CL, _Sz, _SizeT, _Head) ->
 write_sizes([[]=C | CL], Sz, SizeT, Head) ->
     [C | write_sizes(CL, Sz-1, SizeT, Head)];
 write_sizes([C | CL], Sz, SizeT, Head) ->
-    {FileName, Fd} = 
+    {FileName, Fd} =
 	case ets:lookup(SizeT, Sz) of
 	    [] ->
 		temp_file(Head, SizeT, Sz);
@@ -1312,7 +1313,7 @@ output_slots([], _Head, Cache, SizeT, NoKeys, NoObjs) ->
     _ = ets:update_counter(SizeT, ?COUNTERS, {?KEY_COUNTER,NoKeys}),
     {not_a_tuple, [], Cache}.
 
-output_slots(E, [E1 | Es], Acc, Head, Cache, SizeT, NoKeys, NoObjs) 
+output_slots(E, [E1 | Es], Acc, Head, Cache, SizeT, NoKeys, NoObjs)
                        when element(1, E) =:= element(1, E1) ->
     output_slots(E1, Es, [E1 | Acc], Head, Cache, SizeT, NoKeys, NoObjs);
 output_slots(E, [], Acc, _Head, Cache, SizeT, NoKeys, NoObjs) ->
@@ -1335,7 +1336,7 @@ output_slot(Es, Head, Cache, L, SizeT, NoKeys, NoObjs) ->
     Size2 = ?POW(LSize-1),
     Pad = <<0:(Size2-BSize)/unit:8>>,
     BinObject = [<<BSize:32, ?ACTIVE:32>>, Bins | Pad],
-    Cache1 = 
+    Cache1 =
 	if
 	    LSize > tuple_size(Cache) ->
                 C1 = ?VEXT(LSize, Cache, []),
@@ -1361,7 +1362,7 @@ prep_slot([{_Slot, Key, Seq, T, _BT} | L], Head, W) ->
     prep_slot(L, Head, [{Key, {Seq, {insert,T}}} | W]);
 prep_slot([], Head, W) ->
     WLs = dets_utils:family(W),
-    {[], Bins, Size, No, KNo, _} = 
+    {[], Bins, Size, No, KNo, _} =
 	eval_slot(WLs, [], Head#head.type, [], [], 0, 0, 0, false),
     {Bins, Size, No, KNo}.
 
@@ -1378,17 +1379,17 @@ prep_set_slot([], _K, BT, Sz, NoKeys, NoObjs, Ws) ->
 
 segment_file(SizeT, Head, FileData, SegEnd) ->
     I = 2,
-    true = ets:delete_all_objects(SizeT),    
+    true = ets:delete_all_objects(SizeT),
     lists:foreach(fun(X) -> true = ets:insert(SizeT, X) end, FileData),
     [{?FSCK_SEGMENT,SegAddr,Data,0} | FileData1] = FileData,
-    NewData = 
+    NewData =
 	case Data of
 	    {InFile,In0} ->
 		{OutFile, Out} = temp_file(Head, SizeT, I),
 		_ = file:close(In0),
 		{ok, In} = dets_utils:open(InFile, [raw,binary,read]),
 		{ok, 0} = dets_utils:position(In, InFile, bof),
-		seg_file(SegAddr, SegAddr, In, InFile, Out, OutFile, SizeT, 
+		seg_file(SegAddr, SegAddr, In, InFile, Out, OutFile, SizeT,
 			 SegEnd),
 		_ = file:close(In),
 		_ = file:delete(InFile),
@@ -1403,10 +1404,10 @@ segment_file(SizeT, Head, FileData, SegEnd) ->
     true = ets:delete_all_objects(SizeT),
     %% To get the segments copied first by dets:fsck_copy/4, use a big
     %% number here, FSCK_SEGMENT2.
-    lists:foreach(fun(X) -> true = ets:insert(SizeT, X) end, 
+    lists:foreach(fun(X) -> true = ets:insert(SizeT, X) end,
 		  [{?FSCK_SEGMENT2,SegAddr,NewData,0} | FileData1]),
     ok.
-    
+
 seg_file(Addr, SS, In, InFile, Out, OutFile, SizeT, SegEnd) ->
     case dets_utils:read_n(In, 4500) of
 	eof ->
@@ -1437,11 +1438,11 @@ seg_file_item(T, Addr, SS, SizeT, L, Slot, BSize, LSize) ->
     PSize = NoZeros+?SZOBJP*4,
     Inc = ?POW(LSize-1),
     CollP = ets:update_counter(SizeT, LSize, Inc) - Inc,
-    PointerBin = if 
+    PointerBin = if
 		     NoZeros =:= 0 ->
 			 <<BSize:32, CollP:32>>;
 		     NoZeros > 100 ->
-			 [dets_utils:make_zeros(NoZeros) | 
+			 [dets_utils:make_zeros(NoZeros) |
 			  <<BSize:32, CollP:32>>];
 		     true ->
 			 <<0:NoZeros/unit:8, BSize:32, CollP:32>>
@@ -1458,7 +1459,7 @@ temp_file(Head, SizeT, N) ->
 %% Does not close Fd.
 fsck_input(Head, Fd, Cntrs, FileHeader) ->
     MaxSz0 = case FileHeader#fileheader.has_md5 of
-                 true when is_integer(FileHeader#fileheader.no_colls) -> 
+                 true when is_integer(FileHeader#fileheader.no_colls) ->
                      ?POW(max_objsize(FileHeader#fileheader.no_colls));
                  _ ->
                      %% The file is not compressed, so the bucket size
@@ -1523,11 +1524,11 @@ fsck_read({more, Bin, Sz, L, Seq}, Pos, F, _MaxSz, _Head) ->
 fsck_read({new, Skip, L, Seq}, Pos, F, _MaxSz, _Head) ->
     NewPos = Pos + Skip,
     fsck_read(NewPos, F, L, Seq).
-    
+
 read_more_bytes(B, Min, Pos, F, L, Seq) ->
-    Max = if 
-	      Min < ?CHUNK_SIZE -> ?CHUNK_SIZE; 
-	      true -> Min 
+    Max = if
+	      Min < ?CHUNK_SIZE -> ?CHUNK_SIZE;
+	      true -> Min
 	  end,
     case dets_utils:read_n(F, Max) of
 	eof ->
@@ -1538,7 +1539,7 @@ read_more_bytes(B, Min, Pos, F, L, Seq) ->
     end.
 
 fsck_objs(Bin = <<Sz:32, Status:32, Tail/binary>>, Kp, Head, L, Seq) ->
-    if 
+    if
 	Status =:= ?ACTIVE ->
 	    Sz1 = Sz-?OHDSZ,
 	    case Tail of
@@ -1555,12 +1556,12 @@ fsck_objs(Bin = <<Sz:32, Status:32, Tail/binary>>, Kp, Head, L, Seq) ->
 		_ when byte_size(Tail) < Sz1 ->
                     {more, Bin, Sz, L, Seq}
 	    end;
-	true -> 
+	true ->
 	    skip_bytes(Bin, ?BUMP, Kp, Head, L, Seq)
     end;
 fsck_objs(Bin, _Kp, _Head, L, Seq) ->
     {more, Bin, 0, L, Seq}.
-    
+
 make_objects([{K,BT}|Os], Seq, Kp, Head, L) when Head#head.version =:= 8 ->
     LogSz = dets_v8:sz2pos(byte_size(BT)+?OHDSZ_v8),
     Slot = dets_v8:db_hash(K, Head),
@@ -1603,16 +1604,16 @@ do_perform_save(H) ->
     ok = dets_utils:write(H1, [FLW | <<AdjustedFileSize:32>>]),
     FileHeader = file_header(H1, FreeListsPointer, ?CLOSED_PROPERLY),
     case dets_utils:debug_mode() of
-        true -> 
+        true ->
             TmpHead0 = init_freelist(H1#head{fixed = false}, true),
             TmpHead = TmpHead0#head{base = H1#head.base},
-            case 
+            case
                 catch dets_utils:all_allocated_as_list(TmpHead)
                       =:= dets_utils:all_allocated_as_list(H1)
             of
-                true -> 
+                true ->
                     dets_utils:pwrite(H1, [{0, FileHeader}]);
-                _ -> 
+                _ ->
                     throw(
                     dets_utils:corrupt_reason(H1, {failed_to_save_free_lists,
                                                    FreeListsPointer,
@@ -1628,8 +1629,8 @@ file_header(Head, FreeListsPointer, ClosedProperly) ->
 		  undefined -> [];
 		  NC -> NC
 	      end,
-    L = orddict:merge(fun(_K, V1, V2) -> V1 + V2 end, 
-		      NoColls, 
+    L = orddict:merge(fun(_K, V1, V2) -> V1 + V2 end,
+		      NoColls,
 		      lists:map(fun(X) -> {X,0} end, lists:seq(4,?MAXBUD-1))),
     CW = lists:map(fun({_LSz,N}) -> <<N:32>> end, L),
     file_header(Head, FreeListsPointer, ClosedProperly, CW).
@@ -1642,8 +1643,8 @@ file_header(Head, FreeListsPointer, ClosedProperly, NoColls) ->
     H1 = <<FreeListsPointer:32, Cookie:32, ClosedProperly:32>>,
     H2 = <<TypeCode:32,
            Version:32,
-           (Head#head.m):32, 
-           (Head#head.next):32, 
+           (Head#head.m):32,
+           (Head#head.next):32,
            (Head#head.keypos):32,
            (Head#head.no_objects):32,
            (Head#head.no_keys):32,
@@ -1652,7 +1653,7 @@ file_header(Head, FreeListsPointer, ClosedProperly, NoColls) ->
            HashMethod:32,
            (Head#head.n):32>>,
     DigH = [H2 | NoColls],
-    MD5 = case Head#head.has_md5 of 
+    MD5 = case Head#head.has_md5 of
               true -> erlang:md5(DigH);
               false -> <<0:?MD5SZ/unit:8>>
           end,
@@ -1680,7 +1681,7 @@ free_list_to_file(Ftab, H, Pos, Sz, Ws, WsSz) ->
     F = fun(N, L, W, S) when N =:= 0 -> {N, L, W, S};
 	   (N, L, W, S) ->
 		{L1, N1, More} =
-		    if 
+		    if
 			N > Max ->
 			    {lists:sublist(L, Max), Max,
 			     {N-Max, lists:nthtail(Max, L)}};
@@ -1712,14 +1713,14 @@ free_lists_from_file(H, Pos) ->
     end.
 
 bin_to_tree(Bin, H, LastPos, Ftab, A0, L) ->
-    case Bin of 
+    case Bin of
         <<_Size:32,?FREE:32,?ENDFREE:32,_/binary>> when L =:= [] ->
             Ftab;
         <<_Size:32,?FREE:32,?ENDFREE:32,_/binary>> ->
             setelement(LastPos, Ftab, dets_utils:list_to_tree(L));
-        <<Size:32,?FREE:32,Pos:32,T/binary>> 
+        <<Size:32,?FREE:32,Pos:32,T/binary>>
                       when byte_size(T) >= Size-4-?OHDSZ ->
-	    {NFtab, L1, A1} = 
+	    {NFtab, L1, A1} =
 		if
 		    Pos =/= LastPos, LastPos =/= start ->
 			Tree = dets_utils:list_to_tree(L),
@@ -1734,7 +1735,7 @@ bin_to_tree(Bin, H, LastPos, Ftab, A0, L) ->
             bin_to_tree(list_to_binary([Bin | Bin2]), H, LastPos, Ftab, A0, L)
     end.
 
-bin_to_tree1(<<A1:32,A2:32,A3:32,A4:32,T/binary>>, Size, A, L) 
+bin_to_tree1(<<A1:32,A2:32,A3:32,A4:32,T/binary>>, Size, A, L)
          when Size >= 16, A < A1, A1 < A2, A2 < A3, A3 < A4 ->
     bin_to_tree1(T, Size-16, A4, [A4, A3, A2, A1 | L]);
 bin_to_tree1(<<A1:32,T/binary>>, Size, A, L) when Size >= 4, A < A1 ->
@@ -1784,24 +1785,24 @@ no_slots(Head) ->
 
 table_parameters(Head) ->
     case Head#head.no_collections of
-	undefined -> 
+	undefined ->
 	    undefined; % Version 9(a)
-	CL -> 
+	CL ->
 	    NoColls0 = lists:foldl(fun({_,0}, A) -> A;
 				      (E, A) -> [E | A]
 				   end, [], CL),
 	    NoColls = lists:reverse(NoColls0),
-	    #?HASH_PARMS{file_format_version = Head#head.version, 
+	    #?HASH_PARMS{file_format_version = Head#head.version,
 			 bchunk_format_version = ?BCHUNK_FORMAT_VERSION,
 			 file = filename:basename(Head#head.filename),
 			 type = Head#head.type,
 			 keypos = Head#head.keypos,
 			 hash_method = hash_method_to_code(Head#head.hash_bif),
-			 n = Head#head.n, m = Head#head.m, 
-			 next = Head#head.next, 
-			 min = Head#head.min_no_slots, 
-			 max = Head#head.max_no_slots, 
-			 no_objects = Head#head.no_objects, 
+			 n = Head#head.n, m = Head#head.m,
+			 next = Head#head.next,
+			 min = Head#head.min_no_slots,
+			 max = Head#head.max_no_slots,
+			 no_objects = Head#head.no_objects,
 			 no_keys = Head#head.no_keys, no_colls = NoColls}
     end.
 
@@ -1874,9 +1875,9 @@ re_hash_slots([FB | Bins], [E | L], Head, Z, BinFS, BinTS, WsB) ->
             Sz1 = _MSz + ?OHDSZ,
 	    re_hash_slots(Bins, L, Head, Z, [Z | BinFS], [B1 | BinTS], WsB);
 	{KL, KSz, ML, MSz} when KL =/= [], KSz > 0, ML =/= [], MSz > 0 ->
-	    {Head1, FS1, Ws1} = 
+	    {Head1, FS1, Ws1} =
 		updated(Head, P1, Sz1, KSz, Pos1, KL, true, foo, bar),
-	    {NewHead, [{Pos2,Bin2}], Ws2} = 
+	    {NewHead, [{Pos2,Bin2}], Ws2} =
 		updated(Head1, 0, 0, MSz, Pos2, ML, true, foo, bar),
 	    NewBinFS = case FS1 of
 			   [{Pos1,Bin1}] -> [Bin1 | BinFS];
@@ -1942,7 +1943,7 @@ may_grow1(Head, Extra, many_times) when Extra > ?SEGSZP ->
     Reply = grow(Head, 1, undefined),
     self() ! ?DETS_CALL(self(), may_grow),
     Reply;
-may_grow1(Head, Extra, _How) ->    
+may_grow1(Head, Extra, _How) ->
     grow(Head, Extra, undefined).
 
 %% -> {Head, ok} | throw({Head, Error})
@@ -1954,14 +1955,14 @@ grow(Head, _Extra, _SegZero) when Head#head.next >= Head#head.max_no_slots ->
     {Head, ok};
 grow(Head, Extra, SegZero) ->
     #head{n = N, next = Next, m = M} = Head,
-    SegNum = Next div ?SEGSZP,    
+    SegNum = Next div ?SEGSZP,
     {Head0, W, Ws1} = allocate_segment(Head, SegZero, SegNum),
     %% re_hash/2 will overwrite the segment, but initialize it anyway...
     {Head1, ok} = dets_utils:pwrite(Head0, [W | Ws1]),
     %% If re_hash fails, segp_cache has been called, but it does not matter.
     {Head2, ok} = re_hash(Head1, N),
     NewHead =
-	if 
+	if
 	    N + ?SEGSZP =:= M ->
 		Head2#head{n = 0, next = Next + ?SEGSZP, m = 2 * M, m2 = 4 * M};
 	    true ->
@@ -1971,14 +1972,14 @@ grow(Head, Extra, SegZero) ->
     grow(NewHead, Extra - ?SEGSZP, SegZero).
 
 hash_invars(H) ->
-    hash_invars(H#head.n, H#head.m, H#head.next, H#head.min_no_slots, 
+    hash_invars(H#head.n, H#head.m, H#head.next, H#head.min_no_slots,
 		H#head.max_no_slots).
 
 -define(M8(X), (((X) band (?SEGSZP - 1)) =:= 0)).
 hash_invars(N, M, Next, Min, Max) ->
         ?M8(N) and ?M8(M) and ?M8(Next) and ?M8(Min) and ?M8(Max)
     and (0 =< N) and (N =< M) and (N =< 2*Next) and (M =< Next)
-    and (Next =< 2*M) and (0 =< Min) and (Min =< Next) and (Next =< Max) 
+    and (Next =< 2*M) and (0 =< Min) and (Min =< Next) and (Next =< Max)
     and (Min =< M).
 
 seg_zero() ->
@@ -1987,7 +1988,7 @@ seg_zero() ->
 find_object(Head, Object) ->
     Key = element(Head#head.keypos, Object),
     Slot = db_hash(Key, Head),
-    find_object(Head, Object, Slot).    
+    find_object(Head, Object, Slot).
 
 find_object(H, _Obj, Slot) when Slot >= H#head.next ->
     false;
@@ -2003,13 +2004,13 @@ find_object(H, Obj, Slot) ->
 
 %% -> {ok, BucketP, Objects} | throw({Head, Error})
 slot_objects(Head, Slot) ->
-    SlotPos = slot_position(Slot),    
+    SlotPos = slot_position(Slot),
     MaxSize = maxobjsize(Head),
-    case dets_utils:ipread(Head, SlotPos, MaxSize) of 
+    case dets_utils:ipread(Head, SlotPos, MaxSize) of
 	{ok, {BucketSz, Pointer, <<BucketSz:32, _St:32, KeysObjs/binary>>}} ->
 	    case catch bin2objs(KeysObjs, Head#head.type, []) of
 		{'EXIT', _Error} ->
-                    Bad = dets_utils:bad_object(slot_objects, 
+                    Bad = dets_utils:bad_object(slot_objects,
                                                 {SlotPos, KeysObjs}),
 		    throw(dets_utils:corrupt_reason(Head, Bad));
 		Objs when is_list(Objs) ->
@@ -2030,7 +2031,7 @@ slot_objects(Head, Slot) ->
 eval_work_list(Head, [{Key,[{_Seq,{lookup,Pid}}]}]) ->
     SlotPos = slot_position(db_hash(Key, Head)),
     MaxSize = maxobjsize(Head),
-    Objs = case dets_utils:ipread(Head, SlotPos, MaxSize) of 
+    Objs = case dets_utils:ipread(Head, SlotPos, MaxSize) of
 	       {ok, {_BucketSz, _Pointer, Bin}} ->
                    case catch per_key(Head, Bin) of
                        {'EXIT', _Error} ->
@@ -2049,7 +2050,7 @@ eval_work_list(Head, [{Key,[{_Seq,{lookup,Pid}}]}]) ->
                                                     {SlotPos, Bin, KeyObjs}),
                                            throw(dets_utils:corrupt_reason
                                                       (Head, Bad));
-                                       Terms when is_list(Terms) -> 
+                                       Terms when is_list(Terms) ->
                                            get_objects([O | Terms])
                                    end
                            end
@@ -2057,7 +2058,7 @@ eval_work_list(Head, [{Key,[{_Seq,{lookup,Pid}}]}]) ->
 	       [] ->
 		   [];
 	       BadRead -> % eof or bad badly formed binary
-                   Bad = dets_utils:bad_object(eval_work_list, 
+                   Bad = dets_utils:bad_object(eval_work_list,
                                                {SlotPos, BadRead}),
 		   throw(dets_utils:corrupt_reason(Head, Bad))
 	   end,
@@ -2081,21 +2082,21 @@ remove_slot_tag([], Ls, SPs) ->
 
 read_buckets([WLs | SPs], [{P1,_8} | Ss], [<<_Zero:32,P2:32>> | Bs], Head,
 	      PWLs, ToRead, LU, Ws, NoObjs, NoKeys, SoFar) when P2 =:= 0 ->
-    {NewHead, NLU, NWs, No, KNo} = 
+    {NewHead, NLU, NWs, No, KNo} =
 	eval_bucket_keys(WLs, P1, 0, 0, [], Head, Ws, LU),
     NewNoObjs = No + NoObjs,
     NewNoKeys = KNo + NoKeys,
-    read_buckets(SPs, Ss, Bs, NewHead, PWLs, ToRead, NLU, NWs, 
+    read_buckets(SPs, Ss, Bs, NewHead, PWLs, ToRead, NLU, NWs,
 		 NewNoObjs, NewNoKeys, SoFar);
 read_buckets([WorkLists| SPs], [{P1,_8} | Ss], [<<Size:32,P2:32>> | Bs], Head,
-	     PWLs, ToRead, LU, Ws, NoObjs, NoKeys, SoFar) 
+	     PWLs, ToRead, LU, Ws, NoObjs, NoKeys, SoFar)
                                  when SoFar + Size < ?MAXCOLL; ToRead =:= [] ->
     NewToRead = [{P2, Size} | ToRead],
     NewPWLs = [{P2,P1,WorkLists} | PWLs],
     NewSoFar = SoFar + Size,
-    read_buckets(SPs, Ss, Bs, Head, NewPWLs, NewToRead, LU, Ws, 
+    read_buckets(SPs, Ss, Bs, Head, NewPWLs, NewToRead, LU, Ws,
 		 NoObjs, NoKeys, NewSoFar);
-read_buckets(SPs, Ss, Bs, Head, PWLs0, ToRead0, LU, Ws, NoObjs, NoKeys, SoFar) 
+read_buckets(SPs, Ss, Bs, Head, PWLs0, ToRead0, LU, Ws, NoObjs, NoKeys, SoFar)
                                                              when SoFar > 0 ->
     %% It pays off to sort the positions. The seek times are reduced,
     %% at least if the file blocks are reasonably contiguous, as is
@@ -2105,19 +2106,19 @@ read_buckets(SPs, Ss, Bs, Head, PWLs0, ToRead0, LU, Ws, NoObjs, NoKeys, SoFar)
     check_pread2_arg(ToRead, Head),
     {ok, Bins} = dets_utils:pread(ToRead, Head),
     case catch eval_buckets(Bins, PWLs, Head, LU, Ws, 0, 0) of
-	{ok, NewHead, NLU, [], 0, 0} -> 
-            read_buckets(SPs, Ss, Bs, NewHead, [], [], NLU, [], 
+	{ok, NewHead, NLU, [], 0, 0} ->
+            read_buckets(SPs, Ss, Bs, NewHead, [], [], NLU, [],
 			 NoObjs, NoKeys, 0);
-	{ok, Head1, NLU, NWs, No, KNo} -> 
+	{ok, Head1, NLU, NWs, No, KNo} ->
 	    NewNoObjs = NoObjs + No,
 	    NewNoKeys = NoKeys + KNo,
 	    %% It does not seem to reduce seek times to sort positions
 	    %% when writing (maybe because it takes several calls to
 	    %% write_cache/1 to fill the file system's buffer cache).
             {NewHead, ok} = dets_utils:pwrite(Head1, lists:reverse(NWs)),
-            read_buckets(SPs, Ss, Bs, NewHead, [], [], NLU, [], 
+            read_buckets(SPs, Ss, Bs, NewHead, [], [], NLU, [],
 			 NewNoObjs, NewNoKeys, 0);
-	Error  -> 
+	Error  ->
             Bad = dets_utils:bad_object(read_buckets, {Bins, Error}),
 	    throw(dets_utils:corrupt_reason(Head, Bad))
     end;
@@ -2128,22 +2129,22 @@ read_buckets([], [], [], Head, [], [], LU, Ws, NoObjs, NoKeys, 0) ->
 eval_buckets([Bin | Bins], [SP | SPs], Head, LU, Ws, NoObjs, NoKeys) ->
     {Pos, P1, WLs} = SP,
     KeyObjs = per_key(Head, Bin),
-    {NewHead, NLU, NWs, No, KNo} = 
+    {NewHead, NLU, NWs, No, KNo} =
 	eval_bucket_keys(WLs, P1, Pos, byte_size(Bin), KeyObjs, Head,Ws,LU),
     eval_buckets(Bins, SPs, NewHead, NLU, NWs, NoObjs + No, NoKeys + KNo);
 eval_buckets([], [], Head, LU, Ws, NoObjs, NoKeys) ->
     {ok, Head, LU, Ws, NoObjs, NoKeys}.
 
 eval_bucket_keys(WLs, SlotPos, Pos, OldSize, KeyObjs, Head, Ws, LU) ->
-    {NLU, Bins, BSize, No, KNo, Ch} = 
+    {NLU, Bins, BSize, No, KNo, Ch} =
          eval_slot(WLs, KeyObjs, Head#head.type, LU, [], 0, 0, 0, false),
-    {NewHead, W1, W2} = 
+    {NewHead, W1, W2} =
 	updated(Head, Pos, OldSize, BSize, SlotPos, Bins, Ch, No, KNo),
     {NewHead, NLU, W2++W1++Ws, No, KNo}.
 
 updated(Head, Pos, OldSize, BSize, SlotPos, Bins, Ch, DeltaNoOs, DeltaNoKs) ->
     BinsSize = BSize + ?OHDSZ,
-    if 
+    if
 	Pos =:= 0, BSize =:= 0 ->
 	    {Head, [], []};
 	Pos =:= 0, BSize > 0 ->
@@ -2167,7 +2168,7 @@ updated(Head, Pos, OldSize, BSize, SlotPos, Bins, Ch, DeltaNoOs, DeltaNoKs) ->
 			     OldSize =:= BinsSize -> same;
 			     true -> sz2pos(OldSize) =:= sz2pos(BinsSize)
 			 end,
-            Overwrite = if 
+            Overwrite = if
 			    Head#head.fixed =/= false ->
 				%% Make sure that if the table is
 				%% fixed, nothing is overwritten,
@@ -2179,12 +2180,12 @@ updated(Head, Pos, OldSize, BSize, SlotPos, Bins, Ch, DeltaNoOs, DeltaNoKs) ->
 				%% (and collections) as were present
 				%% when chunking started (the table
 				%% must have been fixed).
-				(Overwrite0 =/= false) and 
+				(Overwrite0 =/= false) and
 				(DeltaNoOs =:= 0) and (DeltaNoKs =:= 0);
 			    true ->
 				Overwrite0
 			end,
-	    if 
+	    if
 		Overwrite =:= same ->
 		    W1 = {Pos+?OHDSZ, Bins},
 		    {Head, [], [W1]};
@@ -2195,17 +2196,17 @@ updated(Head, Pos, OldSize, BSize, SlotPos, Bins, Ch, DeltaNoOs, DeltaNoKs) ->
 		    {Head, [W2], [W1]};
 		true ->
 		    {Head1, FPosF} = dets_utils:free(Head, Pos, adjsz(OldSize)),
-		    {Head2, NewPos, FPosA} = 
+		    {Head2, NewPos, FPosA} =
 			dets_utils:alloc(Head1, adjsz(BinsSize)),
                     Head3 = one_bucket_added(Head2, FPosA-1),
                     NewHead = one_bucket_removed(Head3, FPosF-1),
 		    W0 = {NewPos, [<<BinsSize:32, ?ACTIVE:32>> | Bins]},
 		    W2 = {SlotPos, <<BinsSize:32, NewPos:32>>},
-		    W1 = if 
+		    W1 = if
 			      Pos =/= NewPos ->
                                   %% W0 first.
 				  [W0, {Pos+?STATUS_POS, <<?FREE:32>>}];
-			      true -> 
+			      true ->
 				  [W0]
 			  end,
 		    {NewHead, [W2], W1}
@@ -2229,28 +2230,28 @@ one_bucket_removed(H, Log2) when H#head.maxobjsize > Log2 ->
 one_bucket_removed(H, Log2) when H#head.maxobjsize =:= Log2 ->
     NewNoColls = orddict:update_counter(Log2, -1, H#head.no_collections),
     MaxObjSize = max_objsize(NewNoColls),
-    H#head{no_collections = NewNoColls, maxobjsize = MaxObjSize}.    
+    H#head{no_collections = NewNoColls, maxobjsize = MaxObjSize}.
 
 eval_slot([{Key,Commands} | WLs] = WLs0, [{K,KS,KB,O,Os} | KOs1]=KOs,
           Type, LU, Ws, No, KNo,BSz, Ch) ->
     case dets_utils:cmp(K, Key) of
         0 ->
             Old = [O | binobjs2terms(Os)],
-            {NLU, NWs, Sz, No1, KNo1, NCh} = 
+            {NLU, NWs, Sz, No1, KNo1, NCh} =
 		eval_key(Key, Commands, Old, Type, KB, KS, LU, Ws, Ch),
-            eval_slot(WLs, KOs1, Type, NLU, NWs, No1 + No, 
+            eval_slot(WLs, KOs1, Type, NLU, NWs, No1 + No,
 		      KNo1 + KNo, Sz + BSz, NCh);
         -1 ->
-            eval_slot(WLs0, KOs1, Type, LU, [Ws | KB], No, 
+            eval_slot(WLs0, KOs1, Type, LU, [Ws | KB], No,
 		      KNo, KS + BSz, Ch);
         1 ->
-            {NLU, NWs, Sz, No1, KNo1, NCh} = 
+            {NLU, NWs, Sz, No1, KNo1, NCh} =
 		eval_key(Key, Commands, [], Type, [], 0, LU, Ws, Ch),
-            eval_slot(WLs, KOs, Type, NLU, NWs, No1 + No, 
+            eval_slot(WLs, KOs, Type, NLU, NWs, No1 + No,
 		      KNo1 + KNo, Sz + BSz, NCh)
     end;
 eval_slot([{Key,Commands} | WLs], [], Type, LU, Ws, No, KNo,BSz, Ch) ->
-    {NLU, NWs, Sz, No1, KNo1, NCh} = 
+    {NLU, NWs, Sz, No1, KNo1, NCh} =
         eval_key(Key, Commands, [], Type, [], 0, LU, Ws, Ch),
     eval_slot(WLs, [], Type, NLU, NWs, No1 + No, KNo1 + KNo, Sz + BSz, NCh);
 eval_slot([], [{_Key,Size,KeyBin,_,_} | KOs], Type, LU, Ws, No, KNo,BSz, Ch) ->
@@ -2260,12 +2261,12 @@ eval_slot([], [], _Type, LU, Ws, No, KNo, BSz, Ch) ->
 
 eval_key(_K, [{_Seq,{lookup,Pid}}], [], _Type, _KeyBin, _KeySz, LU, Ws, Ch) ->
     NLU = [{Pid, []} | LU],
-    {NLU, Ws, 0, 0, 0, Ch};    
+    {NLU, Ws, 0, 0, 0, Ch};
 eval_key(_K, [{_Seq,{lookup,Pid}}], Old0, _Type, KeyBin, KeySz, LU, Ws, Ch) ->
     Old = lists:keysort(2, Old0), % sort on sequence number
     Objs = get_objects(Old),
     NLU = [{Pid, Objs} | LU],
-    {NLU, [Ws | KeyBin], KeySz, 0, 0, Ch};    
+    {NLU, [Ws | KeyBin], KeySz, 0, 0, Ch};
 eval_key(K, Comms, Orig, Type, KeyBin, KeySz, LU, Ws, Ch) ->
     Old = dets_utils:msort(Orig),
     case eval_key1(Comms, [], Old, Type, K, LU, Ws, 0, Orig) of
@@ -2285,7 +2286,7 @@ eval_key(K, Comms, Orig, Type, KeyBin, KeySz, LU, Ws, Ch) ->
 eval_key1([{_Seq,{insert,Term}} | L], Cs, [{Term,_,_}] = Old, Type=set, K,
 	  LU, Ws, No, Orig) ->
     eval_key1(L, Cs, Old, Type, K, LU, Ws, No, Orig);
-eval_key1([{Seq,{insert,Term}} | L], Cs, Old, Type=set, K, LU, Ws, No, Orig) 
+eval_key1([{Seq,{insert,Term}} | L], Cs, Old, Type=set, K, LU, Ws, No, Orig)
                                          ->
     NNo = No + 1 - length(Old),
     eval_key1(L, Cs, [{Term,Seq,insert}], Type, K, LU, Ws, NNo, Orig);
@@ -2294,7 +2295,7 @@ eval_key1([{_Seq,{lookup,Pid}} | L], Cs, Old, Type, Key, LU, Ws, No, Orig) ->
     New = lists:keysort(2, New0), % sort on sequence number
     Objs = get_objects(New),
     NLU = [{Pid, Objs} | LU],
-    if 
+    if
 	L =:= [] ->
 	    eval_end(New, NLU, Type, Ws, NewNo, Orig);
 	true ->
@@ -2307,10 +2308,10 @@ eval_key1([{_Seq,delete_key} | L], _Cs, Old, Type, K, LU, Ws, No, Orig) ->
 eval_key1([{_Seq,{delete_object,Term}} | L], Cs, [{Term,_,_}], Type=set, K,
 	  LU, Ws, No, Orig) ->
     eval_key1(L, Cs, [], Type, K, LU, Ws, No-1, Orig);
-eval_key1([{_Seq,{delete_object,_T}}| L], Cs, Old1, Type=set, K, LU, 
+eval_key1([{_Seq,{delete_object,_T}}| L], Cs, Old1, Type=set, K, LU,
 	      Ws, No, Orig) ->
     eval_key1(L, Cs, Old1, Type, K, LU, Ws, No, Orig);
-eval_key1([{Seq,{Comm,Term}} | L], Cs, Old, Type, K, LU, Ws, No, Orig) 
+eval_key1([{Seq,{Comm,Term}} | L], Cs, Old, Type, K, LU, Ws, No, Orig)
                                          when Type =/= set ->
     eval_key1(L, [{Term,Seq,Comm} | Cs], Old, Type, K, LU, Ws, No, Orig);
 eval_key1([], Cs, Old, Type=set, _Key, LU, Ws, No, Orig) ->
@@ -2333,21 +2334,21 @@ eval_end(New0, LU, Type, Ws, NewNo, Orig) ->
     New = lists:keysort(2, New0), % sort on sequence number
     NoChange = if
 		   length(New) =/= length(Orig) -> false;
-		   true -> 
+		   true ->
 		       same_terms(Orig, New)
 	       end,
-    if 
+    if
         NoChange ->
 	    %% The key's objects have not changed.
 	    {ok, LU};
 	New =:= [] ->
 	    {LU, Ws, 0, NewNo};
-	true -> 
+	true ->
 	    {Ws1, Sz} = make_bins(New, [], 0),
-	    if 
+	    if
 		Type =:= set ->
 		    {LU, [Ws | Ws1], Sz, NewNo};
-		true -> 
+		true ->
 		    NSz = Sz + 4,
 		    {LU, [Ws, <<NSz:32>> | Ws1], NSz, NewNo}
 	    end
@@ -2424,7 +2425,7 @@ eval_dupbag([]=L, [O | Old], New, No) ->
     eval_dupbag(L, Old, [O | New], No);
 eval_dupbag([], [], New, No) ->
     {ok, New, No}.
-    
+
 old_dup_object(L, [{Term,_,_} = Obj | Old], New, No, Term, N) ->
     old_dup_object(L, Old, New, No, Term, [Obj | N]);
 old_dup_object(L, Old, New, No, Term, N) ->
@@ -2447,8 +2448,8 @@ update_no_keys(Head, Ws, DeltaObjects, DeltaKeys) ->
     NewNoKeys = NoKeys + DeltaKeys,
     NewNoObject = Head#head.no_objects + DeltaObjects,
     NewHead = Head#head{no_objects = NewNoObject, no_keys = NewNoKeys},
-    NWs = 
-	if 
+    NWs =
+	if
 	    NewNoKeys > NewHead#head.max_no_slots ->
 		Ws;
 	    NoKeys div ?SEGSZP =:= NewNoKeys div ?SEGSZP ->
@@ -2467,7 +2468,7 @@ slot_position(S) ->
 
 check_pread2_arg([{_Pos,Sz}], Head) when Sz > ?MAXCOLL ->
     case check_pread_arg(Sz, Head) of
-        true -> 
+        true ->
             ok;
         false ->
             Bad = dets_utils:bad_object(check_pread2_arg, Sz),
@@ -2534,7 +2535,7 @@ scan_skip(Bin, From, To, L, Ts, R, Type, Skip) ->
 		    Skip1 = From2 - From,
 		    scan_skip(Bin, From, To1, L1, Ts, R, Type, Skip1)
 	    end;
-	<<_:Skip/binary, _Size:32, St:32, _Sz:32, KO/binary>> 
+	<<_:Skip/binary, _Size:32, St:32, _Sz:32, KO/binary>>
 	                 when St =/= ?ACTIVE, St =/= ?FREE ->
 	    %% Neither ?ACTIVE nor ?FREE is a multiple of ?BUMP and
 	    %% thus cannot be found in segments or segment array
@@ -2561,11 +2562,11 @@ bin2bins(Bin, From, To, L, Ts, R, Type=set, Size, ObjSz0) ->
 	true ->
 	    ObjSz = ObjSz0-4,
 	    <<_:ObjSz/binary, NObjSz:32, T/binary>> = Bin,
-	    bins_set(T, From, To, L, [Bin | Ts], R, Type, Size, 2, 
+	    bins_set(T, From, To, L, [Bin | Ts], R, Type, Size, 2,
 		     NObjSz, ObjsSz1-NObjSz, Bin)
     end;
 bin2bins(<<ObjSz:32, Bin/binary>> = KO, From, To, L, Ts, R, Type, Size, Sz) ->
-    bins_bag(Bin, From, To, L, Ts, R, Type, Size, 1, 
+    bins_bag(Bin, From, To, L, Ts, R, Type, Size, 1,
 	     Sz-ObjSz-4, ObjSz-4, Size-Sz, KO).
 
 bins_set(Bin, From, To, L, Ts, R, Type, Size, NoObjs, _ObjSz0, ?OHDSZ, KO) ->
@@ -2573,19 +2574,19 @@ bins_set(Bin, From, To, L, Ts, R, Type, Size, NoObjs, _ObjSz0, ?OHDSZ, KO) ->
 bins_set(Bin, From, To, L, Ts, R, Type, Size, NoObjs, ObjSz0, ObjsSz, KO) ->
     ObjSz = ObjSz0 - 4,
     <<_:ObjSz/binary, NObjSz:32, T/binary>> = Bin,
-    bins_set(T, From, To, L, [Bin | Ts], R, Type, Size, NoObjs + 1, 
+    bins_set(T, From, To, L, [Bin | Ts], R, Type, Size, NoObjs + 1,
 	     NObjSz, ObjsSz-NObjSz, KO).
 
-bins_bag(Bin, From, To, L, Ts, R, Type, Size, NoObjs, Sz, ObjSz, ObjsSz, KO) 
+bins_bag(Bin, From, To, L, Ts, R, Type, Size, NoObjs, Sz, ObjSz, ObjsSz, KO)
        when Sz > 0 ->
     <<_:ObjSz/binary, NObjSz:32, T/binary>> = Bin,
-    bins_bag(T, From, To, L, [Bin | Ts], R, Type, Size, NoObjs + 1, 
+    bins_bag(T, From, To, L, [Bin | Ts], R, Type, Size, NoObjs + 1,
 	     Sz-NObjSz, NObjSz-4, ObjsSz, KO);
 bins_bag(Bin, From, To, L, Ts, R, Type, Size, NoObjs, _Z, _ObjSz, ?OHDSZ, KO) ->
     slot_end(KO, From, To, L, [Bin | Ts], R, Type, Size, NoObjs);
 bins_bag(Bin, From, To, L, Ts, R, Type, Size, NoObjs, _Z, ObjSz, ObjsSz, KO) ->
     <<_:ObjSz/binary, Sz:32, NObjSz:32, T/binary>> = Bin,
-    bins_bag(T, From, To, L, [Bin | Ts], R, Type, Size, NoObjs + 1, 
+    bins_bag(T, From, To, L, [Bin | Ts], R, Type, Size, NoObjs + 1,
 	     Sz-NObjSz-4, NObjSz-4, ObjsSz-Sz, KO).
 
 slot_end(KO, From, To, L, Ts, R, Type, Size, NoObjs) ->
@@ -2613,7 +2614,7 @@ slot_end(KO, From, To, L, Ts, R, Type, Size, NoObjs) ->
 file_info(FH) ->
     #fileheader{closed_properly = CP, keypos = Kp,
                 m = M, next = Next, n = N, version = Version,
-                type = Type, no_objects = NoObjects, no_keys = NoKeys} 
+                type = Type, no_objects = NoObjects, no_keys = NoKeys}
         = FH,
     if
         CP =:= 0 ->
@@ -2659,14 +2660,14 @@ v_segment(H, SegNo, SegPos, SegSlot) ->
     Slot = SegSlot + (SegNo * ?SEGSZP),
     BucketP = SegPos + (4 * ?SZOBJP * SegSlot),
     case catch read_bucket(H, BucketP, H#head.type) of
-	{'EXIT', Reason} -> 
-	    dets_utils:vformat("** dets: Corrupt or truncated dets file~n", 
-			       []), 
+	{'EXIT', Reason} ->
+	    dets_utils:vformat("** dets: Corrupt or truncated dets file~n",
+			       []),
 	    io:format("~nERROR ~tp~n", [Reason]);
 	[] ->  %% don't print empty buckets
 	    true;
 	{Size, CollP, Objects} ->
-	    io:format("   <~w>~w: <~w:~p>~w~n", 
+	    io:format("   <~w>~w: <~w:~p>~w~n",
 		      [BucketP, Slot, CollP, Size, Objects])
     end,
     v_segment(H, SegNo, SegPos, SegSlot+1).
@@ -2689,7 +2690,7 @@ read_bucket(Head, Position, Type) ->
 %% Seq < 0 (and ascending).
 per_key(Head, <<BinSize:32, ?ACTIVE:32, Bin/binary>> = B) ->
     true = (byte_size(B) =:= BinSize),
-    if 
+    if
 	Head#head.type =:= set ->
 	    per_set_key(Bin, Head#head.keypos, []);
 	true ->
@@ -2707,7 +2708,7 @@ per_set_key(<<>>, KeyPos, L) when is_integer(KeyPos) ->
 
 per_bag_key(<<Size:32, ObjSz:32, T/binary>> = B, KeyPos, L) ->
     <<KeyBin:Size/binary, R/binary>> = B,
-    ObjSz1 = ObjSz - 4, 
+    ObjSz1 = ObjSz - 4,
     Size1 = Size - ObjSz - 4,
     <<_:ObjSz1/binary, KeyObjs:Size1/binary, _/binary>> = T,
     <<_Size:32, Bin:ObjSz/binary, _/binary>> = B,

@@ -40,7 +40,7 @@
 #  include "erl_win_sys.h"
 #elif defined (__OSE__)
 #  include "erl_ose_sys.h"
-#else 
+#else
 #  include "erl_unix_sys.h"
 #ifndef UNIX
 #  define UNIX 1
@@ -145,7 +145,7 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #define ERTS_GLB_INLINE
 #endif
 
-#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF) 
+#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF)
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
 #else
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
@@ -277,85 +277,85 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 
 #if HALFWORD_HEAP
 
-#if SIZEOF_INT == 4
-typedef unsigned int Eterm;
-typedef unsigned int Uint;
-typedef int          Sint;
-#define ERTS_UINT_MAX UINT_MAX
-#define ERTS_SIZEOF_ETERM SIZEOF_INT
-#define ErtsStrToSint strtol
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
+  #if SIZEOF_INT == 4
+    typedef unsigned int Eterm;
+    typedef unsigned int Uint;
+    typedef int          Sint;
+    #define ERTS_UINT_MAX UINT_MAX
+    #define ERTS_SIZEOF_ETERM SIZEOF_INT
+    #define ErtsStrToSint strtol
+  #else
+    #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+  #endif
 
-#if SIZEOF_VOID_P == SIZEOF_LONG
-typedef unsigned long UWord;
-typedef long          SWord;
-#define SWORD_CONSTANT(Const) Const##L
-#define UWORD_CONSTANT(Const) Const##UL
-#define ERTS_UWORD_MAX ULONG_MAX
-#define ERTS_SWORD_MAX LONG_MAX
-#elif SIZEOF_VOID_P == SIZEOF_INT
-typedef unsigned int UWord;
-typedef int          SWord;
-#define SWORD_CONSTANT(Const) Const
-#define UWORD_CONSTANT(Const) Const##U
-#define ERTS_UWORD_MAX UINT_MAX
-#define ERTS_SWORD_MAX INT_MAX
-#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
-typedef unsigned long long UWord;
-typedef long long          SWord;
-#define SWORD_CONSTANT(Const) Const##LL
-#define UWORD_CONSTANT(Const) Const##ULL
-#define ERTS_UWORD_MAX ULLONG_MAX
-#define ERTS_SWORD_MAX LLONG_MAX
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
+  #if SIZEOF_VOID_P == SIZEOF_LONG
+    typedef unsigned long UWord;
+    typedef long          SWord;
+    #define SWORD_CONSTANT(Const) Const##L
+    #define UWORD_CONSTANT(Const) Const##UL
+    #define ERTS_UWORD_MAX ULONG_MAX
+    #define ERTS_SWORD_MAX LONG_MAX
+  #elif SIZEOF_VOID_P == SIZEOF_INT
+    typedef unsigned int UWord;
+    typedef int          SWord;
+    #define SWORD_CONSTANT(Const) Const
+    #define UWORD_CONSTANT(Const) Const##U
+    #define ERTS_UWORD_MAX UINT_MAX
+    #define ERTS_SWORD_MAX INT_MAX
+  #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+    typedef unsigned long long UWord;
+    typedef long long          SWord;
+    #define SWORD_CONSTANT(Const) Const##LL
+    #define UWORD_CONSTANT(Const) Const##ULL
+    #define ERTS_UWORD_MAX ULLONG_MAX
+    #define ERTS_SWORD_MAX LLONG_MAX
+  #else
+    #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+  #endif
 
 #else /* !HALFWORD_HEAP */
 
-#if SIZEOF_VOID_P == SIZEOF_LONG
-typedef unsigned long Eterm;
-typedef unsigned long Uint;
-typedef long          Sint;
-#define SWORD_CONSTANT(Const) Const##L
-#define UWORD_CONSTANT(Const) Const##UL
-#define ERTS_UWORD_MAX ULONG_MAX
-#define ERTS_SWORD_MAX LONG_MAX
-#define ERTS_SIZEOF_ETERM SIZEOF_LONG
-#define ErtsStrToSint strtol
-#elif SIZEOF_VOID_P == SIZEOF_INT
-typedef unsigned int Eterm;
-typedef unsigned int Uint;
-typedef int          Sint;
-#define SWORD_CONSTANT(Const) Const
-#define UWORD_CONSTANT(Const) Const##U
-#define ERTS_UWORD_MAX UINT_MAX
-#define ERTS_SWORD_MAX INT_MAX
-#define ERTS_SIZEOF_ETERM SIZEOF_INT
-#define ErtsStrToSint strtol
-#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
-typedef unsigned long long Eterm;
-typedef unsigned long long Uint;
-typedef long long          Sint;
-#define SWORD_CONSTANT(Const) Const##LL
-#define UWORD_CONSTANT(Const) Const##ULL
-#define ERTS_UWORD_MAX ULLONG_MAX
-#define ERTS_SWORD_MAX LLONG_MAX
-#define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
-#if defined(__WIN32__)
-#define ErtsStrToSint _strtoi64
-#else
-#define ErtsStrToSint strtoll
-#endif
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
+  #if SIZEOF_VOID_P == SIZEOF_LONG
+    typedef unsigned long Eterm;
+    typedef unsigned long Uint;
+    typedef long          Sint;
+    #define SWORD_CONSTANT(Const) Const##L
+    #define UWORD_CONSTANT(Const) Const##UL
+    #define ERTS_UWORD_MAX ULONG_MAX
+    #define ERTS_SWORD_MAX LONG_MAX
+    #define ERTS_SIZEOF_ETERM SIZEOF_LONG
+    #define ErtsStrToSint strtol
+  #elif SIZEOF_VOID_P == SIZEOF_INT
+    typedef unsigned int Eterm;
+    typedef unsigned int Uint;
+    typedef int          Sint;
+    #define SWORD_CONSTANT(Const) Const
+    #define UWORD_CONSTANT(Const) Const##U
+    #define ERTS_UWORD_MAX UINT_MAX
+    #define ERTS_SWORD_MAX INT_MAX
+    #define ERTS_SIZEOF_ETERM SIZEOF_INT
+    #define ErtsStrToSint strtol
+  #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+    typedef unsigned long long Eterm;
+    typedef unsigned long long Uint;
+    typedef long long          Sint;
+    #define SWORD_CONSTANT(Const) Const##LL
+    #define UWORD_CONSTANT(Const) Const##ULL
+    #define ERTS_UWORD_MAX ULLONG_MAX
+    #define ERTS_SWORD_MAX LLONG_MAX
+    #define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
+    #if defined(__WIN32__)
+      #define ErtsStrToSint _strtoi64
+    #else
+      #define ErtsStrToSint strtoll
+    #endif
+  #else
+    #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+  #endif
 
-typedef Uint UWord;
-typedef Sint SWord;
-#define ERTS_UINT_MAX ERTS_UWORD_MAX
+  typedef Uint UWord;
+  typedef Sint SWord;
+  #define ERTS_UINT_MAX ERTS_UWORD_MAX
 
 #endif /* HALFWORD_HEAP */
 
@@ -402,7 +402,7 @@ typedef unsigned char byte;
 #endif
 
 #if defined(ARCH_64) && !HAVE_INT64
-#error 64-bit architecture, but no appropriate type to use for Uint64 and Sint64 found 
+#error 64-bit architecture, but no appropriate type to use for Uint64 and Sint64 found
 #endif
 
 #ifdef WORDS_BIGENDIAN
@@ -499,7 +499,7 @@ extern volatile int erts_writing_erl_crash_dump;
 #  define NO_ATANH
 #  define NO_FTRUNCATE
 #  define SIG_SIGHOLD
-#  define _POSIX_SOURCE 
+#  define _POSIX_SOURCE
 #  define _XOPEN_SOURCE
 #endif
 
@@ -603,7 +603,7 @@ erts_dsprintf_buf_t *erts_create_logger_dsbuf(void);
 int erts_send_info_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_error_to_logger(Eterm, erts_dsprintf_buf_t *);
-int erts_send_info_to_logger_str(Eterm, char *); 
+int erts_send_info_to_logger_str(Eterm, char *);
 int erts_send_warning_to_logger_str(Eterm, char *);
 int erts_send_error_to_logger_str(Eterm, char *);
 int erts_send_info_to_logger_nogl(erts_dsprintf_buf_t *);
@@ -640,8 +640,8 @@ typedef struct _SysDriverOpts {
 				/* in Windows format. */
     char **argv;                /* Argument vector in Unix'ish format. */
     char *wd;			/* Working directory. */
-    unsigned spawn_type;        /* Bitfield of ERTS_SPAWN_DRIVER | 
-				   ERTS_SPAWN_EXTERNAL | both*/ 
+    unsigned spawn_type;        /* Bitfield of ERTS_SPAWN_DRIVER |
+				   ERTS_SPAWN_EXTERNAL | both*/
     int parallelism;            /* Optimize for parallelism */
 } SysDriverOpts;
 
@@ -720,26 +720,26 @@ Preload* sys_preloaded(void);
 unsigned char* sys_preload_begin(Preload*);
 void sys_preload_end(Preload*);
 int sys_get_key(int);
-void elapsed_time_both(UWord *ms_user, UWord *ms_sys, 
+void elapsed_time_both(UWord *ms_user, UWord *ms_sys,
 		       UWord *ms_user_diff, UWord *ms_sys_diff);
-void wall_clock_elapsed_time_both(UWord *ms_total, 
+void wall_clock_elapsed_time_both(UWord *ms_total,
 				  UWord *ms_diff);
 void get_time(int *hour, int *minute, int *second);
 void get_date(int *year, int *month, int *day);
-void get_localtime(int *year, int *month, int *day, 
+void get_localtime(int *year, int *month, int *day,
 		   int *hour, int *minute, int *second);
-void get_universaltime(int *year, int *month, int *day, 
+void get_universaltime(int *year, int *month, int *day,
 		       int *hour, int *minute, int *second);
-int seconds_to_univ(Sint64 seconds, 
-		    Sint *year, Sint *month, Sint *day, 
+int seconds_to_univ(Sint64 seconds,
+		    Sint *year, Sint *month, Sint *day,
 		    Sint *hour, Sint *minute, Sint *second);
-int univ_to_seconds(Sint year, Sint month, Sint day, 
+int univ_to_seconds(Sint year, Sint month, Sint day,
 		    Sint hour, Sint minute, Sint second,
 		    Sint64* seconds);
 int univ_to_local(
-    Sint *year, Sint *month, Sint *day, 
+    Sint *year, Sint *month, Sint *day,
 		  Sint *hour, Sint *minute, Sint *second);
-int local_to_univ(Sint *year, Sint *month, Sint *day, 
+int local_to_univ(Sint *year, Sint *month, Sint *day,
 		  Sint *hour, Sint *minute, Sint *second, int isdst);
 void get_now(Uint*, Uint*, Uint*);
 void get_sys_now(Uint*, Uint*, Uint*);
@@ -979,7 +979,7 @@ extern int erts_use_kernel_poll;
                             ((char*)(s))[5] = (char)((Sint64)(i) >> 16) & 0xff;\
                             ((char*)(s))[6] = (char)((Sint64)(i) >> 8)  & 0xff;\
                             ((char*)(s))[7] = (char)((Sint64)(i))       & 0xff;\
-                           } while (0) 
+                           } while (0)
 
 #define get_int32(s) ((((unsigned char*) (s))[0] << 24) | \
                       (((unsigned char*) (s))[1] << 16) | \
@@ -1035,14 +1035,14 @@ void erl_bin_write(unsigned char *, int, int);
 #ifdef __WIN32__
 #ifdef ARCH_64
 #define ERTS_ALLOC_ALIGN_BYTES 16
-#define ERTS_SMALL_ABS(Small) _abs64(Small) 
+#define ERTS_SMALL_ABS(Small) _abs64(Small)
 #else
 #define ERTS_ALLOC_ALIGN_BYTES 8
-#define ERTS_SMALL_ABS(Small) labs(Small) 
+#define ERTS_SMALL_ABS(Small) labs(Small)
 #endif
 #else
 #define ERTS_ALLOC_ALIGN_BYTES 8
-#define ERTS_SMALL_ABS(Small) labs(Small) 
+#define ERTS_SMALL_ABS(Small) labs(Small)
 #endif
 
 #ifndef ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
@@ -1056,8 +1056,8 @@ char* win32_errorstr(int);
 #endif
 
 /************************************************************************
- * Find out the native filename encoding of the process (look at locale of 
- * Unix processes and just do UTF16 on windows 
+ * Find out the native filename encoding of the process (look at locale of
+ * Unix processes and just do UTF16 on windows
  ************************************************************************/
 #define ERL_FILENAME_UNKNOWN   (0)
 #define ERL_FILENAME_LATIN1    (1)
@@ -1089,7 +1089,7 @@ int erts_get_native_filename_encoding(void);
 void erts_set_user_requested_filename_encoding(int encoding, int warning);
 int erts_get_user_requested_filename_encoding(void);
 int erts_get_filename_warning_type(void);
-/* This function is called from erl_init. The setting is read by BIF's 
+/* This function is called from erl_init. The setting is read by BIF's
    in io/io_lib. Setting is not atomic. */
 void erts_set_printable_characters(int range);
 /* Get the setting (ERL_PRINTABLE_CHARACTERS_{LATIN1|UNICODE} */
