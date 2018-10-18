@@ -1691,12 +1691,11 @@ system_info2(db_nodes) ->
     DiscNs = ?catch_val({schema, disc_copies}),
     RamNs = ?catch_val({schema, ram_copies}),
     if
-	list(DiscNs), list(RamNs) ->
-	    DiscNs ++ RamNs;
+	list(DiscNs), list(RamNs) -> DiscNs ++ RamNs;
 	true ->
 	    case mnesia_schema:read_nodes() of
-		{ok, Nodes} -> Nodes;
-		{error,Reason} -> exit(Reason)
+			{ok, Nodes} -> Nodes;
+			{error,Reason} -> exit(Reason)
 	    end
     end;
 system_info2(running_db_nodes) ->

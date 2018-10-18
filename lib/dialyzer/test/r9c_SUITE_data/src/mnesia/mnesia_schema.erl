@@ -457,7 +457,7 @@ read_schema(Keep, UseDirAnyway, IgnoreFallback) ->
                             ?ets_insert(schema,{schema, schema, CreateList}),
                             {ok, default, CreateList};
                         false when Keep == false ->
-			    CreateList = get_initial_schema(ram_copies, []),
+                            CreateList = get_initial_schema(ram_copies, []),
                             {ok, default, CreateList}
                     end
         end,
@@ -617,7 +617,7 @@ do_insert_schema_ops(Store, [Head | Tail]) ->
     do_insert_schema_ops(Store, Tail);
 do_insert_schema_ops(_Store, []) ->
     ok.
-
+%% cs2list操作，将cstruct的结构体变成proplists的list
 cs2list(Cs) when record(Cs, cstruct) ->
     Tags = record_info(fields, cstruct),
     rec2list(Tags, 2, Cs);
@@ -629,7 +629,7 @@ rec2list([Tag | Tags], Pos, Rec) ->
     [{Tag, Val} | rec2list(Tags, Pos + 1, Rec)];
 rec2list([], _Pos, _Rec) ->
     [].
-
+%% 将proplist转化成cstruct结构体
 list2cs(List) when list(List) ->
     Name = pick(unknown, name, List, must),
     Type = pick(Name, type, List, set),
@@ -637,7 +637,7 @@ list2cs(List) when list(List) ->
     Dc = pick(Name, disc_copies, List, []),
     Doc = pick(Name, disc_only_copies, List, []),
     Rc = case {Rc0, Dc, Doc} of
-             {[], [], []} -> [node()];
+             {[], [], []} -> [node()]; %% 默认将当前节点放到ram_copies中
              _ -> Rc0
          end,
     LC = pick(Name, local_content, List, false),

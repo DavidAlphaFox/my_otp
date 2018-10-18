@@ -284,7 +284,7 @@ use_dir() ->
 	{'EXIT', _} ->
 	    case get_env(schema_location) of
 		disc -> true;
-		opt_disc -> non_empty_dir();
+		opt_disc -> non_empty_dir(); %% 默认值
 		ram -> false
 	    end;
 	Bool ->
