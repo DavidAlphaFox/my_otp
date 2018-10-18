@@ -1248,7 +1248,7 @@ add_table_copy(Tab, Node, Storage) ->
     schema_transaction(fun() -> do_add_table_copy(Tab, Node, Storage) end).
 %% schema事务下执行，表添加
 do_add_table_copy(Tab, Node, Storage) when is_atom(Tab), is_atom(Node) ->
-    TidTs = get_tid_ts_and_lock(schema, write),
+    TidTs = get_tid_ts_and_lock(schema, write),%% 对schema表上锁
     insert_schema_ops(TidTs, make_add_table_copy(Tab, Node, Storage));
 do_add_table_copy(Tab,Node,_) ->
     mnesia:abort({badarg, Tab, Node}).
